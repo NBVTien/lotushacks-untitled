@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { SkeletonCard } from '@/components/ui/skeleton'
 import { MapPin, ArrowRight, Sparkles } from 'lucide-react'
+import { PageTransition, StaggerContainer, StaggerItem } from '@/components/ui/motion'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
@@ -59,6 +60,7 @@ export function CareersPage() {
   }, [loadMore, hasMore, loading])
 
   return (
+    <PageTransition>
     <div className="space-y-12">
       {/* Hero */}
       <div className="rounded-2xl bg-gradient-to-b from-primary/5 to-background px-8 py-20 text-center md:px-16 md:py-24">
@@ -104,10 +106,10 @@ export function CareersPage() {
           <p className="mt-1 text-xs text-muted-foreground">Check back later for new opportunities</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <StaggerContainer className="space-y-4">
           {jobs.map((job) => (
+            <StaggerItem key={job.id}>
             <Card
-              key={job.id}
               className="group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-md"
             >
               <CardContent className="p-6">
@@ -169,8 +171,9 @@ export function CareersPage() {
                 </div>
               </CardContent>
             </Card>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       )}
 
       {/* Infinite scroll trigger */}
@@ -186,5 +189,6 @@ export function CareersPage() {
         )}
       </div>
     </div>
+    </PageTransition>
   )
 }

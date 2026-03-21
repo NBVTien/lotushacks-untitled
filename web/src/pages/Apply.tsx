@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft, Upload, CheckCircle, FileText, X, User, File } from 'lucide-react'
+import { PageTransition } from '@/components/ui/motion'
 import { jobsApi, candidatesApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
 
@@ -74,6 +75,7 @@ export function ApplyPage() {
   }
 
   return (
+    <PageTransition>
     <div className="mx-auto max-w-lg space-y-6">
       <Link
         to="/careers"
@@ -211,5 +213,6 @@ export function ApplyPage() {
         </CardContent>
       </Card>
     </div>
+    </PageTransition>
   )
 }

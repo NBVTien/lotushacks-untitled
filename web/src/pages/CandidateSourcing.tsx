@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/collapsible'
 import { jobsApi, discoveryApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
+import { PageTransition } from '@/components/ui/motion'
 
 interface SourcedCandidate {
   name: string
@@ -186,6 +187,7 @@ export function CandidateSourcingPage() {
   }
 
   return (
+    <PageTransition>
     <div className="space-y-8">
       <div>
         <Link to={`/jobs/${jobId}`} className="text-sm text-muted-foreground hover:text-foreground">
@@ -439,5 +441,6 @@ export function CandidateSourcingPage() {
         </div>
       )}
     </div>
+    </PageTransition>
   )
 }

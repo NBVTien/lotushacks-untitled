@@ -12,12 +12,26 @@ import { CompanyResearchPage } from './pages/CompanyResearch'
 import { CandidateSourcingPage } from './pages/CandidateSourcing'
 import { LoginPage } from './pages/Login'
 import { RegisterPage } from './pages/Register'
-import { Briefcase, LogOut, LayoutDashboard } from 'lucide-react'
+import { Briefcase, LogOut, LayoutDashboard, Moon, Sun } from 'lucide-react'
+import { ThemeProvider, useTheme } from './lib/theme'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return <>{children}</>
+}
+
+function ThemeToggle({ className = '' }: { className?: string }) {
+  const { theme, toggleTheme } = useTheme()
+  return (
+    <button
+      onClick={toggleTheme}
+      className={`rounded-md p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground ${className}`}
+      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  )
 }
 
 function Sidebar() {
@@ -70,6 +84,7 @@ function Sidebar() {
               <p className="truncate text-sm font-medium">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">{user.company?.name}</p>
             </div>
+            <ThemeToggle />
             <button
               onClick={logout}
               className="rounded-md p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
@@ -95,16 +110,19 @@ function MobileHeader() {
         </div>
         <span className="text-sm font-semibold">Recruit AI</span>
       </Link>
-      {user && (
-        <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
-            {user.name?.charAt(0)?.toUpperCase() || 'U'}
-          </div>
-          <Button variant="ghost" size="xs" onClick={logout}>
-            <LogOut className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        {user && (
+          <>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
+              {user.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+            <Button variant="ghost" size="xs" onClick={logout}>
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          </>
+        )}
+      </div>
     </header>
   )
 }
@@ -143,6 +161,7 @@ function CareersNav() {
               </Link>
             )
           })}
+          <ThemeToggle />
         </nav>
       </div>
     </header>
@@ -165,6 +184,7 @@ function RecruiterLayout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <AuthProvider>
         <Toaster />
@@ -231,5 +251,6 @@ export default function App() {
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </ThemeProvider>
   )
 }

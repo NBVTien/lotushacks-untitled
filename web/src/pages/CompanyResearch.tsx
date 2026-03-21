@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { discoveryApi } from '@/lib/api'
+import { PageTransition } from '@/components/ui/motion'
 
 interface CompanyData {
   name: string
@@ -100,6 +101,7 @@ export function CompanyResearchPage() {
   }, [companyName])
 
   return (
+    <PageTransition>
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
         <Link to="/careers" className="text-sm text-muted-foreground hover:text-foreground">
@@ -278,5 +280,6 @@ export function CompanyResearchPage() {
         </div>
       )}
     </div>
+    </PageTransition>
   )
 }

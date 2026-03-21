@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Search, Radio } from 'lucide-react'
+import { PageTransition } from '@/components/ui/motion'
 
 interface DiscoveredJob {
   title: string
@@ -185,6 +186,7 @@ export function JobDiscoveryPage() {
   }
 
   return (
+    <PageTransition>
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
         <Link to="/careers" className="text-sm text-muted-foreground hover:text-foreground">
@@ -409,5 +411,6 @@ export function JobDiscoveryPage() {
         </div>
       )}
     </div>
+    </PageTransition>
   )
 }

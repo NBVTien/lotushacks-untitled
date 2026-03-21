@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { SkeletonCard } from '@/components/ui/skeleton'
-import { Plus, Briefcase, CheckCircle, XCircle, X } from 'lucide-react'
+import { Plus, Briefcase, CheckCircle, XCircle, X, Users } from 'lucide-react'
+import { PageTransition, StaggerContainer, StaggerItem, FadeIn } from '@/components/ui/motion'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
@@ -64,6 +65,7 @@ export function JobsPage() {
   const activeCount = jobs.filter((j) => j.isActive).length
 
   return (
+    <PageTransition>
     <div className="space-y-8">
       <PageHeader title="Jobs" description="Manage your job descriptions and candidates">
         <Button onClick={() => setShowForm(!showForm)} className="gap-2">
@@ -73,6 +75,7 @@ export function JobsPage() {
 
       {/* Stats */}
       {!loading && jobs.length > 0 && (
+        <FadeIn>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -96,6 +99,7 @@ export function JobsPage() {
             <p className="mt-1 text-2xl font-semibold">{jobs.length - activeCount}</p>
           </div>
         </div>
+        </FadeIn>
       )}
 
       {/* Create form */}
@@ -203,9 +207,10 @@ export function JobsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <StaggerContainer className="grid gap-4 md:grid-cols-2">
           {jobs.map((job) => (
-            <Link key={job.id} to={`/jobs/${job.id}`}>
+            <StaggerItem key={job.id}>
+            <Link to={`/jobs/${job.id}`}>
               <Card
                 className={`group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-[inset_3px_0_0_0_var(--color-primary),0_4px_12px_rgba(0,0,0,0.06)] ${!job.isActive ? 'opacity-60' : ''}`}
               >
@@ -248,9 +253,11 @@ export function JobsPage() {
                 </CardContent>
               </Card>
             </Link>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       )}
     </div>
+    </PageTransition>
   )
 }

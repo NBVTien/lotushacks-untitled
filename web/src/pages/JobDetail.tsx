@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { StatusBadge, RecommendationBadge } from '@/components/ui/status-badge'
 import { SkeletonCard } from '@/components/ui/skeleton'
 import { ArrowLeft, Upload, Pencil, Users, FileText } from 'lucide-react'
+import { PageTransition } from '@/components/ui/motion'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi, candidatesApi } from '@/lib/api'
 import type { Job, Candidate } from '@lotushack/shared'
@@ -101,6 +102,7 @@ export function JobDetailPage() {
   const errorCount = candidates.filter((c) => c.status === 'error').length
 
   return (
+    <PageTransition>
     <div className="space-y-8">
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
@@ -342,5 +344,6 @@ export function JobDetailPage() {
         )}
       </Tabs>
     </div>
+    </PageTransition>
   )
 }

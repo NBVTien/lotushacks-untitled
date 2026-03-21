@@ -12,6 +12,7 @@ import { ScoreRing } from '@/components/ui/score-ring'
 import { StatusBadge, RecommendationBadge } from '@/components/ui/status-badge'
 import { SkeletonCard } from '@/components/ui/skeleton'
 import { ArrowLeft, Github, Linkedin, RefreshCw, AlertTriangle, Brain, FileText, Globe, FileCode, FileImage, Upload, Search, CheckCircle, Zap, Star } from 'lucide-react'
+import { PageTransition } from '@/components/ui/motion'
 import { candidatesApi } from '@/lib/api'
 import type { Candidate, EnrichmentProgress, CompanyIntel } from '@lotushack/shared'
 
@@ -102,6 +103,7 @@ export function CandidateDetailPage() {
   const currentStepIndex = getStepIndex(candidate.status)
 
   return (
+    <PageTransition>
     <div className="space-y-8">
       <Link
         to={`/jobs/${jobId}`}
@@ -499,6 +501,7 @@ export function CandidateDetailPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </PageTransition>
   )
 }
 

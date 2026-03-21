@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { authApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { LayoutDashboard, Loader2 } from 'lucide-react'
+import { PageTransition } from '@/components/ui/motion'
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -37,6 +38,7 @@ export function RegisterPage() {
   const update = (field: string, value: string) => setForm({ ...form, [field]: value })
 
   return (
+    <PageTransition>
     <div className="flex min-h-screen">
       {/* Left -- brand panel */}
       <div className="hidden w-1/2 bg-primary lg:flex lg:flex-col lg:justify-between lg:p-12">
@@ -147,5 +149,6 @@ export function RegisterPage() {
         </div>
       </div>
     </div>
+    </PageTransition>
   )
 }
