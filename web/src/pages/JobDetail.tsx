@@ -95,6 +95,9 @@ export function JobDetailPage() {
       <div className="flex items-start justify-between">
         <h1 className="text-2xl font-bold">{job.title}</h1>
         <div className="flex gap-2">
+          <Link to={`/jobs/${jobId}/source`}>
+            <Button variant="outline">Source Candidates</Button>
+          </Link>
           <Button
             variant="outline"
             onClick={() => {

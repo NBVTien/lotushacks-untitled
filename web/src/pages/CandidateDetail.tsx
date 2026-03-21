@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { candidatesApi } from '@/lib/api'
-import type { Candidate, EnrichmentProgress } from '@lotushack/shared'
+import type { Candidate, EnrichmentProgress, CompanyIntel } from '@lotushack/shared'
 
 const recommendationColors: Record<string, string> = {
   strong_match: 'bg-green-100 text-green-800',
@@ -473,8 +473,15 @@ function ExtendedAnalysis({
   const isSourceCodeUrl = (u: string) => /github\.com|gitlab\.com|bitbucket\.org|youtu\.be|youtube\.com/i.test(u)
 
   // Build URL lists per enrichment type
+  // Build company experience entries for companyIntel
+  const companyEntries = (candidate.parsedCV?.experience || []).map((exp) => ({
+    url: '#',
+    label: `${exp.company} (${exp.title})`,
+  }))
+
   const urlsForType: Record<string, { url: string; label: string }[]> = {
     linkedin: candidate.links.linkedin ? [{ url: candidate.links.linkedin, label: candidate.links.linkedin.replace(/https?:\/\/(www\.)?/, '') }] : [],
+    companyIntel: companyEntries,
     portfolio: classified.filter((c) => c.kind === 'portfolio' || c.kind === 'company').map((c) => ({ url: c.url, label: c.label })),
     blog: [
       ...classified.filter((c) => c.kind === 'blog').map((c) => ({ url: c.url, label: c.label })),
@@ -523,6 +530,12 @@ function ExtendedAnalysis({
       label: 'Projects',
       types: [
         { key: 'liveProjects', label: 'Live Projects', desc: 'Visit deployed apps & products from CV', available: hasProjectUrls },
+      ],
+    },
+    {
+      label: 'Company Verification',
+      types: [
+        { key: 'companyIntel', label: 'Company Intel', desc: 'Verify companies from candidate experience', available: (candidate.parsedCV?.experience?.length || 0) > 0 },
       ],
     },
   ]
@@ -604,6 +617,31 @@ function ExtendedAnalysis({
           <p className="text-sm">Rep: <strong>{ext.stackoverflow.reputation.toLocaleString()}</strong> | Answers: {ext.stackoverflow.answerCount} | Badges: G{ext.stackoverflow.badges.gold} S{ext.stackoverflow.badges.silver} B{ext.stackoverflow.badges.bronze}</p>
           {ext.stackoverflow.topTags.length > 0 && <div className="flex gap-1 flex-wrap">{ext.stackoverflow.topTags.map((t) => <Badge key={t.name} variant="outline" className="text-xs">{t.name} ({t.score})</Badge>)}</div>}
           <p className="text-sm text-muted-foreground">{ext.stackoverflow.summary}</p>
+        </div>
+      )
+    }
+    if (key === 'companyIntel' && ext?.companyIntel) {
+      const intel: CompanyIntel[] = Array.isArray(ext.companyIntel) ? ext.companyIntel : [ext.companyIntel]
+      return (
+        <div className="mt-3 space-y-3 border-t pt-3">
+          {intel.map((ci, idx) => (
+            <div key={idx} className="border-l-2 border-muted pl-3 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium text-sm">{ci.company || 'Unknown'}</p>
+                <Badge variant={ci.exists ? 'secondary' : 'destructive'} className="text-xs">
+                  {ci.exists ? 'Verified' : 'Not Found'}
+                </Badge>
+                {ci.industry && <Badge variant="outline" className="text-xs">{ci.industry}</Badge>}
+                {ci.size && <Badge variant="outline" className="text-xs">{ci.size}</Badge>}
+              </div>
+              {ci.techStack && ci.techStack.length > 0 && (
+                <div className="flex gap-1 flex-wrap">
+                  {ci.techStack.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+                </div>
+              )}
+              {ci.summary && <p className="text-sm text-muted-foreground">{ci.summary}</p>}
+            </div>
+          ))}
         </div>
       )
     }

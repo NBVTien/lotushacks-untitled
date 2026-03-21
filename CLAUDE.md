@@ -41,20 +41,33 @@ web/ (React 19 + Vite 8 + Tailwind 4 + shadcn/ui)
 
 api/ (NestJS 11 + TypeORM + PostgreSQL 16)
   ├── jobs/          CRUD for job descriptions
-  ├── candidates/    CV upload (MinIO), PDF parsing, link extraction
-  ├── enrichment/    TinyFish API → crawl GitHub/LinkedIn profiles
-  └── matching/      OpenAI GPT-4o-mini → match score + explanation
+  ├── candidates/    CV upload (MinIO), PDF parsing, link extraction, SSE streaming
+  ├── enrichment/    GitHub API + TinyFish → crawl profiles, portfolio, company intel
+  ├── matching/      OpenAI GPT-4o-mini → match score + explanation
+  └── discovery/     TinyFish-powered job discovery, company research, candidate sourcing
 
 shared/ (TypeScript interfaces consumed by both api and web)
-  └── src/types.ts   Job, Candidate, MatchResult, EnrichedProfile, etc.
+  └── src/types.ts   Job, Candidate, MatchResult, EnrichedProfile, Discovery types, etc.
 ```
 
 ### Candidate Processing Pipeline
 
 Fire-and-forget async after upload:
-`uploaded → parsed → enriching → enriched → scoring → completed`
+`uploaded → parsed → GitHub enrichment (immediate) → scoring → completed`
 
-The frontend polls every 5 seconds to reflect status changes.
+Extended enrichment (LinkedIn, portfolio, blog, SO, company intel) runs on-demand per type via independent BullMQ jobs. Progress is streamed via SSE (`GET /candidates/:id/enrichment-stream`).
+
+### Discovery Module (TinyFish-powered)
+
+Three features powered by parallel TinyFish agents:
+- **Job Discovery** (`POST /discovery/jobs`) — Candidate skills → crawl ITviec, TopDev, LinkedIn Jobs → matching job listings
+- **Company Research** (`POST /discovery/company-research`) — Company name → crawl Glassdoor, tech blog, website → company intelligence
+- **Candidate Sourcing** (`POST /discovery/source-candidates`) — Job requirements → crawl job boards → matching candidate profiles
+
+Frontend routes:
+- `/careers/discover` — Job discovery for candidates
+- `/careers/company/:name` — Company research for candidates
+- `/jobs/:jobId/source` — Candidate sourcing for recruiters
 
 ### Database
 

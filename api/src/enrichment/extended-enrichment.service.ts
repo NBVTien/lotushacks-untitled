@@ -8,6 +8,7 @@ import type {
   LiveProjectCheck,
   BlogAnalysis,
   StackOverflowProfile,
+  CompanyIntel,
   ParsedCVData,
 } from '@lotushack/shared'
 
@@ -66,6 +67,12 @@ export class ExtendedEnrichmentService {
     if (types.includes('stackoverflow') && context.stackoverflowUrl) {
       tasks.push(
         this.enrichStackOverflow(context.stackoverflowUrl, onProgress).then((r) => { result.stackoverflow = r }),
+      )
+    }
+
+    if (types.includes('companyIntel') && context.parsedCV?.experience?.length) {
+      tasks.push(
+        this.enrichCompanyIntel(context.parsedCV.experience, onProgress).then((r) => { result.companyIntel = r }),
       )
     }
 
@@ -251,6 +258,56 @@ export class ExtendedEnrichmentService {
     } catch {
       return { platform: 'unknown', url, totalPosts: 0, recentPosts: [], topicFocus: [], writingQuality: 'unknown', summary: raw.slice(0, 300) }
     }
+  }
+
+  private async enrichCompanyIntel(
+    experience: { title: string; company: string; duration: string; description: string }[],
+    onProgress?: ProgressCallback,
+  ): Promise<CompanyIntel[]> {
+    const companies = [...new Set(experience.map((e) => e.company).filter(Boolean))]
+    this.logger.log(`Company intel: checking ${companies.length} companies`)
+    onProgress?.(`[CompanyIntel] Researching ${companies.length} companies`)
+
+    const results: CompanyIntel[] = []
+
+    for (const company of companies.slice(0, 5)) {
+      this.logger.log(`Company intel: ${company}`)
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(`"${company}" company website`)}`
+      const raw = await this.tinyfish.crawl(searchUrl,
+        `Search for the company "${company}". Find their official website. Then visit it and extract:\n` +
+        '- url (string|null): the company official website URL\n' +
+        '- exists (boolean): does the company appear to be a real, active company?\n' +
+        '- industry (string|null): what industry are they in?\n' +
+        '- techStack (string[]): any technologies mentioned on their site (programming languages, frameworks, cloud providers, etc.)\n' +
+        '- size (string|null): company size if mentioned (e.g. "50-200", "startup", "enterprise")\n' +
+        '- summary (string): 2-3 sentence description of the company\n' +
+        'Return as JSON.',
+        { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress },
+      )
+
+      if (!raw) {
+        results.push({ company, url: null, exists: false, industry: null, techStack: [], size: null, summary: 'Could not verify' })
+        continue
+      }
+
+      try {
+        const data = JSON.parse(raw)
+        results.push({
+          company,
+          url: data.url || null,
+          exists: data.exists ?? true,
+          industry: data.industry || null,
+          techStack: data.techStack || [],
+          size: data.size || null,
+          summary: data.summary || '',
+        })
+      } catch {
+        results.push({ company, url: null, exists: true, industry: null, techStack: [], size: null, summary: raw.slice(0, 300) })
+      }
+    }
+
+    onProgress?.(`[CompanyIntel] Done: ${results.length} companies researched`)
+    return results
   }
 
   private async enrichStackOverflow(url: string, onProgress?: ProgressCallback): Promise<StackOverflowProfile | null> {

@@ -153,9 +153,20 @@ export interface ExtendedEnrichment {
   liveProjects: LiveProjectCheck[]
   blog: BlogAnalysis | null
   stackoverflow: StackOverflowProfile | null
+  companyIntel?: CompanyIntel[]
 }
 
-export type ExtendedEnrichmentType = 'linkedin' | 'portfolio' | 'liveProjects' | 'blog' | 'stackoverflow'
+export interface CompanyIntel {
+  company: string
+  url: string | null
+  exists: boolean
+  industry: string | null
+  techStack: string[]
+  size: string | null
+  summary: string
+}
+
+export type ExtendedEnrichmentType = 'linkedin' | 'portfolio' | 'liveProjects' | 'blog' | 'stackoverflow' | 'companyIntel'
 
 // Per-type enrichment progress tracking
 export interface EnrichmentJobStatus {
@@ -210,4 +221,70 @@ export interface MatchResult {
   strengths: string[]
   gaps: string[]
   recommendation: 'strong_match' | 'good_match' | 'partial_match' | 'weak_match'
+}
+
+// Job Discovery (for candidates)
+export interface JobDiscoveryRequest {
+  skills: string[]
+  experience: string[]
+  location: string | null
+  title: string | null
+}
+
+export interface DiscoveredJob {
+  title: string
+  company: string
+  location: string | null
+  url: string
+  source: string  // e.g. "ITviec", "TopDev", "LinkedIn"
+  salary: string | null
+  requirements: string[]
+  matchReason: string
+  postedDate: string | null
+}
+
+export interface JobDiscoveryResult {
+  query: string
+  jobs: DiscoveredJob[]
+  sources: string[]
+  searchedAt: string
+}
+
+// Company Research (for candidates)
+export interface CompanyResearch {
+  name: string
+  website: string | null
+  glassdoorUrl: string | null
+  rating: number | null
+  reviews: { pros: string; cons: string }[]
+  techBlog: string | null
+  recentNews: string[]
+  culture: string | null
+  benefits: string[]
+  summary: string
+}
+
+// Candidate Sourcing (for recruiters)
+export interface SourcingRequest {
+  jobTitle: string
+  skills: string[]
+  location: string | null
+  experience: string | null
+}
+
+export interface SourcedCandidate {
+  name: string
+  title: string | null
+  profileUrl: string
+  source: string
+  skills: string[]
+  experience: string | null
+  summary: string
+}
+
+export interface SourcingResult {
+  query: string
+  candidates: SourcedCandidate[]
+  sources: string[]
+  searchedAt: string
 }

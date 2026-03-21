@@ -6,10 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
+import { useNavigate } from 'react-router-dom'
 
 const PAGE_SIZE = 10
 
 export function CareersPage() {
+  const navigate = useNavigate()
   const [jobs, setJobs] = useState<Job[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
@@ -65,6 +67,21 @@ export function CareersPage() {
         </p>
       </div>
 
+      {/* AI Discovery Banner */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="flex items-center justify-between py-5">
+          <div>
+            <h2 className="text-lg font-semibold">Let AI find the perfect job for you</h2>
+            <p className="text-sm text-muted-foreground">
+              Enter your skills and let our AI search across ITviec, TopDev, LinkedIn, and more.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/careers/discover')}>
+            Discover Jobs
+          </Button>
+        </CardContent>
+      </Card>
+
       {!initialLoad && jobs.length === 0 ? (
         <p className="text-center text-muted-foreground">
           No open positions at the moment.
@@ -83,9 +100,16 @@ export function CareersPage() {
                       </p>
                     )}
                   </div>
-                  <Link to={`/careers/${job.id}/apply`}>
-                    <Button>Apply Now</Button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    {job.company && (
+                      <Link to={`/careers/company/${encodeURIComponent(job.company.name)}`}>
+                        <Button variant="ghost" size="sm">Research Company</Button>
+                      </Link>
+                    )}
+                    <Link to={`/careers/${job.id}/apply`}>
+                      <Button>Apply Now</Button>
+                    </Link>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
