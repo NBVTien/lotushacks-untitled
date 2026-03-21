@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import OpenAI from 'openai'
 import type { GitHubProfile, RepoSummary } from '@lotushack/shared'
 import type { ProgressCallback } from './enrichment.service'
+import { TinyFishCrawlService } from './tinyfish-crawl.service'
 
 interface GitHubRepoAPI {
   name: string
@@ -34,7 +35,10 @@ export class GitHubApiService {
   private readonly logger = new Logger(GitHubApiService.name)
   private readonly openai: OpenAI
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly tinyfish: TinyFishCrawlService,
+  ) {
     this.openai = new OpenAI({ apiKey: this.config.get('OPENAI_API_KEY', '') })
   }
 
@@ -49,8 +53,8 @@ export class GitHubApiService {
       // 1. Fetch user profile
       const profile = await this.fetchJSON(`https://api.github.com/users/${username}`)
       if (!profile) {
-        onProgress?.('[GitHub] User not found')
-        return null
+        onProgress?.('[GitHub] User not found or API rate limited')
+        return this.fallbackToTinyFish(username, onProgress)
       }
       onProgress?.(`[GitHub] Profile: ${profile.name || username}, ${profile.public_repos} repos`)
 
@@ -141,6 +145,95 @@ export class GitHubApiService {
     } catch (err) {
       this.logger.error(`GitHub API error for @${username}:`, err)
       onProgress?.(`[GitHub] API error: ${err instanceof Error ? err.message : 'unknown'}`)
+      return this.fallbackToTinyFish(username, onProgress)
+    }
+  }
+
+  private async fallbackToTinyFish(
+    username: string,
+    onProgress?: ProgressCallback,
+  ): Promise<GitHubProfile | null> {
+    if (!this.tinyfish.isConfigured) {
+      this.logger.warn('TinyFish not configured — cannot fall back for GitHub enrichment')
+      return null
+    }
+
+    this.logger.log(`Falling back to TinyFish crawl for GitHub @${username}`)
+    onProgress?.(`[GitHub] Falling back to TinyFish crawl for @${username}`)
+
+    const profileUrl = `https://github.com/${username}`
+    const goal = [
+      `Extract the GitHub profile data for user @${username}.`,
+      `Return a JSON object with these exact fields:`,
+      `- "bio" (string or null): the user's bio`,
+      `- "topLanguages" (string[]): up to 8 most-used programming languages`,
+      `- "repositories" (array of objects with "name", "description", "language", "stars"): up to 10 top repositories sorted by stars descending`,
+      `- "totalStars" (number): total stargazers across all repos`,
+      `Only return the JSON object, nothing else.`,
+    ].join(' ')
+
+    const raw = await this.tinyfish.crawl(profileUrl, goal, {
+      browserProfile: 'lite',
+      label: 'GitHub-Fallback',
+      onProgress,
+      timeoutMs: 120_000,
+    })
+
+    if (!raw) {
+      this.logger.warn(`TinyFish fallback returned no data for @${username}`)
+      onProgress?.(`[GitHub] TinyFish fallback failed for @${username}`)
+      return null
+    }
+
+    try {
+      // Try to extract JSON from the response (may be wrapped in markdown code fences)
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        this.logger.warn(`TinyFish fallback returned non-JSON for @${username}`)
+        return null
+      }
+
+      const parsed = JSON.parse(jsonMatch[0])
+
+      const repositories: RepoSummary[] = (Array.isArray(parsed.repositories) ? parsed.repositories : [])
+        .slice(0, 10)
+        .map((r: Record<string, unknown>) => ({
+          name: String(r.name || ''),
+          description: r.description ? String(r.description) : null,
+          language: r.language ? String(r.language) : null,
+          stars: typeof r.stars === 'number' ? r.stars : Number(r.stars) || 0,
+        }))
+
+      const topLanguages: string[] = Array.isArray(parsed.topLanguages)
+        ? parsed.topLanguages.map(String).slice(0, 8)
+        : []
+
+      const totalStars =
+        typeof parsed.totalStars === 'number'
+          ? parsed.totalStars
+          : repositories.reduce((sum: number, r: RepoSummary) => sum + r.stars, 0)
+
+      const profile: GitHubProfile = {
+        username,
+        bio: parsed.bio ?? null,
+        topLanguages,
+        repositories,
+        totalStars,
+        totalContributions: null,
+        raw: JSON.stringify({ ...parsed, source: 'tinyfish-fallback' }),
+      }
+
+      this.logger.log(
+        `TinyFish fallback succeeded for @${username}: ${topLanguages.length} languages, ${repositories.length} repos, ${totalStars} stars`,
+      )
+      onProgress?.(
+        `[GitHub] TinyFish fallback done: ${topLanguages.join(', ')}, ${totalStars} stars`,
+      )
+
+      return profile
+    } catch (err) {
+      this.logger.error(`Failed to parse TinyFish fallback result for @${username}:`, err)
+      onProgress?.(`[GitHub] TinyFish fallback parse error`)
       return null
     }
   }
