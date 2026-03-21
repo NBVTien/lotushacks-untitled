@@ -207,7 +207,7 @@ export function JobsPage() {
           {jobs.map((job) => (
             <Link key={job.id} to={`/jobs/${job.id}`}>
               <Card
-                className={`group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-md ${!job.isActive ? 'opacity-60' : ''}`}
+                className={`group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-[inset_3px_0_0_0_var(--color-primary),0_4px_12px_rgba(0,0,0,0.06)] ${!job.isActive ? 'opacity-60' : ''}`}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
