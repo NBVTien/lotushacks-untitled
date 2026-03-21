@@ -51,30 +51,19 @@ export class DiscoveryService {
       '- postedDate (string|null): when the job was posted\n' +
       'Return a JSON array of up to 10 job listings. If no jobs found, return empty array [].'
 
-    // Wellfound: navigate to site, use the search/role selector UI
-    const wellfoundGoal =
-      `Go to Wellfound (AngelList). Click on "Find Jobs" or the search input. ` +
-      `Type "${titleQuery}" in the role/search field. If a dropdown appears with role suggestions, ` +
-      `click the most relevant one (e.g. "${titleQuery}"). Wait for results to load. ` +
-      `Extract the visible job listings. ${jobJsonFormat}`
-
-    // Upwork: use Google to find job listings (avoids Cloudflare block)
+    // Upwork: search via Google with 1-month filter to get fresh job listings
     const upworkGoal =
-      `Search for Upwork job listings. Look at the search results and click on Upwork job links. ` +
-      `Extract job details from the pages you visit. ${jobJsonFormat}`
+      `Look at the Google search results for Upwork job listings. ` +
+      `Click on the Upwork job links and extract job details. ` +
+      `If a link leads to a job posting page, extract the full details. ` +
+      `If it leads to a search results page, extract jobs from there. ${jobJsonFormat}`
 
     const sources = [
       {
         name: 'Upwork',
-        url: `https://www.google.com/search?q=site:upwork.com+jobs+${encodeURIComponent(titleQuery + ' ' + skillsQuery)}`,
+        url: `https://www.google.com/search?q=site:upwork.com+jobs+${encodeURIComponent(titleQuery + ' ' + skillsQuery)}&tbs=qdr:m`,
         profile: 'stealth' as const,
         goal: upworkGoal,
-      },
-      {
-        name: 'Wellfound',
-        url: 'https://wellfound.com/jobs',
-        profile: 'stealth' as const,
-        goal: wellfoundGoal,
       },
     ]
 
