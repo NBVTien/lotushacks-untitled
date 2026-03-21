@@ -218,7 +218,7 @@ export function JobDiscoveryPage() {
             <Card>
               <CardContent className="py-6 space-y-4">
                 <div>
-                  <Label>Skills (comma-separated)</Label>
+                  <Label className="mb-1.5">Skills (comma-separated)</Label>
                   <Input
                     value={skills}
                     onChange={(e) => setSkills(e.target.value)}
@@ -227,7 +227,7 @@ export function JobDiscoveryPage() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <Label>Job Title (optional)</Label>
+                    <Label className="mb-1.5">Job Title (optional)</Label>
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
@@ -235,7 +235,7 @@ export function JobDiscoveryPage() {
                     />
                   </div>
                   <div>
-                    <Label>Location (optional)</Label>
+                    <Label className="mb-1.5">Location (optional)</Label>
                     <Input
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
@@ -259,7 +259,7 @@ export function JobDiscoveryPage() {
             <Card>
               <CardContent className="py-6 space-y-4">
                 <div>
-                  <Label>Upload your CV (PDF)</Label>
+                  <Label className="mb-1.5">Upload your CV (PDF)</Label>
                   <Input
                     ref={fileInputRef}
                     type="file"
