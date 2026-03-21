@@ -474,10 +474,10 @@ export function CandidateDetailPage() {
                               <span className="text-sm font-medium">{skill.name}</span>
                               <TooltipProvider>
                                 <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-xs text-muted-foreground truncate ml-auto max-w-[45%] cursor-default">{skill.evidence}</span>
+                                  <TooltipTrigger className="text-xs text-muted-foreground truncate ml-auto max-w-[45%] cursor-default text-left">
+                                    {skill.evidence}
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs text-xs">
+                                  <TooltipContent className="max-w-xs text-xs">
                                     {skill.evidence}
                                   </TooltipContent>
                                 </Tooltip>

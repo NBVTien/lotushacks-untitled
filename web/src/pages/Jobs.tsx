@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,109 +7,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
-import { Skeleton, JobCardSkeleton } from '@/components/ui/skeleton'
-import { ScoreRing } from '@/components/ui/score-ring'
-import { Plus, Briefcase, CheckCircle, X, Users, LinkIcon, Check, BarChart3 } from 'lucide-react'
-import { PageTransition, StaggerContainer, StaggerItem, FadeIn } from '@/components/ui/motion'
+import { JobCardSkeleton } from '@/components/ui/skeleton'
+import { Plus, Briefcase, X, Users, LinkIcon, Check, LayoutGrid, List } from 'lucide-react'
+import { PageTransition, StaggerContainer, StaggerItem } from '@/components/ui/motion'
 import { ErrorState } from '@/components/ErrorState'
 import { EmptyState } from '@/components/EmptyState'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
 import { toast } from 'sonner'
 import { jobsApi } from '@/lib/api'
-import type { JobStats } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
-
-function AnimatedNumber({ value, duration = 800 }: { value: number; duration?: number }) {
-  const [display, setDisplay] = useState(0)
-  const ref = useRef<number | null>(null)
-
-  useEffect(() => {
-    const start = performance.now()
-    const from = 0
-    const animate = (now: number) => {
-      const progress = Math.min((now - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3) // ease-out cubic
-      setDisplay(Math.round(from + (value - from) * eased))
-      if (progress < 1) {
-        ref.current = requestAnimationFrame(animate)
-      }
-    }
-    ref.current = requestAnimationFrame(animate)
-    return () => {
-      if (ref.current) cancelAnimationFrame(ref.current)
-    }
-  }, [value, duration])
-
-  return <>{display}</>
-}
-
-const PIPELINE_COLORS: Record<string, string> = {
-  uploaded: 'bg-gray-400',
-  parsed: 'bg-blue-400',
-  enriching: 'bg-violet-400',
-  scoring: 'bg-amber-400',
-  completed: 'bg-emerald-500',
-}
-
-const PIPELINE_LABELS: Record<string, string> = {
-  uploaded: 'Uploaded',
-  parsed: 'Parsed',
-  enriching: 'Enriching',
-  scoring: 'Scoring',
-  completed: 'Completed',
-}
-
-function PipelineBar({ breakdown }: { breakdown: JobStats['pipelineBreakdown'] }) {
-  const total = Object.values(breakdown).reduce((a, b) => a + b, 0)
-  if (total === 0) {
-    return <div className="h-3 w-full rounded-full bg-muted" />
-  }
-  return (
-    <div className="space-y-2">
-      <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
-        {Object.entries(breakdown).map(([stage, count]) => {
-          if (count === 0) return null
-          const pct = (count / total) * 100
-          return (
-            <div
-              key={stage}
-              className={`${PIPELINE_COLORS[stage]} transition-all duration-700`}
-              style={{ width: `${pct}%` }}
-              title={`${PIPELINE_LABELS[stage]}: ${count}`}
-            />
-          )
-        })}
-      </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {Object.entries(breakdown).map(([stage, count]) => (
-          <span key={stage} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className={`inline-block h-1.5 w-1.5 rounded-full ${PIPELINE_COLORS[stage]}`} />
-            {PIPELINE_LABELS[stage]} {count}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function StatsCardsSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-border/40 bg-card p-4 shadow-card space-y-3">
-          <Skeleton className="h-3.5 w-20" />
-          <Skeleton className="h-8 w-16" />
-          <Skeleton className="h-3 w-24" />
-        </div>
-      ))}
-    </div>
-  )
-}
 
 export function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
-  const [stats, setStats] = useState<JobStats | null>(null)
-  const [statsLoading, setStatsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -121,6 +30,7 @@ export function JobsPage() {
   const [screeningCriteria, setScreeningCriteria] = useState('')
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<'card' | 'table'>('card')
 
   type JobField = 'title' | 'description' | 'requirements'
   const [formErrors, setFormErrors] = useState<Partial<Record<JobField, string>>>({})
@@ -178,22 +88,8 @@ export function JobsPage() {
       })
   }
 
-  const loadStats = () => {
-    setStatsLoading(true)
-    jobsApi
-      .stats()
-      .then((data) => {
-        setStats(data)
-        setStatsLoading(false)
-      })
-      .catch(() => {
-        setStatsLoading(false)
-      })
-  }
-
   useEffect(() => {
     loadJobs()
-    loadStats()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -219,7 +115,6 @@ export function JobsPage() {
       setShowForm(false)
       setFormErrors({})
       setFormTouched({})
-      loadStats()
       toast.success('Job created successfully')
     } catch {
       toast.error('Failed to create job')
@@ -264,69 +159,6 @@ export function JobsPage() {
             )}
           </Button>
         </PageHeader>
-
-        {/* Stats Cards */}
-        {statsLoading ? (
-          <StatsCardsSkeleton />
-        ) : stats && stats.totalJobs > 0 ? (
-          <FadeIn>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              {/* Card 1: Total Jobs */}
-              <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Briefcase className="h-3.5 w-3.5" />
-                  Total Jobs
-                </div>
-                <p className="mt-1 text-2xl font-semibold">
-                  <AnimatedNumber value={stats.totalJobs} />
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  <span className="text-emerald-500 font-medium">{stats.activeJobs}</span> active
-                </p>
-              </div>
-
-              {/* Card 2: Total Candidates */}
-              <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Users className="h-3.5 w-3.5" />
-                  Candidates
-                </div>
-                <p className="mt-1 text-2xl font-semibold">
-                  <AnimatedNumber value={stats.totalCandidates} />
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  across all jobs
-                </p>
-              </div>
-
-              {/* Card 3: Avg Score */}
-              <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <BarChart3 className="h-3.5 w-3.5" />
-                  Avg Score
-                </div>
-                <div className="mt-1 flex items-center gap-3">
-                  {stats.avgScore > 0 ? (
-                    <ScoreRing score={stats.avgScore} size={56} strokeWidth={4} />
-                  ) : (
-                    <span className="text-sm text-muted-foreground">No scores yet</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Card 4: Pipeline Summary */}
-              <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                  Pipeline
-                </div>
-                <div className="mt-2">
-                  <PipelineBar breakdown={stats.pipelineBreakdown} />
-                </div>
-              </div>
-            </div>
-          </FadeIn>
-        ) : null}
 
         {/* Create form */}
         {showForm && (
@@ -450,78 +282,189 @@ export function JobsPage() {
             action={{ label: 'Create Job', onClick: () => setShowForm(true) }}
           />
         ) : (
-          <StaggerContainer className="grid gap-4 md:grid-cols-2">
-            {jobs.map((job) => (
-              <StaggerItem key={job.id}>
-                <Link to={`/jobs/${job.id}`}>
-                  <Card
-                    className={`group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-[inset_3px_0_0_0_var(--color-primary),0_4px_12px_rgba(0,0,0,0.06)] ${!job.isActive ? 'opacity-60' : ''}`}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`h-2 w-2 shrink-0 rounded-full ${job.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`}
-                          />
-                          <CardTitle className="text-base">{job.title}</CardTitle>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={(e) => handleCopyLink(e, job.id)}
-                            className="gap-1 text-muted-foreground hover:text-foreground"
-                            title="Copy apply link"
-                          >
-                            {copiedJobId === job.id ? (
-                              <>
-                                <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                <span className="text-emerald-600">Copied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <LinkIcon className="h-3.5 w-3.5" />
-                                <span>Copy Link</span>
-                              </>
+          <div className="space-y-3">
+            {/* View toggle */}
+            <div className="flex items-center justify-end gap-1">
+              <button
+                onClick={() => setView('card')}
+                title="Card view"
+                className={`rounded-md p-1.5 transition-colors ${view === 'card' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setView('table')}
+                title="Table view"
+                className={`rounded-md p-1.5 transition-colors ${view === 'table' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+
+            {view === 'card' ? (
+              <StaggerContainer className="grid gap-4 md:grid-cols-2">
+                {jobs.map((job) => (
+                  <StaggerItem key={job.id}>
+                    <Link to={`/jobs/${job.id}`}>
+                      <Card
+                        className={`group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-[inset_3px_0_0_0_var(--color-primary),0_4px_12px_rgba(0,0,0,0.06)] ${!job.isActive ? 'opacity-60' : ''}`}
+                      >
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`h-2 w-2 shrink-0 rounded-full ${job.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                              />
+                              <CardTitle className="text-base">{job.title}</CardTitle>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={(e) => handleCopyLink(e, job.id)}
+                                className="gap-1 text-muted-foreground hover:text-foreground"
+                                title="Copy apply link"
+                              >
+                                {copiedJobId === job.id ? (
+                                  <>
+                                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                    <span className="text-emerald-600">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <LinkIcon className="h-3.5 w-3.5" />
+                                    <span>Copy Link</span>
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant={job.isActive ? 'outline' : 'secondary'}
+                                size="xs"
+                                onClick={(e) => handleToggle(e, job)}
+                                className="shrink-0"
+                              >
+                                {job.isActive ? 'Active' : 'Inactive'}
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="line-clamp-2 text-sm text-muted-foreground">
+                            {job.description.replace(/[#*_`\[\]]/g, '').slice(0, 150)}...
+                          </p>
+                          <div className="mt-3 flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              {job.requirements.length} requirements
+                            </span>
+                            {(job as Job & { candidateCount?: number }).candidateCount != null && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Users className="h-3 w-3" />
+                                {(job as Job & { candidateCount?: number }).candidateCount} candidates
+                              </span>
                             )}
-                          </Button>
-                          <Button
-                            variant={job.isActive ? 'outline' : 'secondary'}
-                            size="xs"
-                            onClick={(e) => handleToggle(e, job)}
-                            className="shrink-0"
-                          >
-                            {job.isActive ? 'Active' : 'Inactive'}
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="line-clamp-2 text-sm text-muted-foreground">
-                        {job.description.replace(/[#*_`\[\]]/g, '').slice(0, 150)}...
-                      </p>
-                      <div className="mt-3 flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground">
-                          {job.requirements.length} requirements
-                        </span>
-                        {(job as Job & { candidateCount?: number }).candidateCount != null && (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <Users className="h-3 w-3" />
-                            {(job as Job & { candidateCount?: number }).candidateCount} candidates
-                          </span>
-                        )}
-                        {job.screeningCriteria && (
-                          <Badge variant="outline" className="text-xs">
-                            Has screening criteria
-                          </Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
+                            {job.screeningCriteria && (
+                              <Badge variant="outline" className="text-xs">
+                                Has screening criteria
+                              </Badge>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
+            ) : (
+              <div className="rounded-xl border border-border/50 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 border-b border-border/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Job</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Candidates</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Requirements</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Screening</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30">
+                    {jobs.map((job) => {
+                      const jobWithCount = job as Job & { candidateCount?: number }
+                      return (
+                        <tr key={job.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-4 py-3">
+                            <Link
+                              to={`/jobs/${job.id}`}
+                              className="flex items-center gap-2 font-medium hover:underline"
+                            >
+                              <span
+                                className={`h-2 w-2 shrink-0 rounded-full ${job.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                              />
+                              {job.title}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant={job.isActive ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {job.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {jobWithCount.candidateCount
+                              ? jobWithCount.candidateCount
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {job.requirements.length}
+                          </td>
+                          <td className="px-4 py-3">
+                            {job.screeningCriteria ? (
+                              <Badge variant="outline" className="text-xs">Yes</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={(e) => handleCopyLink(e, job.id)}
+                                className="gap-1 text-muted-foreground hover:text-foreground"
+                                title="Copy apply link"
+                              >
+                                {copiedJobId === job.id ? (
+                                  <>
+                                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                    <span className="text-emerald-600">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <LinkIcon className="h-3.5 w-3.5" />
+                                    <span>Copy Link</span>
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant={job.isActive ? 'outline' : 'secondary'}
+                                size="xs"
+                                onClick={(e) => handleToggle(e, job)}
+                                className="shrink-0"
+                              >
+                                {job.isActive ? 'Active' : 'Inactive'}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </PageTransition>

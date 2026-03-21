@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react
 import { AuthProvider, useAuth } from './lib/auth'
 import { Button } from './components/ui/button'
 import { Toaster } from './components/ui/toast'
+import { DashboardPage } from './pages/Dashboard'
 import { JobsPage } from './pages/Jobs'
 import { JobDetailPage } from './pages/JobDetail'
 import { CandidateDetailPage } from './pages/CandidateDetail'
@@ -51,7 +52,10 @@ function Sidebar() {
   const location = useLocation()
   const { user, logout } = useAuth()
 
-  const navItems = [{ to: '/', label: 'Jobs', icon: Briefcase }]
+  const navItems = [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/jobs', label: 'Jobs', icon: Briefcase },
+  ]
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border/50 bg-background lg:flex">
@@ -67,8 +71,9 @@ function Sidebar() {
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
           const isActive =
-            location.pathname === item.to ||
-            (item.to !== '/' && location.pathname.startsWith(item.to))
+            item.to === '/'
+              ? location.pathname === '/'
+              : location.pathname === item.to || location.pathname.startsWith(item.to + '/')
           return (
             <Link
               key={item.to}
@@ -223,6 +228,16 @@ export default function App() {
             {/* Recruiter (protected) — sidebar layout */}
             <Route
               path="/"
+              element={
+                <ProtectedRoute>
+                  <RecruiterLayout>
+                    <DashboardPage />
+                  </RecruiterLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs"
               element={
                 <ProtectedRoute>
                   <RecruiterLayout>
