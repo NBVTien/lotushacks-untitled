@@ -8,6 +8,7 @@ import type {
   LoginDto,
   AuthResponse,
   PaginatedResponse,
+  PipelineStage,
 } from '@lotushack/shared'
 
 const api = axios.create({
@@ -127,4 +128,16 @@ export const candidatesApi = {
       .then((r) => r.data),
   enrichmentStreamUrl: (jobId: string, id: string) =>
     `http://localhost:4005/jobs/${jobId}/candidates/${id}/enrichment-stream`,
+  updatePipelineStage: (jobId: string, candidateId: string, stage: PipelineStage) =>
+    api
+      .patch<Candidate>(`/jobs/${jobId}/candidates/${candidateId}/pipeline-stage`, { stage })
+      .then((r) => r.data),
+  addNote: (jobId: string, candidateId: string, text: string) =>
+    api
+      .post<Candidate>(`/jobs/${jobId}/candidates/${candidateId}/notes`, { text })
+      .then((r) => r.data),
+  getPipeline: (jobId: string) =>
+    api
+      .get<Record<PipelineStage, Candidate[]>>(`/jobs/${jobId}/candidates/pipeline`)
+      .then((r) => r.data),
 }

@@ -2,18 +2,22 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
+  Req,
   Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
+import type { Request } from 'express'
 import { Response } from 'express'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { CandidatesService } from './candidates.service'
+import type { PipelineStage } from '@lotushack/shared'
 
 @Controller('jobs/:jobId/candidates')
 export class CandidatesController {
@@ -33,6 +37,12 @@ export class CandidatesController {
   @Get()
   findByJob(@Param('jobId') jobId: string) {
     return this.candidatesService.findByJob(jobId)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('pipeline')
+  getCandidatesByStage(@Param('jobId') jobId: string) {
+    return this.candidatesService.getCandidatesByStage(jobId)
   }
 
   @Get(':id')
@@ -120,6 +130,30 @@ export class CandidatesController {
   @Post(':id/interview-questions')
   generateInterviewQuestions(@Param('jobId') jobId: string, @Param('id') id: string) {
     return this.candidatesService.generateInterviewQuestions(jobId, id)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/pipeline-stage')
+  updatePipelineStage(
+    @Param('jobId') jobId: string,
+    @Param('id') id: string,
+    @Body('stage') stage: PipelineStage,
+    @Req() req: Request
+  ) {
+    const user = req.user as { name: string }
+    return this.candidatesService.updatePipelineStage(id, jobId, stage, user.name)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/notes')
+  addNote(
+    @Param('jobId') jobId: string,
+    @Param('id') id: string,
+    @Body('text') text: string,
+    @Req() req: Request
+  ) {
+    const user = req.user as { name: string }
+    return this.candidatesService.addNote(id, jobId, text, user.name)
   }
 
   @Delete(':id')

@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/EmptyState'
 import ReactMarkdown from 'react-markdown'
 import { toast } from 'sonner'
 import { jobsApi, candidatesApi } from '@/lib/api'
+import { PipelineBoard } from '@/components/PipelineBoard'
 import type { Job, Candidate } from '@lotushack/shared'
 
 function getScoreTextColor(score: number): string {
@@ -60,6 +61,7 @@ export function JobDetailPage() {
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [candidateView, setCandidateView] = useState<'table' | 'pipeline'>('table')
 
   const loadData = useCallback(async () => {
     if (!jobId || notFound) return
@@ -370,6 +372,33 @@ export function JobDetailPage() {
               />
             ) : (
               <>
+              {/* View toggle */}
+              <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 w-fit">
+                <button
+                  onClick={() => setCandidateView('table')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    candidateView === 'table'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Table
+                </button>
+                <button
+                  onClick={() => setCandidateView('pipeline')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    candidateView === 'pipeline'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Pipeline
+                </button>
+              </div>
+
+              {candidateView === 'pipeline' ? (
+                <PipelineBoard jobId={jobId!} />
+              ) : (
               <div className="overflow-hidden rounded-xl border shadow-sm">
                 <table className="w-full">
                   <thead>
@@ -463,6 +492,7 @@ export function JobDetailPage() {
                   </tbody>
                 </table>
               </div>
+              )}
 
               {/* Floating compare button */}
               {selectedIds.size >= 2 && (
