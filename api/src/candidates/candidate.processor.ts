@@ -23,7 +23,7 @@ export interface CandidateJobData {
   extendedEnrichTypes?: string[]
 }
 
-@Processor('candidate-processing')
+@Processor('candidate-processing', { concurrency: 5 })
 export class CandidateProcessor extends WorkerHost {
   private readonly logger = new Logger(CandidateProcessor.name)
 
