@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -30,7 +30,10 @@ export function JobsPage() {
   const [screeningCriteria, setScreeningCriteria] = useState('')
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [view, setView] = useState<'card' | 'table'>('card')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view = searchParams.get('view') === 'table' ? 'table' : 'card'
+  const setView = (v: 'card' | 'table') =>
+    setSearchParams((p) => { const n = new URLSearchParams(p); n.set('view', v); return n })
 
   type JobField = 'title' | 'description' | 'requirements'
   const [formErrors, setFormErrors] = useState<Partial<Record<JobField, string>>>({})
