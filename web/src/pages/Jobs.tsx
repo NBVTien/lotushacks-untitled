@@ -39,6 +39,7 @@ export function JobsPage() {
   const setView = (v: 'card' | 'table') =>
     setSearchParams((p) => { const n = new URLSearchParams(p); n.set('view', v); return n })
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -83,13 +84,12 @@ export function JobsPage() {
     description.trim().length < 20 ||
     reqInput.split('\n').map((r) => r.trim()).filter(Boolean).length === 0
 
-  const loadJobs = useCallback((searchTerm?: string, pageNum?: number) => {
-    setLoading(true)
+  const loadJobs = useCallback(() => {
     setError(null)
     jobsApi
       .list({
-        search: searchTerm ?? search,
-        page: pageNum ?? page,
+        search: debouncedSearch || undefined,
+        page,
         limit: JOBS_PER_PAGE,
       })
       .then((res) => {
@@ -102,18 +102,18 @@ export function JobsPage() {
         setError('Failed to load jobs. Please check your connection and try again.')
         setLoading(false)
       })
-  }, [search, page])
+  }, [debouncedSearch, page])
 
   useEffect(() => {
     loadJobs()
-  }, [page])
+  }, [loadJobs])
 
   const handleSearchChange = (value: string) => {
     setSearch(value)
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
     searchTimerRef.current = setTimeout(() => {
       setPage(1)
-      loadJobs(value, 1)
+      setDebouncedSearch(value)
     }, 300)
   }
 
@@ -132,9 +132,9 @@ export function JobsPage() {
         requirements: reqs,
         screeningCriteria: screeningCriteria.trim() || undefined,
       })
-      loadJobs('', 1)
-      setPage(1)
       setSearch('')
+      setDebouncedSearch('')
+      setPage(1)
       setTitle('')
       setDescription('')
       setReqInput('')
@@ -295,13 +295,13 @@ export function JobsPage() {
         {/* Job list */}
         {error ? (
           <ErrorState message={error} onRetry={loadJobs} />
-        ) : loading ? (
+        ) : loading && !jobs.length && !search ? (
           <div className="grid gap-4 md:grid-cols-2">
             {Array.from({ length: 4 }).map((_, i) => (
               <JobCardSkeleton key={i} />
             ))}
           </div>
-        ) : jobs.length === 0 && !search ? (
+        ) : total === 0 && !search && !loading ? (
           <EmptyState
             icon={Briefcase}
             title="No jobs yet"
@@ -339,11 +339,17 @@ export function JobsPage() {
               </div>
             </div>
 
-            {jobs.length === 0 && !loading ? (
+            {loading ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <JobCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : jobs.length === 0 ? (
               <EmptyState
                 icon={Search}
                 title="No matching jobs"
-                description={search ? 'Try a different search term' : 'No jobs found'}
+                description="Try a different search term"
               />
             ) : view === 'card' ? (
               <StaggerContainer className="grid gap-4 md:grid-cols-2">
