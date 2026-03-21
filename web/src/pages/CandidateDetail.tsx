@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 // Select imports removed — pipeline stage now uses visual tracker buttons
@@ -1141,6 +1142,42 @@ function ExtendedAnalysis({
     },
   ]
 
+  // Per-company URL inputs and running state
+  const [companyUrls, setCompanyUrls] = useState<Record<string, string>>({})
+  const [companyRunning, setCompanyRunning] = useState<Record<string, boolean>>({})
+  const [companyCompleted, setCompanyCompleted] = useState<Record<string, boolean>>({})
+
+  // Detect completed companyIntel from progress changes
+  useEffect(() => {
+    if (progress.companyIntel?.status === 'completed') {
+      // Mark all currently-running companies as completed
+      setCompanyRunning({})
+      setCompanyCompleted((prev) => {
+        const next = { ...prev }
+        for (const key of Object.keys(prev)) {
+          if (prev[key] !== undefined) next[key] = true
+        }
+        return next
+      })
+    }
+  }, [progress.companyIntel?.status])
+
+  const runCompany = async (companyName: string) => {
+    const url = companyUrls[companyName]?.trim() || undefined
+    try {
+      setCompanyRunning((prev) => ({ ...prev, [companyName]: true }))
+      await candidatesApi.extendedEnrich(jobId, candidateId, ['companyIntel'], {
+        companyName,
+        companyUrl: url,
+      })
+      setLiveProgress((prev) => ({ ...prev, companyIntel: { status: 'queued', logs: [] } }))
+      toast.success(`Company research started: ${companyName}`)
+    } catch {
+      setCompanyRunning((prev) => ({ ...prev, [companyName]: false }))
+      toast.error(`Failed to start research: ${companyName}`)
+    }
+  }
+
   const runType = async (type: string) => {
     try {
       await candidatesApi.extendedEnrich(jobId, candidateId, [type])
@@ -1436,38 +1473,79 @@ function ExtendedAnalysis({
                   {/* Sub-items with Run buttons */}
                   {typeUrls.length > 0 ? (
                     <div className="mt-2 space-y-1.5">
-                      {typeUrls.map((u, idx) => (
-                        <div
-                          key={u.url || `${t.key}-${idx}`}
-                          className="flex items-center justify-between gap-2 pl-2 py-0.5"
-                        >
-                          {u.url ? (
-                            <a
-                              href={u.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs text-blue-600 hover:underline truncate"
-                            >
-                              {u.label}
-                            </a>
-                          ) : (
-                            <span className="text-xs text-muted-foreground truncate">{u.label}</span>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs shrink-0"
-                            onClick={() => runType(t.key)}
-                            disabled={isActive}
+                      {typeUrls.map((u, idx) => {
+                        // Extract company name from label for companyIntel entries
+                        const companyName =
+                          t.key === 'companyIntel'
+                            ? (candidate.parsedCV?.experience?.[idx]?.company || u.label.split(' (')[0])
+                            : ''
+                        const isCompanyRunning = t.key === 'companyIntel' && companyRunning[companyName]
+                        const isCompanyDone = t.key === 'companyIntel' && companyCompleted[companyName]
+
+                        return (
+                          <div
+                            key={u.url || `${t.key}-${idx}`}
+                            className={`flex items-center justify-between gap-2 pl-2 py-0.5 ${t.key === 'companyIntel' ? 'flex-wrap' : ''}`}
                           >
-                            {isActive
-                              ? 'Running...'
-                              : hasResult || typeProgress?.status === 'completed'
-                                ? 'Re-run'
-                                : 'Run'}
-                          </Button>
-                        </div>
-                      ))}
+                            {u.url ? (
+                              <a
+                                href={u.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-600 hover:underline truncate"
+                              >
+                                {u.label}
+                              </a>
+                            ) : (
+                              <span className="text-xs text-muted-foreground truncate">
+                                {u.label}
+                              </span>
+                            )}
+                            {t.key === 'companyIntel' ? (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Input
+                                  placeholder="Company URL (optional)"
+                                  className="h-6 w-44 text-xs px-2"
+                                  value={companyUrls[companyName] || ''}
+                                  onChange={(e) =>
+                                    setCompanyUrls((prev) => ({
+                                      ...prev,
+                                      [companyName]: e.target.value,
+                                    }))
+                                  }
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs shrink-0"
+                                  onClick={() => runCompany(companyName)}
+                                  disabled={isCompanyRunning || isActive}
+                                >
+                                  {isCompanyRunning
+                                    ? 'Running...'
+                                    : isCompanyDone || hasResult
+                                      ? 'Re-run'
+                                      : 'Run'}
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs shrink-0"
+                                onClick={() => runType(t.key)}
+                                disabled={isActive}
+                              >
+                                {isActive
+                                  ? 'Running...'
+                                  : hasResult || typeProgress?.status === 'completed'
+                                    ? 'Re-run'
+                                    : 'Run'}
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground mt-1">No URLs found in CV</p>

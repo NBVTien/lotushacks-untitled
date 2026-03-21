@@ -21,6 +21,8 @@ export interface CandidateJobData {
   overrideEmail?: string
   enrichOnly?: boolean
   extendedEnrichTypes?: string[]
+  companyUrl?: string
+  companyName?: string
 }
 
 @Processor('candidate-processing', { concurrency: 5 })
@@ -243,6 +245,8 @@ export class CandidateProcessor extends WorkerHost {
       jobDescription,
       jobRequirements,
       jobScreeningCriteria,
+      companyUrl,
+      companyName,
     } = job.data
     const types = (extendedEnrichTypes || []) as ExtendedEnrichmentType[]
     const type = types[0] // Each job handles exactly one type
@@ -298,6 +302,8 @@ export class CandidateProcessor extends WorkerHost {
           blogUrls,
           stackoverflowUrl,
           parsedCV: candidate.parsedCV as import('@lotushack/shared').ParsedCVData | null,
+          companyUrl,
+          companyName,
         },
         candidate.extendedEnrichment as import('@lotushack/shared').ExtendedEnrichment | null,
         async (msg) => {

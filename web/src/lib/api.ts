@@ -115,9 +115,14 @@ export const candidatesApi = {
     api.post<Candidate>(`/jobs/${jobId}/candidates/${id}/retry`).then((r) => r.data),
   reEnrich: (jobId: string, id: string) =>
     api.post<Candidate>(`/jobs/${jobId}/candidates/${id}/re-enrich`).then((r) => r.data),
-  extendedEnrich: (jobId: string, id: string, types: string[]) =>
+  extendedEnrich: (
+    jobId: string,
+    id: string,
+    types: string[],
+    opts?: { companyName?: string; companyUrl?: string }
+  ) =>
     api
-      .post<Candidate>(`/jobs/${jobId}/candidates/${id}/extended-enrich`, { types })
+      .post<Candidate>(`/jobs/${jobId}/candidates/${id}/extended-enrich`, { types, ...opts })
       .then((r) => r.data),
   getCvUrl: (jobId: string, id: string) =>
     api.get<{ url: string }>(`/jobs/${jobId}/candidates/${id}/cv-url`).then((r) => r.data),

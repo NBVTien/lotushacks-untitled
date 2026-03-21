@@ -27,6 +27,8 @@ export class ExtendedEnrichmentService {
       blogUrls: string[]
       stackoverflowUrl: string | null
       parsedCV: ParsedCVData | null
+      companyUrl?: string
+      companyName?: string
     },
     existing: ExtendedEnrichment | null,
     onProgress?: ProgressCallback
@@ -80,12 +82,30 @@ export class ExtendedEnrichmentService {
       )
     }
 
-    if (types.includes('companyIntel') && context.parsedCV?.experience?.length) {
-      tasks.push(
-        this.enrichCompanyIntel(context.parsedCV.experience, onProgress).then((r) => {
-          result.companyIntel = r
-        })
-      )
+    if (types.includes('companyIntel')) {
+      if (context.companyUrl && context.companyName) {
+        // Per-company enrichment: use the provided URL directly
+        tasks.push(
+          this.enrichSingleCompany(context.companyName, context.companyUrl, onProgress).then((r) => {
+            // Merge with existing companyIntel array
+            const existing = result.companyIntel || []
+            const idx = existing.findIndex((c) => c.company === context.companyName)
+            if (idx >= 0) {
+              existing[idx] = r
+            } else {
+              existing.push(r)
+            }
+            result.companyIntel = existing
+          })
+        )
+      } else if (context.parsedCV?.experience?.length) {
+        // Default: enrich all companies from experience
+        tasks.push(
+          this.enrichCompanyIntel(context.parsedCV.experience, onProgress).then((r) => {
+            result.companyIntel = r
+          })
+        )
+      }
     }
 
     await Promise.all(tasks)
@@ -317,6 +337,66 @@ export class ExtendedEnrichmentService {
         recentPosts: [],
         topicFocus: [],
         writingQuality: 'unknown',
+        summary: raw.slice(0, 300),
+      }
+    }
+  }
+
+  private async enrichSingleCompany(
+    company: string,
+    companyUrl: string,
+    onProgress?: ProgressCallback
+  ): Promise<CompanyIntel> {
+    this.logger.log(`Company intel (direct URL): ${company} → ${companyUrl}`)
+    onProgress?.(`[CompanyIntel] Researching ${company} via ${companyUrl}`)
+
+    const raw = await this.tinyfish.crawl(
+      companyUrl,
+      `Visit this company website for "${company}". Extract:\n` +
+        '- url (string|null): the company official website URL\n' +
+        '- exists (boolean): does the company appear to be a real, active company?\n' +
+        '- industry (string|null): what industry are they in?\n' +
+        '- techStack (string[]): any technologies mentioned on their site (programming languages, frameworks, cloud providers, etc.)\n' +
+        '- size (string|null): company size if mentioned (e.g. "50-200", "startup", "enterprise")\n' +
+        '- summary (string): 2-3 sentence description of the company\n' +
+        'Return as JSON.',
+      { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress, timeoutMs: 240_000 }
+    )
+
+    if (!raw) {
+      onProgress?.(`[CompanyIntel] Done: could not access ${company}`)
+      return {
+        company,
+        url: companyUrl,
+        exists: false,
+        industry: null,
+        techStack: [],
+        size: null,
+        summary: 'Could not verify',
+      }
+    }
+
+    try {
+      const data = JSON.parse(raw)
+      onProgress?.(`[CompanyIntel] Done: ${company} researched`)
+      return {
+        company,
+        url: data.url || companyUrl,
+        exists: data.exists ?? true,
+        industry: data.industry || null,
+        techStack: data.techStack || [],
+        size: data.size || null,
+        summary: data.summary || '',
+      }
+    } catch {
+      onProgress?.(`[CompanyIntel] Done: ${company} researched (parse warning)`)
+      return {
+        company,
+        url: companyUrl,
+        exists: true,
+        industry: null,
+        techStack: [],
+        size: null,
         summary: raw.slice(0, 300),
       }
     }

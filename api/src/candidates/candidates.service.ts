@@ -163,7 +163,12 @@ export class CandidatesService {
     return this.findOne(candidateId)
   }
 
-  async extendedEnrich(jobId: string, candidateId: string, types: string[]) {
+  async extendedEnrich(
+    jobId: string,
+    candidateId: string,
+    types: string[],
+    options?: { companyUrl?: string; companyName?: string }
+  ) {
     const candidate = await this.findOne(candidateId)
     const job = await this.jobs.findOne(jobId)
 
@@ -178,23 +183,27 @@ export class CandidatesService {
 
     // Queue each type as a separate independent job
     for (const type of types) {
-      const bullJob = await this.queue.add(
-        'process',
-        {
-          candidateId,
-          cvFileName: candidate.cvUrl.replace('cvs/', ''),
-          jobDescription: job.description,
-          jobRequirements: job.requirements,
-          jobScreeningCriteria: job.screeningCriteria,
-          extendedEnrichTypes: [type],
-        },
-        {
-          attempts: 2,
-          backoff: { type: 'exponential', delay: 3000 },
-          removeOnComplete: { count: 200 },
-          removeOnFail: { count: 100 },
-        }
-      )
+      const jobData: CandidateJobData = {
+        candidateId,
+        cvFileName: candidate.cvUrl.replace('cvs/', ''),
+        jobDescription: job.description,
+        jobRequirements: job.requirements,
+        jobScreeningCriteria: job.screeningCriteria,
+        extendedEnrichTypes: [type],
+      }
+
+      // Pass company URL/name for per-company enrichment
+      if (type === 'companyIntel' && options?.companyUrl) {
+        jobData.companyUrl = options.companyUrl
+        jobData.companyName = options.companyName
+      }
+
+      const bullJob = await this.queue.add('process', jobData, {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 3000 },
+        removeOnComplete: { count: 200 },
+        removeOnFail: { count: 100 },
+      })
       this.logger.log(
         `Extended enrich [${type}] queued: candidateId=${candidateId}, bullmqJobId=${bullJob.id}`
       )

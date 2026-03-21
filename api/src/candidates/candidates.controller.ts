@@ -121,9 +121,11 @@ export class CandidatesController {
   extendedEnrich(
     @Param('jobId') jobId: string,
     @Param('id') id: string,
-    @Body('types') types: string[]
+    @Body('types') types: string[],
+    @Body('companyUrl') companyUrl?: string,
+    @Body('companyName') companyName?: string
   ) {
-    return this.candidatesService.extendedEnrich(jobId, id, types)
+    return this.candidatesService.extendedEnrich(jobId, id, types, { companyUrl, companyName })
   }
 
   @UseGuards(JwtAuthGuard)
