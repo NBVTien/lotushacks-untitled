@@ -22,12 +22,21 @@ export class UserEntity {
   @Column()
   name!: string
 
-  @Column()
-  companyId!: string
+  @Column({ default: 'recruiter' })
+  role!: string
+
+  @Column({ nullable: true })
+  companyId!: string | null
 
   @ManyToOne(() => CompanyEntity, (c) => c.users)
   @JoinColumn({ name: 'companyId' })
   company!: CompanyEntity
+
+  @Column('text', { nullable: true })
+  cvText!: string | null
+
+  @Column('jsonb', { nullable: true })
+  parsedCV!: Record<string, unknown> | null
 
   @CreateDateColumn()
   createdAt!: Date

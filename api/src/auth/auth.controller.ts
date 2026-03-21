@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, UseGuards, Req } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { JwtAuthGuard } from './jwt-auth.guard'
-import type { RegisterDto, LoginDto } from '@lotushack/shared'
+import type { RegisterDto, LoginDto, CandidateRegisterDto } from '@lotushack/shared'
 import type { Request } from 'express'
 
 @Controller('auth')
@@ -11,6 +11,11 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto)
+  }
+
+  @Post('register-candidate')
+  registerCandidate(@Body() dto: CandidateRegisterDto) {
+    return this.authService.registerCandidate(dto)
   }
 
   @Post('login')

@@ -4,7 +4,7 @@ import { Repository } from 'typeorm'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
 import { UserEntity, CompanyEntity } from '../database'
-import type { RegisterDto, LoginDto } from '@lotushack/shared'
+import type { RegisterDto, LoginDto, CandidateRegisterDto } from '@lotushack/shared'
 
 @Injectable()
 export class AuthService {
@@ -42,11 +42,36 @@ export class AuthService {
         password: hashed,
         name: dto.name,
         companyId: company.id,
+        role: 'recruiter',
       })
     )
 
     this.logger.log(`User registered: id=${user.id}, email=${user.email}, companyId=${company.id}`)
     return this.buildResponse(user, company)
+  }
+
+  async registerCandidate(dto: CandidateRegisterDto) {
+    this.logger.log(`Candidate register attempt: email=${dto.email}`)
+
+    const exists = await this.userRepo.findOne({ where: { email: dto.email } })
+    if (exists) {
+      this.logger.warn(`Register failed: email already exists — ${dto.email}`)
+      throw new ConflictException('Email already registered')
+    }
+
+    const hashed = await bcrypt.hash(dto.password, 10)
+    const user = await this.userRepo.save(
+      this.userRepo.create({
+        email: dto.email,
+        password: hashed,
+        name: dto.name,
+        role: 'candidate',
+        companyId: null,
+      })
+    )
+
+    this.logger.log(`Candidate registered: id=${user.id}, email=${user.email}`)
+    return this.buildResponse(user, null)
   }
 
   async login(dto: LoginDto) {
@@ -68,33 +93,43 @@ export class AuthService {
     }
 
     this.logger.log(
-      `Login success: id=${user.id}, email=${user.email}, company="${user.company.name}"`
+      `Login success: id=${user.id}, email=${user.email}, role=${user.role}`
     )
-    return this.buildResponse(user, user.company)
+    return this.buildResponse(user, user.company || null)
   }
 
   async validateUser(userId: string) {
     return this.userRepo.findOne({ where: { id: userId }, relations: ['company'] })
   }
 
-  private buildResponse(user: UserEntity, company: CompanyEntity) {
-    const payload = { sub: user.id, companyId: company.id }
+  private buildResponse(user: UserEntity, company: CompanyEntity | null) {
+    const payload: Record<string, unknown> = { sub: user.id, role: user.role }
+    if (company) {
+      payload.companyId = company.id
+    }
+
+    const userResponse: Record<string, unknown> = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      companyId: company?.id || null,
+      createdAt: user.createdAt,
+    }
+
+    if (company) {
+      userResponse.company = {
+        id: company.id,
+        name: company.name,
+        description: company.description,
+        logo: company.logo,
+        createdAt: company.createdAt,
+      }
+    }
+
     return {
       accessToken: this.jwt.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        companyId: company.id,
-        company: {
-          id: company.id,
-          name: company.name,
-          description: company.description,
-          logo: company.logo,
-          createdAt: company.createdAt,
-        },
-        createdAt: user.createdAt,
-      },
+      user: userResponse,
     }
   }
 }

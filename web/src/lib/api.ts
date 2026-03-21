@@ -10,6 +10,8 @@ import type {
   PaginatedResponse,
   PipelineStage,
   SurveyAnswer,
+  CandidateRegisterDto,
+  CreateSavedJDDto,
 } from '@lotushack/shared'
 
 const api = axios.create({
@@ -87,18 +89,29 @@ export const discoveryApi = {
     api.post('/discovery/jobs-from-cv', { candidateId }).then((r) => r.data),
   researchCompany: (data: { companyName: string; companyUrl?: string }) =>
     api.post('/discovery/company-research', data).then((r) => r.data),
-  sourceCandidates: (data: {
-    jobTitle: string
-    skills: string[]
-    location: string | null
-    experience: string | null
-  }) => api.post('/discovery/source-candidates', data).then((r) => r.data),
-  sourceFromJob: (jobId: string) =>
-    api.post('/discovery/source-from-job', { jobId }).then((r) => r.data),
-  sourcingHistory: (jobId: string) =>
-    api.get(`/discovery/sourcing-history/${jobId}`).then((r) => r.data),
   streamUrl: (type: string, id: string) =>
     `http://localhost:4005/discovery/${type}/stream?id=${id}`,
+}
+
+export const candidateAuthApi = {
+  register: (dto: CandidateRegisterDto) =>
+    api.post<AuthResponse>('/auth/register-candidate', dto).then((r) => r.data),
+}
+
+export const portalApi = {
+  uploadCv: (file: File) => {
+    const form = new FormData()
+    form.append('cv', file)
+    return api.post('/candidate-portal/cv', form).then((r) => r.data)
+  },
+  getProfile: () => api.get('/candidate-portal/profile').then((r) => r.data),
+  savejd: (dto: CreateSavedJDDto) =>
+    api.post('/candidate-portal/saved-jds', dto).then((r) => r.data),
+  listSavedJds: () => api.get('/candidate-portal/saved-jds').then((r) => r.data),
+  deleteSavedJd: (id: string) => api.delete(`/candidate-portal/saved-jds/${id}`),
+  analyzeGap: (savedJdId: string) =>
+    api.post('/candidate-portal/gap-analysis', { savedJdId }).then((r) => r.data),
+  learningResourcesUrl: () => 'http://localhost:4005/candidate-portal/learning-resources',
 }
 
 export const candidatesApi = {

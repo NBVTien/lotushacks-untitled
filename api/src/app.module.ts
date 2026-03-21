@@ -11,6 +11,7 @@ import {
   JobEntity,
   CandidateEntity,
   SourcingResultEntity,
+  SavedJdEntity,
 } from './database'
 import { AuthModule } from './auth/auth.module'
 import { JobsModule } from './jobs/jobs.module'
@@ -20,6 +21,7 @@ import { MatchingModule } from './matching/matching.module'
 import { SeedModule } from './seed/seed.module'
 import { DiscoveryModule } from './discovery/discovery.module'
 import { HealthModule } from './health/health.module'
+import { CandidatePortalModule } from './candidate-portal/candidate-portal.module'
 
 @Module({
   imports: [
@@ -33,7 +35,7 @@ import { HealthModule } from './health/health.module'
         username: config.get('DATABASE_USER', 'postgres'),
         password: config.get('DATABASE_PASSWORD', 'postgres'),
         database: config.get('DATABASE_NAME', 'recruitment'),
-        entities: [CompanyEntity, UserEntity, JobEntity, CandidateEntity, SourcingResultEntity],
+        entities: [CompanyEntity, UserEntity, JobEntity, CandidateEntity, SourcingResultEntity, SavedJdEntity],
         synchronize: true,
       }),
     }),
@@ -62,6 +64,7 @@ import { HealthModule } from './health/health.module'
     SeedModule,
     DiscoveryModule,
     HealthModule,
+    CandidatePortalModule,
   ],
 })
 export class AppModule {}

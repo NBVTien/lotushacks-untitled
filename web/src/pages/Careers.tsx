@@ -92,6 +92,8 @@ export function CareersPage() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => { document.title = 'Careers — TalentLens' }, [])
   const [initialLoad, setInitialLoad] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const loaderRef = useRef<HTMLDivElement>(null)
@@ -197,14 +199,6 @@ export function CareersPage() {
             custom={3}
             variants={fadeUp}
           >
-            <Button
-              size="lg"
-              className="gap-2 rounded-xl px-8 text-base shadow-lg shadow-primary/20 transition-shadow hover:shadow-xl hover:shadow-primary/25"
-              onClick={() => navigate('/careers/discover')}
-            >
-              <Sparkles className="h-4 w-4" />
-              Discover Jobs
-            </Button>
             <Button
               size="lg"
               variant="outline"
@@ -330,14 +324,6 @@ export function CareersPage() {
               Browse current openings or let AI find the best match for you.
             </p>
           </div>
-          <Button
-            variant="outline"
-            className="hidden gap-2 sm:inline-flex"
-            onClick={() => navigate('/careers/discover')}
-          >
-            <Sparkles className="h-4 w-4" />
-            AI Job Discovery
-          </Button>
         </motion.div>
 
         {/* Job listings */}
@@ -361,15 +347,8 @@ export function CareersPage() {
               No open positions at the moment
             </p>
             <p className="mt-1.5 text-sm text-muted-foreground/70">
-              Check back later or use AI Discovery to find opportunities elsewhere
+              Check back later for new opportunities
             </p>
-            <Button
-              className="mt-6 gap-2"
-              onClick={() => navigate('/careers/discover')}
-            >
-              <Sparkles className="h-4 w-4" />
-              Try AI Job Discovery
-            </Button>
           </motion.div>
         ) : (
           <StaggerContainer className="space-y-4">

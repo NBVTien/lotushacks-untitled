@@ -7,6 +7,8 @@ interface AuthContextType {
   login: (token: string, user: User) => void
   logout: () => void
   isAuthenticated: boolean
+  isCandidate: boolean
+  isRecruiter: boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -15,6 +17,8 @@ const AuthContext = createContext<AuthContextType>({
   login: () => {},
   logout: () => {},
   isAuthenticated: false,
+  isCandidate: false,
+  isRecruiter: false,
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -44,8 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
+  const isCandidate = user?.role === 'candidate'
+  const isRecruiter = user?.role === 'recruiter'
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, isCandidate, isRecruiter }}>
       {children}
     </AuthContext.Provider>
   )

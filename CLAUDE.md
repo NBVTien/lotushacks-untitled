@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI Recruitment Copilot — upload a CV, enrich it with real-world data (GitHub/LinkedIn), and get an explainable hiring decision. Monorepo with three npm workspaces: `api/` (NestJS), `web/` (React/Vite), `shared/` (TypeScript types).
+Two-sided AI career platform — recruiters upload CVs, enrich with real-world data (GitHub/LinkedIn), and get explainable hiring decisions. Candidates register, upload their CV, run AI gap analysis against job descriptions, and get TinyFish-powered learning resources. JWT auth with role-based access (`recruiter` / `candidate`). Monorepo with three npm workspaces: `api/` (NestJS), `web/` (React/Vite), `shared/` (TypeScript types).
 
 ## Commands
 
@@ -43,8 +43,9 @@ api/ (NestJS 11 + TypeORM + PostgreSQL 16)
   ├── jobs/          CRUD for job descriptions
   ├── candidates/    CV upload (MinIO), PDF parsing, link extraction, SSE streaming
   ├── enrichment/    GitHub API + TinyFish → crawl profiles, portfolio, company intel
-  ├── matching/      OpenAI GPT-4o-mini → match score + explanation
-  └── discovery/     TinyFish-powered job discovery, company research, candidate sourcing
+  ├── matching/           OpenAI GPT-4o-mini → match score + explanation
+  ├── discovery/          TinyFish-powered job discovery, company research, candidate sourcing
+  └── candidate-portal/   CV profile, saved JDs, gap analysis, learning resources
 
 shared/ (TypeScript interfaces consumed by both api and web)
   └── src/types.ts   Job, Candidate, MatchResult, EnrichedProfile, Discovery types, etc.
@@ -59,21 +60,37 @@ Extended enrichment (LinkedIn, portfolio, blog, SO, company intel) runs on-deman
 
 ### Discovery Module (TinyFish-powered)
 
-Three features powered by parallel TinyFish agents (all use SSE streaming):
-- **Job Discovery** (`POST /discovery/jobs`, `POST /discovery/jobs-from-upload`) — Candidate skills or CV → crawl Upwork, Wellfound → matching job listings ranked by AI
+Company research powered by TinyFish agents (SSE streaming):
 - **Company Research** (`POST /discovery/company-research`) — Company name → crawl Glassdoor, tech blog, website → company intelligence
-- **Candidate Sourcing** (`POST /discovery/source-candidates`) — Job requirements → crawl LinkedIn, Upwork, Toptal → matching candidate profiles
 
 Frontend routes:
-- `/careers/discover` — Job discovery for candidates
 - `/careers/company/:name` — Company research for candidates
-- `/jobs/:jobId/source` — Candidate sourcing for recruiters
+
+### Candidate Portal Module
+
+Authenticated candidate features (JWT with `role: 'candidate'`):
+- **CV Profile** — Upload CV, parsed with OpenAI. Stored on UserEntity (cvText, parsedCV). Endpoints: `POST /candidate-portal/cv`, `GET /candidate-portal/profile`
+- **Saved JDs** — Save job descriptions (from platform or pasted). Endpoints: `POST/GET/DELETE /candidate-portal/saved-jds`
+- **Gap Analysis** — Compare CV against a JD using MatchingService. Returns overall score, strengths, gaps, skill scores, improvement areas with priorities. Results persisted in `saved_jds.lastAnalysis`. UI has 3 tabs: Browse Jobs, Paste JD, History. Endpoint: `POST /candidate-portal/gap-analysis`
+- **Learning Resources** — Per-skill on-demand: TinyFish crawls dev.to and GitHub to extract raw data, then OpenAI synthesizes mentor-style summaries and key takeaways. Each skill runs independently (candidate picks which to explore). SSE streaming. Endpoints: `POST /candidate-portal/learning-resources/skill` (per-skill), `POST /candidate-portal/learning-resources` (batch). Results cached in `saved_jds.lastResources`.
+
+Frontend routes:
+- `/careers/login` — Candidate login
+- `/careers/register` — Candidate registration
+- `/careers/portal` — Profile + CV management
+- `/careers/portal/gap-analysis` — Gap analysis
+- `/careers/portal/gap-analysis/:id/resources` — Learning resources
+
+Seed candidate: toan@candidate.example / 123456
 
 ### Database
 
-TypeORM with `synchronize: true` — entities auto-create tables. Two tables:
-- `jobs` — title, description, requirements (text array)
+TypeORM with `synchronize: true` — entities auto-create tables. Key tables:
+- `companies` — name, description, logo
+- `users` — email, password, name, role (varchar, default 'recruiter'), companyId (nullable FK), cvText (text), parsedCV (jsonb)
+- `jobs` — title, description, requirements (text array), companyId FK
 - `candidates` — links to job, stores cvText, links (jsonb), enrichment (jsonb), matchResult (jsonb)
+- `saved_jds` — userId FK, title, description, requirements, source, jobId (nullable FK), lastAnalysis (jsonb), lastResources (jsonb), createdAt
 
 ### Key Conventions
 
@@ -88,13 +105,12 @@ TypeORM with `synchronize: true` — entities auto-create tables. Two tables:
 
 - **Always split BE + FE into 2 parallel agents** — when implementing features that span both backend and frontend, launch one agent for `api/` changes and another for `web/` changes. They work on non-overlapping files and can run concurrently.
 - Type-check both after agents complete: `npx tsc --noEmit -p api/tsconfig.json` and `npx tsc --noEmit -p web/tsconfig.app.json`
-- **Always update documentation** — after implementing or changing features, update README.md, CLAUDE.md, and any relevant docs in `docs/` (RECRUITER.md, CANDIDATE.md, etc.) to reflect the changes. Documentation must stay in sync with the codebase.
+- **Always update documentation** — after implementing or changing features, update README.md, CLAUDE.md, and docs/ARCHITECTURE.md to reflect the changes. Documentation must stay in sync with the codebase.
 
 ### TinyFish Platform Selection
 
-- **Candidate Sourcing**: LinkedIn (stealth), Upwork (stealth), Toptal (lite)
-- **Job Discovery**: Upwork, Wellfound
 - **Company Research**: Glassdoor, tech blog, company website
+- **Learning Resources**: dev.to (lite), GitHub (lite) → OpenAI mentor synthesis
 
 ## Environment Variables
 

@@ -4,11 +4,19 @@ export interface ApiResponse<T> {
 }
 
 // Auth
+export type UserRole = 'recruiter' | 'candidate'
+
 export interface RegisterDto {
   email: string
   password: string
   name: string
   companyName: string
+}
+
+export interface CandidateRegisterDto {
+  email: string
+  password: string
+  name: string
 }
 
 export interface LoginDto {
@@ -35,8 +43,11 @@ export interface User {
   id: string
   email: string
   name: string
-  companyId: string
+  role: UserRole
+  companyId: string | null
   company?: Company
+  cvText?: string | null
+  parsedCV?: ParsedCVData | null
   createdAt: string
 }
 
@@ -367,5 +378,66 @@ export interface SourcingResult {
   query: string
   candidates: SourcedCandidate[]
   sources: string[]
+  searchedAt: string
+}
+
+// ─── Candidate Portal ──────────────────────────────────────────────
+
+export interface SavedJD {
+  id: string
+  userId: string
+  title: string
+  description: string
+  requirements: string[]
+  source: 'pasted' | 'platform'
+  jobId: string | null
+  lastAnalysis?: GapAnalysis | null
+  lastResources?: LearningResourceResult[] | null
+  createdAt: string
+}
+
+export interface CreateSavedJDDto {
+  title: string
+  description: string
+  requirements: string[]
+  jobId?: string
+}
+
+export interface GapAnalysis {
+  id: string
+  userId: string
+  savedJdId: string
+  overallScore: number
+  explanation: string
+  strengths: string[]
+  gaps: string[]
+  recommendation: 'strong_match' | 'good_match' | 'partial_match' | 'weak_match'
+  improvementAreas: ImprovementArea[]
+  skillScores: SkillScore[]
+  createdAt: string
+}
+
+export interface ImprovementArea {
+  skill: string
+  currentLevel: 'partial' | 'no'
+  priority: 'high' | 'medium' | 'low'
+  description: string
+}
+
+export interface LearningResource {
+  title: string
+  url: string
+  source: string
+  type: 'project' | 'blog' | 'course' | 'article' | 'challenge' | 'paper'
+  relevance?: string  // made optional, replaced by summary/keyTakeaways
+  description: string
+  skill: string
+  keyTakeaways?: string[]
+  summary?: string
+}
+
+export interface LearningResourceResult {
+  skill: string
+  resources: LearningResource[]
   searchedAt: string
 }

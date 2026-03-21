@@ -242,9 +242,6 @@ export function JobDetailPage() {
                       <><LinkIcon className="h-4 w-4" /> Copy Apply Link</>
                     )}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate(`/jobs/${jobId}/source`)}>
-                    <Users className="h-4 w-4" /> Source Candidates
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>

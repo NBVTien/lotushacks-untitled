@@ -61,19 +61,30 @@ export class SeedService implements OnModuleInit {
         email: 'hr@acme.example',
         password: hashedPassword,
         name: 'Alice Recruiter',
+        role: 'recruiter',
         companyId: techCorp.id,
       }),
       this.userRepo.create({
         email: 'hr@moonlight.example',
         password: hashedPassword,
         name: 'Bob Recruiter',
+        role: 'recruiter',
         companyId: startupAI.id,
       }),
       this.userRepo.create({
         email: 'hr@nova.example',
         password: hashedPassword,
         name: 'Charlie Recruiter',
+        role: 'recruiter',
         companyId: globalSoft.id,
+      }),
+      // Candidate user
+      this.userRepo.create({
+        email: 'toan@candidate.example',
+        password: hashedPassword,
+        name: 'Tran Thai Toan',
+        role: 'candidate',
+        companyId: null,
       }),
     ])
 

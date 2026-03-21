@@ -5,17 +5,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { authApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { LayoutDashboard, Loader2 } from 'lucide-react'
+import { Briefcase, Loader2 } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
 import { toast } from 'sonner'
 
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 
-export function LoginPage() {
+export function CandidateLoginPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  useEffect(() => { document.title = 'Sign In — TalentLens Recruiter' }, [])
+  useEffect(() => { document.title = 'Sign In — TalentLens Career Portal' }, [])
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -61,14 +61,14 @@ export function LoginPage() {
     setLoading(true)
     try {
       const res = await authApi.login({ email, password })
-      if (res.user.role !== 'recruiter') {
-        setError('This login is for recruiters only. Candidates please use the Career Portal login.')
-        toast.error('This login is for recruiters only')
+      if (res.user.role !== 'candidate') {
+        setError('This login is for candidates only. Please use the recruiter login.')
+        toast.error('This login is for candidates only')
         setLoading(false)
         return
       }
       login(res.accessToken, res.user)
-      navigate('/')
+      navigate('/careers/portal')
     } catch {
       setError('Invalid email or password')
       toast.error('Invalid email or password')
@@ -83,22 +83,22 @@ export function LoginPage() {
         <div className="hidden w-1/2 bg-primary lg:flex lg:flex-col lg:justify-between lg:p-12">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
-              <LayoutDashboard className="h-5 w-5 text-white" />
+              <Briefcase className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-semibold text-white">Recruit AI</span>
+            <span className="text-lg font-semibold text-white">Career Portal</span>
           </div>
           <div>
             <h2 className="text-3xl font-bold leading-tight text-white">
-              Smarter hiring,
+              Your career,
               <br />
-              powered by AI.
+              supercharged by AI.
             </h2>
             <p className="mt-4 max-w-md text-base text-white/70">
-              Upload CVs, enrich with real-world data from GitHub and LinkedIn, and get explainable
-              hiring decisions in minutes.
+              Analyze your CV, find skill gaps, and get personalized learning resources to land your
+              dream job.
             </p>
           </div>
-          <p className="text-sm text-white/40">AI Recruitment Copilot</p>
+          <p className="text-sm text-white/40">AI Career Copilot</p>
         </div>
 
         {/* Right -- form */}
@@ -107,14 +107,14 @@ export function LoginPage() {
             {/* Mobile brand */}
             <div className="mb-8 flex items-center gap-2 lg:hidden">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                <LayoutDashboard className="h-4 w-4 text-white" />
+                <Briefcase className="h-4 w-4 text-white" />
               </div>
-              <span className="text-lg font-semibold">Recruit AI</span>
+              <span className="text-lg font-semibold">Career Portal</span>
             </div>
 
             <div className="rounded-2xl border border-border/40 bg-card p-8 shadow-sm">
               <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
+              <p className="mt-1 text-sm text-muted-foreground">Sign in to your candidate account</p>
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-6">
                 {error && (
@@ -127,7 +127,7 @@ export function LoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="hr@company.com"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value)
@@ -148,7 +148,8 @@ export function LoginPage() {
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value)
-                      if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }))
+                      if (fieldErrors.password)
+                        setFieldErrors((prev) => ({ ...prev, password: undefined }))
                     }}
                     onBlur={() => handleBlur('password')}
                     className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.password && fieldErrors.password ? 'border-destructive' : ''}`}
@@ -171,14 +172,13 @@ export function LoginPage() {
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
                 Don't have an account?{' '}
-                <Link to="/register" className="font-medium text-primary hover:underline">
+                <Link to="/careers/register" className="font-medium text-primary hover:underline">
                   Register
                 </Link>
               </p>
               <p className="mt-2 text-center text-sm text-muted-foreground">
-                Looking for jobs?{' '}
-                <Link to="/careers/login" className="font-medium text-primary hover:underline">
-                  Candidate login
+                <Link to="/login" className="font-medium text-primary hover:underline">
+                  Recruiter login
                 </Link>
               </p>
             </div>

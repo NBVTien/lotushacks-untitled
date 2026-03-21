@@ -7,19 +7,30 @@ import { JobDetailPage } from './pages/JobDetail'
 import { CandidateDetailPage } from './pages/CandidateDetail'
 import { CareersPage } from './pages/Careers'
 import { ApplyPage } from './pages/Apply'
-import { JobDiscoveryPage } from './pages/JobDiscovery'
 import { CompanyResearchPage } from './pages/CompanyResearch'
-import { CandidateSourcingPage } from './pages/CandidateSourcing'
 import { CandidateComparePage } from './pages/CandidateCompare'
 import { LoginPage } from './pages/Login'
 import { RegisterPage } from './pages/Register'
+import { CandidateLoginPage } from './pages/CandidateLogin'
+import { CandidateRegisterPage } from './pages/CandidateRegister'
+import { CandidatePortalPage } from './pages/CandidatePortal'
+import { GapAnalysisPage } from './pages/GapAnalysis'
+import { LearningResourcesPage } from './pages/LearningResources'
 import { Briefcase, LogOut, LayoutDashboard, Moon, Sun } from 'lucide-react'
 import { ThemeProvider, useTheme } from './lib/theme'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (user?.role === 'candidate') return <Navigate to="/careers/portal" replace />
+  return <>{children}</>
+}
+
+function CandidateProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth()
+  if (!isAuthenticated) return <Navigate to="/careers/login" replace />
+  if (user?.role !== 'candidate') return <Navigate to="/careers" replace />
   return <>{children}</>
 }
 
@@ -131,11 +142,16 @@ function MobileHeader() {
 
 function CareersNav() {
   const location = useLocation()
+  const { isAuthenticated, isCandidate, logout } = useAuth()
 
-  const navLinks = [
-    { to: '/careers/discover', label: 'Discover Jobs' },
-    { to: '/login', label: 'For Recruiters' },
-  ]
+  const navLinks = isAuthenticated && isCandidate
+    ? [
+        { to: '/careers/portal', label: 'My Profile' },
+        { to: '/careers/portal/gap-analysis', label: 'Gap Analysis' },
+      ]
+    : [
+        { to: '/careers/login', label: 'Login' },
+      ]
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur-sm">
@@ -148,7 +164,7 @@ function CareersNav() {
         </Link>
         <nav className="flex items-center gap-6">
           {navLinks.map((link) => {
-            const isActive = location.pathname === link.to
+            const isActive = location.pathname === link.to || location.pathname.startsWith(link.to + '/')
             return (
               <Link
                 key={link.to}
@@ -163,6 +179,14 @@ function CareersNav() {
               </Link>
             )
           })}
+          {isAuthenticated && isCandidate && (
+            <button
+              onClick={logout}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+            >
+              Logout
+            </button>
+          )}
           <ThemeToggle />
         </nav>
       </div>
@@ -193,6 +217,8 @@ export default function App() {
             {/* Auth — no nav */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/careers/login" element={<CandidateLoginPage />} />
+            <Route path="/careers/register" element={<CandidateRegisterPage />} />
 
             {/* Recruiter (protected) — sidebar layout */}
             <Route
@@ -226,16 +252,6 @@ export default function App() {
               }
             />
             <Route
-              path="/jobs/:jobId/source"
-              element={
-                <ProtectedRoute>
-                  <RecruiterLayout>
-                    <CandidateSourcingPage />
-                  </RecruiterLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/jobs/:jobId/candidates/:candidateId"
               element={
                 <ProtectedRoute>
@@ -254,17 +270,6 @@ export default function App() {
                   <CareersNav />
                   <main className="mx-auto max-w-5xl px-6 py-8">
                     <CareersPage />
-                  </main>
-                </>
-              }
-            />
-            <Route
-              path="/careers/discover"
-              element={
-                <>
-                  <CareersNav />
-                  <main className="mx-auto max-w-5xl px-6 py-8">
-                    <JobDiscoveryPage />
                   </main>
                 </>
               }
@@ -289,6 +294,41 @@ export default function App() {
                     <ApplyPage />
                   </main>
                 </>
+              }
+            />
+
+            {/* Candidate Portal (protected, candidate only) */}
+            <Route
+              path="/careers/portal"
+              element={
+                <CandidateProtectedRoute>
+                  <CareersNav />
+                  <main className="mx-auto max-w-5xl px-6 py-8">
+                    <CandidatePortalPage />
+                  </main>
+                </CandidateProtectedRoute>
+              }
+            />
+            <Route
+              path="/careers/portal/gap-analysis"
+              element={
+                <CandidateProtectedRoute>
+                  <CareersNav />
+                  <main className="mx-auto max-w-5xl px-6 py-8">
+                    <GapAnalysisPage />
+                  </main>
+                </CandidateProtectedRoute>
+              }
+            />
+            <Route
+              path="/careers/portal/gap-analysis/:analysisId/resources"
+              element={
+                <CandidateProtectedRoute>
+                  <CareersNav />
+                  <main className="mx-auto max-w-5xl px-6 py-8">
+                    <LearningResourcesPage />
+                  </main>
+                </CandidateProtectedRoute>
               }
             />
           </Routes>

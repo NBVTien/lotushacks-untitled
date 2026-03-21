@@ -3,28 +3,30 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { authApi } from '@/lib/api'
+import { candidateAuthApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { LayoutDashboard, Loader2 } from 'lucide-react'
+import { Briefcase, Loader2 } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
 import { toast } from 'sonner'
 
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 
-export function LoginPage() {
+type RegField = 'name' | 'email' | 'password'
+
+export function CandidateRegisterPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  useEffect(() => { document.title = 'Sign In — TalentLens Recruiter' }, [])
+  useEffect(() => { document.title = 'Register — TalentLens Career Portal' }, [])
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
-  const [touched, setTouched] = useState<{ email?: boolean; password?: boolean }>({})
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<RegField, string>>>({})
+  const [touched, setTouched] = useState<Partial<Record<RegField, boolean>>>({})
 
-  const validateField = (field: 'email' | 'password', value: string) => {
+  const validateField = (field: RegField, value: string) => {
+    if (field === 'name' && !value.trim()) return 'Name is required'
     if (field === 'email') {
       if (!value.trim()) return 'Email is required'
       if (!isValidEmail(value)) return 'Please enter a valid email'
@@ -36,23 +38,30 @@ export function LoginPage() {
     return undefined
   }
 
-  const handleBlur = (field: 'email' | 'password') => {
+  const handleBlur = (field: RegField) => {
     setTouched((t) => ({ ...t, [field]: true }))
-    const value = field === 'email' ? email : password
-    setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, value) }))
+    setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, form[field]) }))
   }
 
   const validateAll = () => {
-    const errs = {
-      email: validateField('email', email),
-      password: validateField('password', password),
+    const fields: RegField[] = ['name', 'email', 'password']
+    const errs: Partial<Record<RegField, string>> = {}
+    const t: Partial<Record<RegField, boolean>> = {}
+    for (const f of fields) {
+      errs[f] = validateField(f, form[f])
+      t[f] = true
     }
     setFieldErrors(errs)
-    setTouched({ email: true, password: true })
-    return !errs.email && !errs.password
+    setTouched(t)
+    return !Object.values(errs).some(Boolean)
   }
 
-  const hasErrors = !email.trim() || !isValidEmail(email) || !password.trim() || password.length < 6
+  const hasErrors =
+    !form.name.trim() ||
+    !form.email.trim() ||
+    !isValidEmail(form.email) ||
+    !form.password.trim() ||
+    form.password.length < 6
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,20 +69,21 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await authApi.login({ email, password })
-      if (res.user.role !== 'recruiter') {
-        setError('This login is for recruiters only. Candidates please use the Career Portal login.')
-        toast.error('This login is for recruiters only')
-        setLoading(false)
-        return
-      }
+      const res = await candidateAuthApi.register(form)
       login(res.accessToken, res.user)
-      navigate('/')
-    } catch {
-      setError('Invalid email or password')
-      toast.error('Invalid email or password')
+      navigate('/careers/portal')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      const errorMsg = msg || 'Registration failed'
+      setError(errorMsg)
+      toast.error(errorMsg)
     }
     setLoading(false)
+  }
+
+  const update = (field: RegField, value: string) => {
+    setForm({ ...form, [field]: value })
+    if (fieldErrors[field]) setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
   }
 
   return (
@@ -83,22 +93,22 @@ export function LoginPage() {
         <div className="hidden w-1/2 bg-primary lg:flex lg:flex-col lg:justify-between lg:p-12">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
-              <LayoutDashboard className="h-5 w-5 text-white" />
+              <Briefcase className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-semibold text-white">Recruit AI</span>
+            <span className="text-lg font-semibold text-white">Career Portal</span>
           </div>
           <div>
             <h2 className="text-3xl font-bold leading-tight text-white">
-              Smarter hiring,
+              Start your
               <br />
-              powered by AI.
+              career journey.
             </h2>
             <p className="mt-4 max-w-md text-base text-white/70">
-              Upload CVs, enrich with real-world data from GitHub and LinkedIn, and get explainable
-              hiring decisions in minutes.
+              Create your account to analyze your CV, discover skill gaps, and get personalized
+              learning resources.
             </p>
           </div>
-          <p className="text-sm text-white/40">AI Recruitment Copilot</p>
+          <p className="text-sm text-white/40">AI Career Copilot</p>
         </div>
 
         {/* Right -- form */}
@@ -107,14 +117,16 @@ export function LoginPage() {
             {/* Mobile brand */}
             <div className="mb-8 flex items-center gap-2 lg:hidden">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                <LayoutDashboard className="h-4 w-4 text-white" />
+                <Briefcase className="h-4 w-4 text-white" />
               </div>
-              <span className="text-lg font-semibold">Recruit AI</span>
+              <span className="text-lg font-semibold">Career Portal</span>
             </div>
 
             <div className="rounded-2xl border border-border/40 bg-card p-8 shadow-sm">
-              <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
+              <h1 className="text-2xl font-semibold tracking-tight">Create Account</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Get started with your career copilot
+              </p>
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-6">
                 {error && (
@@ -123,16 +135,27 @@ export function LoginPage() {
                   </div>
                 )}
                 <div className="space-y-2">
+                  <Label htmlFor="name">Your Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Jane Doe"
+                    value={form.name}
+                    onChange={(e) => update('name', e.target.value)}
+                    onBlur={() => handleBlur('name')}
+                    className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.name && fieldErrors.name ? 'border-destructive' : ''}`}
+                  />
+                  {touched.name && fieldErrors.name && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="hr@company.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value)
-                      if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }))
-                    }}
+                    placeholder="you@example.com"
+                    value={form.email}
+                    onChange={(e) => update('email', e.target.value)}
                     onBlur={() => handleBlur('email')}
                     className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.email && fieldErrors.email ? 'border-destructive' : ''}`}
                   />
@@ -145,11 +168,9 @@ export function LoginPage() {
                   <Input
                     id="password"
                     type="password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value)
-                      if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }))
-                    }}
+                    placeholder="Min 6 characters"
+                    value={form.password}
+                    onChange={(e) => update('password', e.target.value)}
                     onBlur={() => handleBlur('password')}
                     className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.password && fieldErrors.password ? 'border-destructive' : ''}`}
                   />
@@ -161,24 +182,18 @@ export function LoginPage() {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Signing in...
+                      Creating...
                     </span>
                   ) : (
-                    'Sign In'
+                    'Create Account'
                   )}
                 </Button>
               </form>
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
-                Don't have an account?{' '}
-                <Link to="/register" className="font-medium text-primary hover:underline">
-                  Register
-                </Link>
-              </p>
-              <p className="mt-2 text-center text-sm text-muted-foreground">
-                Looking for jobs?{' '}
+                Already have an account?{' '}
                 <Link to="/careers/login" className="font-medium text-primary hover:underline">
-                  Candidate login
+                  Sign In
                 </Link>
               </p>
             </div>

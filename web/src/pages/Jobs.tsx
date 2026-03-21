@@ -112,6 +112,8 @@ export function JobsPage() {
   const [statsLoading, setStatsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => { document.title = 'Jobs — TalentLens Recruiter' }, [])
   const [submitting, setSubmitting] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')

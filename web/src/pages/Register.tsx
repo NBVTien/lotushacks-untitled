@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,9 @@ type RegField = 'name' | 'email' | 'password' | 'companyName'
 export function RegisterPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
+
+  useEffect(() => { document.title = 'Register — TalentLens Recruiter' }, [])
+
   const [form, setForm] = useState({
     name: '',
     email: '',

@@ -1,8 +1,8 @@
-# TalentLens — AI Recruitment Copilot
+# TalentLens — AI Career Platform powered by TinyFish
 
 <div align="center">
 
-**See candidates clearly through AI.** Enrich profiles with real-world data, discover jobs across platforms, and make explainable hiring decisions — all powered by AI.
+**The recruitment process is broken on both sides.** Recruiters can't verify what candidates claim. Candidates can't learn why they fail. TalentLens uses [TinyFish](https://tinyfish.ai) web agents to fix both — by crawling the real internet for evidence.
 
 [![Built with TinyFish](https://img.shields.io/badge/Built%20with-TinyFish-blue?style=for-the-badge)](https://tinyfish.ai)
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
@@ -13,66 +13,120 @@
 
 ---
 
-## The Problem
+## The Real Problems
 
-Recruiters spend hours manually checking GitHub profiles, LinkedIn pages, and portfolio sites. Candidates waste time searching dozens of job boards one by one. Both sides lack context.
+### Problem 1: Recruiters are flying blind
 
-## The Solution
+A recruiter receives 200 CVs for a Senior React Developer position. Every CV says "proficient in React." But:
 
-A two-sided platform where **AI does the legwork**:
+- **How do you know it's real?** A CV says "5 years React experience" — but the candidate's GitHub has zero React repos and their last commit was 2 years ago. The recruiter has no time to check.
+- **Signals are scattered across the internet.** The candidate's real skill level is shown on their GitHub, LinkedIn, dev.to blog, deployed portfolio, Stack Overflow reputation — not on a 2-page PDF. But visiting 5+ sites per candidate for 200 candidates? That's 1,000 browser tabs.
+- **"Worked at TechCorp for 3 years"** — does TechCorp even exist? Is it a 5-person agency or a Fortune 500? The recruiter doesn't have time to Google every company on every CV.
+- **Scoring is subjective.** Two recruiters read the same CV and come to different conclusions. There's no consistent framework, no explainability, no audit trail.
 
-### For Recruiters
+**The core issue:** Information about candidates exists on the public internet, but recruiters can't access it at scale. Manual verification doesn't scale. So they guess.
 
-- **Upload a CV** → AI parses it, fetches the candidate's GitHub profile, and scores them against job requirements — all in seconds
-- **Deep enrichment on demand** → Click to crawl LinkedIn, analyze portfolios, check blog activity, verify companies from work history — each runs independently with live progress streaming
-- **Source candidates** → TinyFish browser agents search ITviec, TopDev, and LinkedIn in parallel to find matching talent
+### Problem 2: Candidates are in the dark
 
-### For Candidates
+A developer applies to 30 jobs and gets rejected from all of them. They never learn:
 
-- **AI Job Discovery** → Enter your skills and location, and browser agents crawl multiple job boards simultaneously to surface matching positions you'd never find manually
-- **Company Research** → Before you apply, get Glassdoor reviews, tech stack info, and culture insights — all fetched live
+- **What skills they're actually missing.** The JD says "Kubernetes required" — do they have it or not? Their CV mentions Docker but not K8s. Is that a gap? How big?
+- **What to learn and where.** Even if they know "learn Kubernetes," where do they start? Which blog post? Which open-source project? Generic advice isn't actionable.
+- **What companies are really like.** They apply without knowing the tech stack, engineering culture, or Glassdoor reviews. They're applying blind.
 
-## How TinyFish Powers It
+**The core issue:** Candidates have no self-assessment tool that tells them exactly where they stand relative to a specific job, and no way to find targeted resources to close each gap.
 
-[TinyFish](https://tinyfish.ai) provides SOTA web agents as an API — send a URL + a goal in plain English, get structured JSON back. This project uses it for:
+---
 
-| Feature | TinyFish Usage |
-|---------|---------------|
-| LinkedIn enrichment | Stealth browser crawls LinkedIn profiles (bypasses login walls) |
-| Portfolio analysis | Visits personal websites, detects tech stack, checks design quality |
-| Blog analysis | Crawls dev.to, Medium, Hashnode for writing quality and topics |
-| Company intelligence | Verifies companies from CV, checks tech stack and industry |
-| Job discovery | 3 agents crawl ITviec, TopDev, LinkedIn Jobs in parallel |
-| Company research | Agents fetch Glassdoor reviews, tech blogs, company info |
-| Candidate sourcing | Agents search job platforms for matching candidate profiles |
+## How TalentLens Solves It — with TinyFish
 
-All TinyFish calls run in **parallel** with **SSE streaming** so users see live progress as agents browse the web.
+[TinyFish](https://tinyfish.ai) provides SOTA web agents as an API — send a URL + a goal in plain English, get structured data back via SSE streaming. TalentLens uses this to **automate what humans do manually on the internet**: verify, research, and discover.
+
+### For Recruiters: Automated verification pipeline
+
+```
+Upload CV
+  → AI parses it (OpenAI: skills, experience, links)
+  → GitHub API fetches real repos, languages, commit activity
+  → TinyFish crawls LinkedIn (stealth) to verify work history
+  → AI scores the candidate with all evidence combined
+  → Recruiter sees: 82/100, strengths, gaps, explainable recommendation
+```
+
+**Then, on demand, TinyFish goes deeper:**
+
+| What the recruiter wonders | What TinyFish does |
+|---|---|
+| "Does this portfolio site actually work?" | Visits the URL, checks if it's online, detects tech stack (React? Vue?), evaluates design quality |
+| "They say they blog on dev.to — is it real?" | Crawls their dev.to/Medium profile, counts posts, reads topics, assesses writing quality |
+| "They deployed 3 projects — do they work?" | Visits each deployed app, checks if it loads, analyzes UI quality and features |
+| "Is their Stack Overflow profile legit?" | Checks reputation, badges, top tags, answer count |
+| "Did they really work at this company?" | Googles the company, visits the website, checks team/about pages, returns company intel |
+
+**Before TalentLens:** 45 minutes per candidate, opening tabs, reading profiles, Googling companies.
+**After TalentLens:** Upload CV, wait 30 seconds, get a verified, scored, explainable assessment.
+
+### For Candidates: From rejection to roadmap
+
+```
+Upload CV → Select a JD → AI shows exactly what matches and what doesn't
+  → Per-skill breakdown: React ✅ yes, Node.js ⚠️ partial, Kubernetes ❌ no
+  → Prioritized improvement areas: Kubernetes (high), AWS (medium), GraphQL (low)
+  → Click "Explore" on any skill gap
+  → TinyFish crawls dev.to + GitHub, reads actual content
+  → OpenAI synthesizes mentor-style advice: summaries, key takeaways, learning path
+  → Results cached — revisit anytime without re-crawling
+```
+
+| What the candidate wonders | What TinyFish does |
+|---|---|
+| "I'm missing Kubernetes — where do I start?" | TinyFish crawls dev.to, reads actual articles, then OpenAI generates mentor-style summary + key takeaways |
+| "Any good open-source projects to learn from?" | TinyFish crawls GitHub repos, reads READMEs, then OpenAI explains what you'll learn and how to use them |
+| "What's this company actually like?" | Crawls Glassdoor for reviews, tech blogs for engineering culture, company website for overview |
+
+**Before TalentLens:** Apply everywhere, get rejected everywhere, don't know why, don't know how to improve.
+**After TalentLens:** See exactly where you stand, what to improve first, and get specific resources to learn each skill.
+
+---
+
+## TinyFish Usage Summary
+
+Every TinyFish call follows one pattern: URL + goal → SSE streaming → structured JSON.
+
+| Use Case | Target | Mode | Who |
+|----------|--------|------|-----|
+| LinkedIn Enrichment | linkedin.com/in/xxx | stealth | Recruiter |
+| Portfolio Analysis | Candidate's website | lite | Recruiter |
+| Blog Analysis | dev.to / Medium / blog | lite | Recruiter |
+| Live Project Check | Deployed web apps | lite | Recruiter |
+| Company Verification | Google → company sites | lite | Recruiter |
+| Company Research | Glassdoor, tech blogs | lite | Candidate |
+| Learning Resources | dev.to + GitHub | lite | Candidate |
+
+7 use cases. All SSE-streamed. All structured JSON output. All powered by one `TinyFishCrawlService`. Learning resources add an OpenAI mentor synthesis step.
+
+---
 
 ## Quick Start
 
 ```bash
-# Install
 git clone <repo-url> && cd lotushacks-untitled && npm install
-
-# Configure
-cp .env.example .env
-# Add your OPENAI_API_KEY and TINYFISH_API_KEY
-
-# Start infrastructure
-docker compose up -d
-
-# Run
-npm run dev
+cp .env.example .env    # Add OPENAI_API_KEY + TINYFISH_API_KEY
+docker compose up -d     # PostgreSQL + MinIO + Redis
+npm run dev              # API :4005 + Web :5173
 ```
 
-Open [localhost:5173](http://localhost:5173) (recruiter) or [localhost:5173/careers](http://localhost:5173/careers) (candidate).
+| URL | For |
+|-----|-----|
+| [localhost:5173](http://localhost:5173) | Recruiter Dashboard |
+| [localhost:5173/careers](http://localhost:5173/careers) | Browse Jobs, Company Research |
+| [localhost:5173/careers/portal](http://localhost:5173/careers/portal) | Candidate Portal: CV Profile, Gap Analysis, Learning Resources |
 
-## Platform Guides
+**Demo accounts** (password: `123456`):
+- Recruiter: `hr@acme.example`
+- Candidate: `toan@candidate.example`
 
-| Guide | For |
-|-------|-----|
-| [Recruiter Guide](docs/RECRUITER.md) | Manage jobs, evaluate candidates, source talent |
-| [Candidate Guide](docs/CANDIDATE.md) | Apply for jobs, discover opportunities, research companies |
+---
 
 ## Tech Stack
 
@@ -83,34 +137,11 @@ Open [localhost:5173](http://localhost:5173) (recruiter) or [localhost:5173/care
 | Database | PostgreSQL 16, Redis 7 |
 | Storage | MinIO (S3-compatible) |
 | AI | OpenAI GPT-4o-mini |
-| Web Intelligence | [TinyFish](https://tinyfish.ai) |
+| Web Intelligence | [TinyFish](https://tinyfish.ai) — SOTA web agents as API |
 
-## Architecture
+## Documentation
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Candidate Portal              │  Recruiter Dashboard│
-│  - Browse & apply              │  - Manage jobs       │
-│  - Discover jobs (AI)          │  - Evaluate CVs      │
-│  - Research companies          │  - Source candidates  │
-└────────────────┬────────────────────────┬────────────┘
-                 │        REST API        │
-┌────────────────┴────────────────────────┴────────────┐
-│  NestJS API                                          │
-│  ├── candidates/   CV parsing, enrichment, scoring   │
-│  ├── discovery/    Job search, sourcing, research    │
-│  ├── enrichment/   GitHub API + TinyFish             │
-│  └── matching/     OpenAI scoring engine             │
-├──────────────────────────────────────────────────────┤
-│  PostgreSQL │ MinIO │ Redis + BullMQ                 │
-└──────────────────────────────────────────────────────┘
-         │                              │
-    ┌────┴────┐                  ┌──────┴──────┐
-    │ OpenAI  │                  │  TinyFish   │
-    │ GPT-4o  │                  │  Browser    │
-    │ -mini   │                  │  Agents     │
-    └─────────┘                  └─────────────┘
-```
+- [Architecture](docs/ARCHITECTURE.md) — System design, data flows, database schema, API reference
 
 ## License
 
