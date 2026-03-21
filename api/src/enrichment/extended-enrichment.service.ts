@@ -3,11 +3,11 @@ import { TinyFishCrawlService, type ProgressCallback } from './tinyfish-crawl.se
 import type {
   ExtendedEnrichment,
   ExtendedEnrichmentType,
+  LinkedInProfile,
   PortfolioAnalysis,
   LiveProjectCheck,
   BlogAnalysis,
   StackOverflowProfile,
-  WorkVerification,
   ParsedCVData,
 } from '@lotushack/shared'
 
@@ -20,6 +20,7 @@ export class ExtendedEnrichmentService {
   async enrich(
     types: ExtendedEnrichmentType[],
     context: {
+      linkedinUrl?: string | null
       portfolioUrls: string[]
       projectUrls: string[]
       blogUrls: string[]
@@ -28,16 +29,21 @@ export class ExtendedEnrichmentService {
     },
     existing: ExtendedEnrichment | null,
     onProgress?: ProgressCallback,
-  ): Promise<ExtendedEnrichment> {
-    const result: ExtendedEnrichment = existing || {
+  ): Promise<ExtendedEnrichment & { _linkedin?: LinkedInProfile | null }> {
+    const result: ExtendedEnrichment & { _linkedin?: LinkedInProfile | null } = existing || {
       portfolio: null,
       liveProjects: [],
       blog: null,
       stackoverflow: null,
-      verification: [],
     }
 
     const tasks: Promise<void>[] = []
+
+    if (types.includes('linkedin') && context.linkedinUrl) {
+      tasks.push(
+        this.enrichLinkedIn(context.linkedinUrl, onProgress).then((r) => { result._linkedin = r }),
+      )
+    }
 
     if (types.includes('portfolio') && context.portfolioUrls.length > 0) {
       tasks.push(
@@ -63,14 +69,85 @@ export class ExtendedEnrichmentService {
       )
     }
 
-    if (types.includes('verification') && context.parsedCV?.experience?.length) {
-      tasks.push(
-        this.verifyWork(context.parsedCV.experience.slice(0, 3), onProgress).then((r) => { result.verification = r }),
-      )
-    }
-
     await Promise.all(tasks)
     return result
+  }
+
+  private async enrichLinkedIn(url: string, onProgress?: ProgressCallback): Promise<LinkedInProfile | null> {
+    const publicUrl = url.includes('?') ? url : `${url}?trk=people_guest_people_search-card`
+    this.logger.log(`Enriching LinkedIn: ${publicUrl}`)
+
+    const linkedinPrompt =
+      'GOAL: Extract LinkedIn profile data. Try these methods IN ORDER until you get data:\n\n' +
+      'METHOD 1 — Direct public view:\n' +
+      '- Visit the provided URL (it has ?trk= param for guest view)\n' +
+      '- Scroll down, click "see more" buttons to expand sections\n' +
+      '- Extract all visible data: name, headline, About, Experience, Education, Skills, Activity\n' +
+      '- If you can see profile data, extract it and return JSON. DONE.\n\n' +
+      'METHOD 2 — If METHOD 1 shows login wall or "Join LinkedIn":\n' +
+      '- Go to Google: https://www.google.com/search?q=site:linkedin.com/in/ "PERSON_NAME"\n' +
+      '- Look at the Google search snippets\n' +
+      '- Click on cached version if available\n' +
+      '- Extract whatever data is visible. DONE.\n\n' +
+      'METHOD 3 — If METHOD 2 also fails:\n' +
+      '- Go to https://translate.yandex.com/translate\n' +
+      '- Paste the original LinkedIn URL into the translation input\n' +
+      '- Select English → any language\n' +
+      '- Extract data from the translated page. DONE.\n\n' +
+      'IMPORTANT: Do NOT visit SignalHire, RocketReach, or people-search sites.\n\n' +
+      'Return JSON with keys: headline, location, summary, ' +
+      'experience (array of {title, company, duration, description}), ' +
+      'skills (array of strings), education (array of {degree, school, years}), ' +
+      'activity (array of strings), certifications (array of strings), ' +
+      'method_used (string: "direct", "google", or "yandex")'
+
+    const raw = await this.tinyfish.crawl(publicUrl, linkedinPrompt, {
+      browserProfile: 'stealth',
+      label: 'LinkedIn',
+      onProgress,
+    })
+
+    if (!raw) {
+      onProgress?.('[LinkedIn] No data returned')
+      return null
+    }
+
+    const result = this.parseLinkedInResponse(raw)
+    onProgress?.(`[LinkedIn] Done: ${result.experience.length} experiences, ${result.skills.length} skills`)
+    return result
+  }
+
+  private parseLinkedInResponse(raw: string): LinkedInProfile {
+    try {
+      const data = JSON.parse(raw)
+
+      if (data.repositories || data.top_languages || data.total_stars !== undefined) {
+        this.logger.warn('LinkedIn response contains GitHub data')
+        return { headline: null, summary: null, experience: [], skills: [], raw }
+      }
+
+      let experience: string[] = []
+      if (Array.isArray(data.experience)) {
+        experience = data.experience.map((e: unknown) => {
+          if (typeof e === 'string') return e
+          const exp = e as Record<string, string>
+          return [exp.title, exp.company, exp.duration, exp.description].filter(Boolean).join(' — ')
+        })
+      }
+
+      let skills: string[] = data.skills || []
+      if (!Array.isArray(skills)) skills = []
+
+      return {
+        headline: data.headline || null,
+        summary: data.summary || data.about || null,
+        experience,
+        skills,
+        raw,
+      }
+    } catch {
+      return { headline: null, summary: null, experience: [], skills: [], raw }
+    }
   }
 
   private async enrichPortfolio(url: string, onProgress?: ProgressCallback): Promise<PortfolioAnalysis | null> {
@@ -208,48 +285,4 @@ export class ExtendedEnrichmentService {
     }
   }
 
-  private async verifyWork(
-    experience: { title: string; company: string; duration: string; description: string }[],
-    onProgress?: ProgressCallback,
-  ): Promise<WorkVerification[]> {
-    const results: WorkVerification[] = []
-
-    for (const exp of experience) {
-      if (!exp.company || exp.company === 'Self-employed' || exp.company === 'Freelance') continue
-      this.logger.log(`Verifying work: ${exp.company}`)
-
-      const raw = await this.tinyfish.crawl(
-        `https://www.google.com/search?q=${encodeURIComponent(`"${exp.company}" company`)}`,
-        `Search for the company "${exp.company}". Then:\n` +
-        '1. Visit the company website (if found)\n' +
-        '2. Look for About/Team/People page\n' +
-        `3. Check if there is any mention of the role "${exp.title}"\n` +
-        '4. Return JSON:\n' +
-        '- verified (boolean|null): true if evidence found, false if contradicted, null if inconclusive\n' +
-        '- evidence (string): what you found\n' +
-        '- companyUrl (string|null): the company website URL',
-        { label: `Verify: ${exp.company}`, onProgress },
-      )
-
-      if (!raw) {
-        results.push({ company: exp.company, claimed: `${exp.title} (${exp.duration})`, verified: null, evidence: 'Could not verify', companyUrl: null })
-        continue
-      }
-
-      try {
-        const data = JSON.parse(raw)
-        results.push({
-          company: exp.company,
-          claimed: `${exp.title} (${exp.duration})`,
-          verified: data.verified ?? null,
-          evidence: data.evidence || 'No evidence found',
-          companyUrl: data.companyUrl || null,
-        })
-      } catch {
-        results.push({ company: exp.company, claimed: `${exp.title} (${exp.duration})`, verified: null, evidence: raw.slice(0, 300), companyUrl: null })
-      }
-    }
-
-    return results
-  }
 }

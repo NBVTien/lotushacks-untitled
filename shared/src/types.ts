@@ -79,6 +79,7 @@ export interface Candidate {
   parsedCV: ParsedCVData | null
   enrichment: EnrichedProfile | null
   extendedEnrichment: ExtendedEnrichment | null
+  enrichmentProgress: EnrichmentProgress
   matchResult: MatchResult | null
   status: CandidateStatus
   errorMessage: string | null
@@ -103,10 +104,17 @@ export type CandidateStatus =
   | 'completed'
   | 'error'
 
+export interface ClassifiedUrl {
+  url: string
+  kind: 'portfolio' | 'blog' | 'project' | 'company' | 'other'
+  label: string
+}
+
 export interface ExtractedLinks {
   github: string | null
   linkedin: string | null
   portfolio: string[]
+  classified: ClassifiedUrl[]
 }
 
 export interface EnrichedProfile {
@@ -145,10 +153,18 @@ export interface ExtendedEnrichment {
   liveProjects: LiveProjectCheck[]
   blog: BlogAnalysis | null
   stackoverflow: StackOverflowProfile | null
-  verification: WorkVerification[]
 }
 
-export type ExtendedEnrichmentType = 'portfolio' | 'liveProjects' | 'blog' | 'stackoverflow' | 'verification'
+export type ExtendedEnrichmentType = 'linkedin' | 'portfolio' | 'liveProjects' | 'blog' | 'stackoverflow'
+
+// Per-type enrichment progress tracking
+export interface EnrichmentJobStatus {
+  status: 'queued' | 'running' | 'completed' | 'error'
+  logs: string[]
+  error?: string
+}
+
+export type EnrichmentProgress = Record<string, EnrichmentJobStatus>
 
 export interface PortfolioAnalysis {
   url: string
@@ -186,14 +202,6 @@ export interface StackOverflowProfile {
   topTags: { name: string; score: number }[]
   answerCount: number
   summary: string
-}
-
-export interface WorkVerification {
-  company: string
-  claimed: string
-  verified: boolean | null
-  evidence: string
-  companyUrl: string | null
 }
 
 export interface MatchResult {

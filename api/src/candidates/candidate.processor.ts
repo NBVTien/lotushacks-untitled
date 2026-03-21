@@ -6,7 +6,7 @@ import { Job } from 'bullmq'
 import { CandidateEntity } from '../database'
 import { PdfService } from './pdf.service'
 import { MinioService } from './minio.service'
-import { EnrichmentService } from '../enrichment/enrichment.service'
+import { GitHubApiService } from '../enrichment/github-api.service'
 import { ExtendedEnrichmentService } from '../enrichment/extended-enrichment.service'
 import { MatchingService } from '../matching/matching.service'
 import type { CandidateStatus, ExtendedEnrichmentType } from '@lotushack/shared'
@@ -32,7 +32,7 @@ export class CandidateProcessor extends WorkerHost {
     private readonly repo: Repository<CandidateEntity>,
     private readonly pdf: PdfService,
     private readonly minio: MinioService,
-    private readonly enrichment: EnrichmentService,
+    private readonly githubApi: GitHubApiService,
     private readonly extendedEnrichment: ExtendedEnrichmentService,
     private readonly matching: MatchingService,
   ) {
@@ -90,38 +90,39 @@ export class CandidateProcessor extends WorkerHost {
       await this.repo.update(candidateId, updateData)
       this.logger.log(`[Worker] CV parsed: name="${overrideName || parsed.name}", skills=${parsed.skills.length}, exp=${parsed.experience.length}`)
 
-      // Step 2: Enrichment (skippable on failure)
-      let enrichment = null
+      // Step 2: GitHub enrichment (immediate — uses direct API, fast)
+      let enrichment: import('@lotushack/shared').EnrichedProfile = { github: null, linkedin: null }
       try {
-        this.logger.log(`[Worker] Step 2/3: Enriching (GitHub: ${parsed.links.github || 'none'}, LinkedIn: ${parsed.links.linkedin || 'none'})`)
-        await this.updateStatus(candidateId, 'enriching')
-        await this.repo.update(candidateId, { progressLogs: [] })
+        if (parsed.links.github) {
+          this.logger.log(`[Worker] Step 2/3: GitHub enrichment (${parsed.links.github})`)
+          await this.updateStatus(candidateId, 'enriching')
+          await this.repo.update(candidateId, { progressLogs: [] })
 
-        enrichment = await this.enrichment.enrich(parsed.links, async (msg) => {
-          this.logger.debug(`[Worker] Progress: ${msg}`)
-          await this.appendProgress(candidateId, msg)
-        })
-        await this.repo.update(candidateId, { enrichment, status: 'enriched' as CandidateStatus })
+          const github = await this.githubApi.enrichGitHub(parsed.links.github, async (msg) => {
+            this.logger.debug(`[Worker] Progress: ${msg}`)
+            await this.appendProgress(candidateId, msg)
+          })
+          enrichment = { github, linkedin: null }
+          await this.repo.update(candidateId, { enrichment, status: 'enriched' as CandidateStatus })
+          this.logger.log(`[Worker] GitHub done: ${github ? `@${github.username}, ${github.repositories.length} repos` : 'no data'}`)
+        } else {
+          this.logger.log(`[Worker] Step 2/3: No GitHub link — skipping`)
+          await this.repo.update(candidateId, { enrichment, status: 'enriched' as CandidateStatus })
+        }
         await job.updateProgress(60)
-
-        const enrichSummary = [
-          enrichment.github ? `GitHub: @${enrichment.github.username}, ${enrichment.github.repositories.length} repos` : null,
-          enrichment.linkedin ? `LinkedIn: ${enrichment.linkedin.headline || 'found'}` : null,
-        ].filter(Boolean).join(' | ')
-        this.logger.log(`[Worker] Enrichment done: ${enrichSummary || 'no external data'}`)
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
-        this.logger.warn(`[Worker] Enrichment FAILED (skipping): ${errMsg}`)
+        this.logger.warn(`[Worker] GitHub enrichment FAILED (skipping): ${errMsg}`)
         await this.repo.update(candidateId, {
-          enrichment: null,
-          errorMessage: `Enrichment skipped: ${errMsg}`,
+          enrichment,
+          errorMessage: `GitHub enrichment skipped: ${errMsg}`,
           status: 'enriched' as CandidateStatus,
         })
         await job.updateProgress(60)
       }
 
-      // Step 3: AI Scoring (always runs, with or without enrichment)
-      this.logger.log(`[Worker] Step 3/3: Scoring (enriched: ${!!enrichment?.github || !!enrichment?.linkedin})`)
+      // Step 3: AI Scoring (immediate — with GitHub data, no waiting for TinyFish)
+      this.logger.log(`[Worker] Step 3/3: Scoring (github: ${!!enrichment.github})`)
       await this.updateStatus(candidateId, 'scoring')
 
       const updatedCandidate = await this.repo.findOne({ where: { id: candidateId } })
@@ -132,7 +133,9 @@ export class CandidateProcessor extends WorkerHost {
       await this.repo.update(candidateId, { matchResult, status: 'completed' as CandidateStatus })
       await job.updateProgress(100)
 
-      this.logger.log(`[Worker] ${candidateId} COMPLETED: score=${matchResult.overallScore}/100 (enriched: ${!!enrichment?.github || !!enrichment?.linkedin})`)
+      this.logger.log(`[Worker] ${candidateId} COMPLETED: score=${matchResult.overallScore}/100 (github: ${!!enrichment.github})`)
+
+      // LinkedIn and other TinyFish enrichments are on-demand — user triggers them from the UI
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       this.logger.error(`[Worker] FAILED ${candidateId}: ${errMsg}`)
@@ -141,7 +144,7 @@ export class CandidateProcessor extends WorkerHost {
     }
   }
 
-  /** Re-enrich only: fetch TinyFish data → re-score */
+  /** Re-enrich only: GitHub API (immediate) → re-score */
   private async processEnrichAndScore(job: Job<CandidateJobData>): Promise<void> {
     const { candidateId, jobDescription, jobRequirements, jobScreeningCriteria } = job.data
     this.logger.log(`[Worker] Re-enrich + re-score for ${candidateId}`)
@@ -153,24 +156,26 @@ export class CandidateProcessor extends WorkerHost {
     }
 
     try {
-      // Step 1: Re-enrich
-      this.logger.log(`[Worker] Re-enriching (GitHub: ${candidate.links.github || 'none'}, LinkedIn: ${candidate.links.linkedin || 'none'})`)
+      // Step 1: Re-enrich GitHub (immediate)
+      this.logger.log(`[Worker] Re-enriching GitHub: ${candidate.links.github || 'none'}`)
       await this.repo.update(candidateId, { status: 'enriching' as CandidateStatus, errorMessage: null, progressLogs: [] })
 
-      const enrichment = await this.enrichment.enrich(candidate.links, async (msg) => {
-        this.logger.debug(`[Worker] Progress: ${msg}`)
-        await this.appendProgress(candidateId, msg)
-      })
+      let github = null
+      if (candidate.links.github) {
+        github = await this.githubApi.enrichGitHub(candidate.links.github, async (msg) => {
+          this.logger.debug(`[Worker] Progress: ${msg}`)
+          await this.appendProgress(candidateId, msg)
+        })
+      }
+
+      const currentEnrichment = (candidate.enrichment as import('@lotushack/shared').EnrichedProfile) || { github: null, linkedin: null }
+      const enrichment = { ...currentEnrichment, github }
       await this.repo.update(candidateId, { enrichment, status: 'enriched' as CandidateStatus })
       await job.updateProgress(50)
 
-      const enrichSummary = [
-        enrichment.github ? `GitHub: @${enrichment.github.username}, ${enrichment.github.repositories.length} repos` : null,
-        enrichment.linkedin ? `LinkedIn: ${enrichment.linkedin.headline || 'found'}` : null,
-      ].filter(Boolean).join(' | ')
-      this.logger.log(`[Worker] Re-enrichment done: ${enrichSummary || 'no data'}`)
+      this.logger.log(`[Worker] Re-enrichment done: ${github ? `GitHub: @${github.username}` : 'no GitHub data'}`)
 
-      // Step 2: Re-score with enrichment data
+      // Step 2: Re-score
       this.logger.log(`[Worker] Re-scoring with enrichment data`)
       await this.repo.update(candidateId, { status: 'scoring' as CandidateStatus })
 
@@ -190,23 +195,25 @@ export class CandidateProcessor extends WorkerHost {
     }
   }
 
-  /** Extended enrichment: portfolio, live projects, blog, SO, verification */
+  /** Extended enrichment: runs ONE type per job (each type is queued independently) */
   private async processExtendedEnrich(job: Job<CandidateJobData>): Promise<void> {
     const { candidateId, extendedEnrichTypes, jobDescription, jobRequirements, jobScreeningCriteria } = job.data
     const types = (extendedEnrichTypes || []) as ExtendedEnrichmentType[]
-    this.logger.log(`[Worker] Extended enrich for ${candidateId}: ${types.join(', ')}`)
+    const type = types[0] // Each job handles exactly one type
+    if (!type) return
+
+    this.logger.log(`[Worker] Extended enrich [${type}] for ${candidateId}`)
 
     const candidate = await this.repo.findOne({ where: { id: candidateId } })
     if (!candidate) return
 
     try {
-      await this.repo.update(candidateId, { status: 'enriching' as CandidateStatus, progressLogs: [] })
+      // Mark this type as running
+      await this.updateEnrichmentProgress(candidateId, type, { status: 'running', logs: [] })
 
       // Gather URLs for enrichment
       const portfolioUrls = candidate.links.portfolio || []
-      const blogUrls = portfolioUrls.filter((u) =>
-        /dev\.to|medium\.com|hashnode|blog/i.test(u),
-      )
+      const blogUrls = portfolioUrls.filter((u) => /dev\.to|medium\.com|hashnode|blog/i.test(u))
       const stackoverflowUrl = portfolioUrls.find((u) => /stackoverflow\.com/i.test(u)) || null
 
       // Get project URLs from GitHub repos (if available)
@@ -226,15 +233,15 @@ export class CandidateProcessor extends WorkerHost {
           } catch { /* ok */ }
         }
       }
-      // Also check portfolio URLs that look like apps
       const appUrls = portfolioUrls.filter((u) =>
         !blogUrls.includes(u) && !stackoverflowUrl?.includes(u) && !/linkedin|github/i.test(u),
       )
       projectUrls = [...new Set([...projectUrls, ...appUrls])].slice(0, 3)
 
       const result = await this.extendedEnrichment.enrich(
-        types,
+        [type],
         {
+          linkedinUrl: candidate.links.linkedin,
           portfolioUrls: portfolioUrls.filter((u) => !blogUrls.includes(u) && !/stackoverflow/i.test(u)),
           projectUrls,
           blogUrls,
@@ -243,31 +250,47 @@ export class CandidateProcessor extends WorkerHost {
         },
         candidate.extendedEnrichment as import('@lotushack/shared').ExtendedEnrichment | null,
         async (msg) => {
-          this.logger.debug(`[Worker] Extended: ${msg}`)
-          await this.appendProgress(candidateId, msg)
+          this.logger.debug(`[Worker] [${type}] ${msg}`)
+          await this.appendEnrichmentLog(candidateId, type, msg)
         },
       )
 
+      // Save results
+      const updateData: Record<string, unknown> = {}
+
+      // If LinkedIn was enriched, merge it into the main enrichment field
+      if (result._linkedin !== undefined) {
+        const currentEnrichment = (candidate.enrichment as import('@lotushack/shared').EnrichedProfile) || { github: null, linkedin: null }
+        updateData.enrichment = { ...currentEnrichment, linkedin: result._linkedin }
+        this.logger.log(`[Worker] LinkedIn enrichment saved: ${result._linkedin?.headline || 'no headline'}`)
+        delete result._linkedin
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await this.repo.update(candidateId, { extendedEnrichment: result as any })
-      await job.updateProgress(70)
+      updateData.extendedEnrichment = result as any
+      await this.repo.update(candidateId, updateData)
 
-      // Re-score with extended data
-      this.logger.log(`[Worker] Re-scoring with extended enrichment data`)
-      await this.updateStatus(candidateId, 'scoring')
+      // Mark this type as completed
+      await this.updateEnrichmentProgress(candidateId, type, { status: 'completed', logs: [] })
+      await job.updateProgress(80)
 
-      const matchResult = await this.matching.score(
-        { cvText: candidate.cvText, parsedCV: candidate.parsedCV, enrichment: candidate.enrichment as import('@lotushack/shared').EnrichedProfile | null },
-        { description: jobDescription, requirements: jobRequirements, screeningCriteria: jobScreeningCriteria },
-      )
-      await this.repo.update(candidateId, { matchResult, status: 'completed' as CandidateStatus })
+      // Re-score with latest data
+      this.logger.log(`[Worker] Re-scoring after [${type}] enrichment`)
+      const refreshed = await this.repo.findOne({ where: { id: candidateId } })
+      if (refreshed) {
+        const matchResult = await this.matching.score(
+          { cvText: refreshed.cvText, parsedCV: refreshed.parsedCV, enrichment: refreshed.enrichment as import('@lotushack/shared').EnrichedProfile | null },
+          { description: jobDescription, requirements: jobRequirements, screeningCriteria: jobScreeningCriteria },
+        )
+        await this.repo.update(candidateId, { matchResult })
+      }
       await job.updateProgress(100)
 
-      this.logger.log(`[Worker] Extended enrich COMPLETED for ${candidateId}: score=${matchResult.overallScore}`)
+      this.logger.log(`[Worker] Extended enrich [${type}] COMPLETED for ${candidateId}`)
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      this.logger.error(`[Worker] Extended enrich FAILED ${candidateId}: ${errMsg}`)
-      await this.repo.update(candidateId, { status: 'completed' as CandidateStatus, errorMessage: `Extended enrich failed: ${errMsg}` })
+      this.logger.error(`[Worker] Extended enrich [${type}] FAILED ${candidateId}: ${errMsg}`)
+      await this.updateEnrichmentProgress(candidateId, type, { status: 'error', logs: [], error: errMsg })
     }
   }
 
@@ -281,8 +304,33 @@ export class CandidateProcessor extends WorkerHost {
     if (!candidate) return
     const logs = candidate.progressLogs || []
     logs.push(msg)
-    // Keep last 50 logs
     if (logs.length > 50) logs.splice(0, logs.length - 50)
     await this.repo.update(id, { progressLogs: logs })
+  }
+
+  private async updateEnrichmentProgress(
+    id: string,
+    type: string,
+    update: import('@lotushack/shared').EnrichmentJobStatus,
+  ) {
+    const candidate = await this.repo.findOne({ where: { id }, select: ['id', 'enrichmentProgress'] })
+    if (!candidate) return
+    const progress = candidate.enrichmentProgress || {}
+    // Preserve existing logs if only updating status
+    if (update.logs.length === 0 && progress[type]?.logs?.length) {
+      update.logs = progress[type].logs
+    }
+    progress[type] = update
+    await this.repo.update(id, { enrichmentProgress: progress })
+  }
+
+  private async appendEnrichmentLog(id: string, type: string, msg: string) {
+    const candidate = await this.repo.findOne({ where: { id }, select: ['id', 'enrichmentProgress'] })
+    if (!candidate) return
+    const progress = candidate.enrichmentProgress || {}
+    if (!progress[type]) progress[type] = { status: 'running', logs: [] }
+    progress[type].logs.push(msg)
+    if (progress[type].logs.length > 30) progress[type].logs.splice(0, progress[type].logs.length - 30)
+    await this.repo.update(id, { enrichmentProgress: progress })
   }
 }

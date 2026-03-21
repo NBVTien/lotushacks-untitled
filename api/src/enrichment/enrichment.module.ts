@@ -6,6 +6,6 @@ import { ExtendedEnrichmentService } from './extended-enrichment.service'
 
 @Module({
   providers: [EnrichmentService, GitHubApiService, TinyFishCrawlService, ExtendedEnrichmentService],
-  exports: [EnrichmentService, ExtendedEnrichmentService],
+  exports: [EnrichmentService, GitHubApiService, ExtendedEnrichmentService],
 })
 export class EnrichmentModule {}

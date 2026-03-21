@@ -5,10 +5,12 @@ import {
   Delete,
   Param,
   Body,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
+import { Response } from 'express'
 import { CandidatesService } from './candidates.service'
 
 @Controller('jobs/:jobId/candidates')
@@ -39,6 +41,61 @@ export class CandidatesController {
   @Get(':id/cv-url')
   getCvUrl(@Param('id') id: string) {
     return this.candidatesService.getCvUrl(id)
+  }
+
+  /** SSE endpoint — streams enrichmentProgress changes in real-time */
+  @Get(':id/enrichment-stream')
+  async enrichmentStream(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.flushHeaders()
+
+    let lastSnapshot = ''
+    let idleCount = 0
+
+    const interval = setInterval(async () => {
+      try {
+        const candidate = await this.candidatesService.findOne(id)
+        const snapshot = JSON.stringify({
+          enrichmentProgress: candidate.enrichmentProgress || {},
+          enrichment: candidate.enrichment,
+          extendedEnrichment: candidate.extendedEnrichment,
+          matchResult: candidate.matchResult,
+          status: candidate.status,
+          progressLogs: candidate.progressLogs,
+        })
+
+        if (snapshot !== lastSnapshot) {
+          lastSnapshot = snapshot
+          idleCount = 0
+          res.write(`data: ${snapshot}\n\n`)
+        } else {
+          idleCount++
+          // Send heartbeat every 15s (idleCount * 1s interval)
+          if (idleCount % 15 === 0) {
+            res.write(`: heartbeat\n\n`)
+          }
+          // Close after 5 minutes of no changes
+          if (idleCount > 300) {
+            res.write(`data: {"done":true}\n\n`)
+            clearInterval(interval)
+            res.end()
+          }
+        }
+      } catch {
+        clearInterval(interval)
+        res.end()
+      }
+    }, 1000)
+
+    res.on('close', () => {
+      clearInterval(interval)
+    })
   }
 
   @Post(':id/retry')

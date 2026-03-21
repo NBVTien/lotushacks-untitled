@@ -1,16 +1,12 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { candidatesApi } from '@/lib/api'
-import type { Candidate } from '@lotushack/shared'
+import type { Candidate, EnrichmentProgress } from '@lotushack/shared'
 
 const recommendationColors: Record<string, string> = {
   strong_match: 'bg-green-100 text-green-800',
@@ -293,116 +289,79 @@ export function CandidateDetailPage() {
         </TabsContent>
 
         <TabsContent value="online" className="space-y-4">
-          {/* Re-enrich GitHub + LinkedIn */}
-          {(links.github || links.linkedin) && (
-            <div className="flex items-center gap-3">
-              {candidate.status === 'completed' || candidate.status === 'error' ? (
-                <AlertDialog>
-                  <AlertDialogTrigger className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm hover:bg-muted">
-                    {enrichment?.github || enrichment?.linkedin ? 'Re-fetch' : 'Fetch'} {[links.github && 'GitHub', links.linkedin && 'LinkedIn'].filter(Boolean).join(' + ')}
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Fetch online profile data?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will fetch data from {[links.github && 'GitHub', links.linkedin && 'LinkedIn'].filter(Boolean).join(' and ')} and re-score the candidate. This may take a few minutes.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleReEnrich}>Start</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              ) : ['enriching', 'scoring'].includes(candidate.status) ? (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {candidate.status === 'scoring' ? 'Scoring...' : 'Fetching online data...'} (may take a few minutes)
+          {/* GitHub profile card with inline re-fetch */}
+          {(links.github || enrichment?.github) && (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    {enrichment?.github ? (
+                      <a href={links.github || '#'} target="_blank" rel="noreferrer" className="hover:underline">
+                        GitHub: @{enrichment.github.username}
+                      </a>
+                    ) : 'GitHub'}
+                  </CardTitle>
+                  {(candidate.status === 'completed' || candidate.status === 'error') && links.github && (
+                    <Button variant="outline" size="sm" onClick={handleReEnrich}>
+                      {enrichment?.github ? 'Re-fetch' : 'Fetch'}
+                    </Button>
+                  )}
+                  {['enriching', 'scoring'].includes(candidate.status) && (
+                    <Badge variant="outline" className="bg-blue-100 text-blue-700">
+                      {candidate.status === 'scoring' ? 'Scoring...' : 'Fetching...'}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              {enrichment?.github ? (
+                <CardContent className="space-y-4">
+                  {enrichment.github.bio && <p className="text-sm">{enrichment.github.bio}</p>}
+                  {enrichment.github.topLanguages.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {enrichment.github.topLanguages.map((l) => <Badge key={l} variant="secondary">{l}</Badge>)}
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Total stars: {enrichment.github.totalStars}
+                    {enrichment.github.totalContributions != null && ` | Contributions: ${enrichment.github.totalContributions}`}
+                    {(() => { try { const d = JSON.parse(enrichment.github.raw); return d.publicRepos ? ` | ${d.publicRepos} public repos` : ''; } catch { return ''; } })()}
+                    {(() => { try { const d = JSON.parse(enrichment.github.raw); return d.followers ? ` | ${d.followers} followers` : ''; } catch { return ''; } })()}
                   </p>
-                  {candidate.progressLogs && candidate.progressLogs.length > 0 && (
-                    <div className="rounded border bg-muted/50 p-3 max-h-48 overflow-y-auto">
+                  <GitHubAnalysis raw={enrichment.github.raw} username={enrichment.github.username} />
+                  {enrichment.github.repositories.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Repositories ({enrichment.github.repositories.length})</p>
+                      {enrichment.github.repositories.slice(0, 5).map((r) => (
+                        <div key={r.name} className="rounded bg-muted p-2 text-sm">
+                          <a href={`https://github.com/${enrichment!.github!.username}/${r.name}`} target="_blank" rel="noreferrer" className="font-medium hover:underline">{r.name}</a>
+                          {r.language && <Badge variant="outline" className="ml-2">{r.language}</Badge>}
+                          <span className="ml-2 text-muted-foreground">{r.stars} stars</span>
+                          {r.description && <p className="mt-1 text-muted-foreground">{r.description}</p>}
+                        </div>
+                      ))}
+                      {enrichment.github.repositories.length > 5 && (
+                        <p className="text-xs text-muted-foreground">+ {enrichment.github.repositories.length - 5} more repositories</p>
+                      )}
+                    </div>
+                  )}
+                  {/* Progress logs during fetch */}
+                  {['enriching'].includes(candidate.status) && candidate.progressLogs?.length > 0 && (
+                    <div className="rounded border bg-muted/50 p-2 max-h-32 overflow-y-auto">
                       {candidate.progressLogs.map((log, i) => (
                         <p key={i} className="text-xs text-muted-foreground font-mono">{log}</p>
                       ))}
                     </div>
                   )}
-                </div>
-              ) : null}
-              {candidate.errorMessage?.includes('nrich') && (
-                <p className="text-sm text-yellow-600">{candidate.errorMessage}</p>
+                </CardContent>
+              ) : (
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Click Fetch to load GitHub profile data.</p>
+                </CardContent>
               )}
-            </div>
-          )}
-
-          {/* GitHub */}
-          {enrichment?.github && (
-            <Card>
-              <CardHeader><CardTitle className="text-base">GitHub: @{enrichment.github.username}</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                {enrichment.github.bio && <p className="text-sm">{enrichment.github.bio}</p>}
-                {enrichment.github.topLanguages.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {enrichment.github.topLanguages.map((l) => <Badge key={l} variant="secondary">{l}</Badge>)}
-                  </div>
-                )}
-                <p className="text-sm text-muted-foreground">
-                  Total stars: {enrichment.github.totalStars}
-                  {enrichment.github.totalContributions != null && ` | Contributions: ${enrichment.github.totalContributions}`}
-                  {(() => { try { const d = JSON.parse(enrichment.github.raw); return d.publicRepos ? ` | ${d.publicRepos} public repos` : ''; } catch { return ''; } })()}
-                  {(() => { try { const d = JSON.parse(enrichment.github.raw); return d.followers ? ` | ${d.followers} followers` : ''; } catch { return ''; } })()}
-                </p>
-
-                {/* AI Summary */}
-                <GitHubAnalysis raw={enrichment.github.raw} />
-
-                {enrichment.github.repositories.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Repositories ({enrichment.github.repositories.length})</p>
-                    {enrichment.github.repositories.slice(0, 5).map((r) => (
-                      <div key={r.name} className="rounded bg-muted p-2 text-sm">
-                        <span className="font-medium">{r.name}</span>
-                        {r.language && <Badge variant="outline" className="ml-2">{r.language}</Badge>}
-                        <span className="ml-2 text-muted-foreground">{r.stars} stars</span>
-                        {r.description && <p className="mt-1 text-muted-foreground">{r.description}</p>}
-                      </div>
-                    ))}
-                    {enrichment.github.repositories.length > 5 && (
-                      <p className="text-xs text-muted-foreground">+ {enrichment.github.repositories.length - 5} more repositories</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
             </Card>
           )}
 
-          {/* LinkedIn */}
-          {enrichment?.linkedin && (enrichment.linkedin.headline || enrichment.linkedin.summary || enrichment.linkedin.experience.length > 0 || enrichment.linkedin.skills.length > 0) && (
-            <Card>
-              <CardHeader><CardTitle className="text-base">LinkedIn</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {enrichment.linkedin.headline && <p className="font-medium">{enrichment.linkedin.headline}</p>}
-                {enrichment.linkedin.summary && <p className="text-sm">{enrichment.linkedin.summary}</p>}
-                {enrichment.linkedin.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {enrichment.linkedin.skills.map((s) => <Badge key={s} variant="secondary">{s}</Badge>)}
-                  </div>
-                )}
-                {enrichment.linkedin.experience.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium">Experience</p>
-                    <ul className="list-disc pl-4 text-sm">
-                      {enrichment.linkedin.experience.map((e, i) => <li key={i}>{e}</li>)}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Separator between auto + extended */}
-          {(enrichment?.github || enrichment?.linkedin) && <Separator />}
-
-          {/* Extended Analysis */}
+          {/* Extended Analysis — per-type cards with async execution & integrated results */}
           <ExtendedAnalysis candidate={candidate} jobId={jobId!} candidateId={candidateId!} onAction={handleReEnrich} load={load} setForcePolling={setForcePolling} />
         </TabsContent>
 
@@ -422,199 +381,333 @@ export function CandidateDetailPage() {
   )
 }
 
+const statusColors: Record<string, string> = {
+  queued: 'bg-gray-100 text-gray-600',
+  running: 'bg-blue-100 text-blue-700',
+  completed: 'bg-green-100 text-green-700',
+  error: 'bg-red-100 text-red-700',
+}
+
+interface EnrichmentCategory {
+  label: string
+  types: { key: string; label: string; desc: string; available: boolean }[]
+}
+
 function ExtendedAnalysis({
-  candidate, jobId, candidateId, load, setForcePolling,
+  candidate, jobId, candidateId, load,
 }: {
   candidate: Candidate; jobId: string; candidateId: string;
   onAction: () => void; load: () => void; setForcePolling: (v: boolean) => void;
 }) {
   const ext = candidate.extendedEnrichment
   const hasPortfolioUrls = (candidate.links.portfolio?.length || 0) > 0
-  const isProcessing = ['enriching', 'scoring'].includes(candidate.status)
+  const hasLinkedIn = !!candidate.links.linkedin
 
-  const enrichmentTypes = [
-    { key: 'portfolio', label: 'Portfolio Website', available: hasPortfolioUrls, desc: 'Analyze portfolio/personal website design and tech' },
-    { key: 'liveProjects', label: 'Live Projects', available: hasPortfolioUrls, desc: 'Visit deployed apps, check if they work' },
-    { key: 'blog', label: 'Blog / Articles', available: hasPortfolioUrls, desc: 'Analyze dev.to, Medium, Hashnode posts' },
-    { key: 'stackoverflow', label: 'Stack Overflow', available: hasPortfolioUrls, desc: 'Check SO reputation, badges, top tags' },
-    { key: 'verification', label: 'Work Verification', available: !!(candidate.parsedCV?.experience?.length), desc: 'Verify work history via company websites' },
+  // SSE streaming state
+  const [liveProgress, setLiveProgress] = useState<EnrichmentProgress>(candidate.enrichmentProgress || {})
+  const [liveCandidate, setLiveCandidate] = useState<Partial<Candidate>>({})
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const [streaming, setStreaming] = useState(false)
+
+  // Merge live data with candidate data
+  const progress = { ...(candidate.enrichmentProgress || {}), ...liveProgress }
+  const hasRunning = Object.values(progress).some((p) => p.status === 'running' || p.status === 'queued')
+
+  // Start SSE when there are running jobs
+  useEffect(() => {
+    if (!hasRunning) {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        eventSourceRef.current = null
+        setStreaming(false)
+        // Final refresh to get completed data
+        load()
+      }
+      return
+    }
+    if (eventSourceRef.current) return // already streaming
+
+    const url = candidatesApi.enrichmentStreamUrl(jobId, candidateId)
+    const es = new EventSource(url)
+    eventSourceRef.current = es
+    setStreaming(true)
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.done) {
+          es.close()
+          eventSourceRef.current = null
+          setStreaming(false)
+          load()
+          return
+        }
+        if (data.enrichmentProgress) setLiveProgress(data.enrichmentProgress)
+        if (data.matchResult || data.enrichment || data.extendedEnrichment) {
+          setLiveCandidate(data)
+        }
+      } catch { /* ignore parse errors */ }
+    }
+
+    es.onerror = () => {
+      es.close()
+      eventSourceRef.current = null
+      setStreaming(false)
+    }
+
+    return () => {
+      es.close()
+      eventSourceRef.current = null
+    }
+  }, [hasRunning, jobId, candidateId, load])
+
+  // Use live matchResult if available
+  const matchResult = liveCandidate.matchResult || candidate.matchResult
+  const enrichment = liveCandidate.enrichment || candidate.enrichment
+
+  // Determine URL availability from classified URLs
+  const classified = candidate.links.classified || []
+  const portfolioUrls = candidate.links.portfolio || []
+
+  // Helper: check if URL is a source code repo (not a live deployed app)
+  const isSourceCodeUrl = (u: string) => /github\.com|gitlab\.com|bitbucket\.org|youtu\.be|youtube\.com/i.test(u)
+
+  // Build URL lists per enrichment type
+  const urlsForType: Record<string, { url: string; label: string }[]> = {
+    linkedin: candidate.links.linkedin ? [{ url: candidate.links.linkedin, label: candidate.links.linkedin.replace(/https?:\/\/(www\.)?/, '') }] : [],
+    portfolio: classified.filter((c) => c.kind === 'portfolio' || c.kind === 'company').map((c) => ({ url: c.url, label: c.label })),
+    blog: [
+      ...classified.filter((c) => c.kind === 'blog').map((c) => ({ url: c.url, label: c.label })),
+      ...portfolioUrls.filter((u) => /dev\.to|medium\.com|hashnode|blog/i.test(u) && !classified.some((c) => c.url === u)).map((u) => ({ url: u, label: new URL(u).hostname })),
+    ],
+    stackoverflow: portfolioUrls.filter((u) => /stackoverflow\.com/i.test(u)).map((u) => ({ url: u, label: 'Stack Overflow' })),
+    liveProjects: [
+      // Only include non-source-code URLs classified as projects
+      ...classified.filter((c) => c.kind === 'project' && !isSourceCodeUrl(c.url)).map((c) => ({ url: c.url, label: c.label })),
+      // Fallback: non-classified portfolio URLs that are NOT source code repos
+      ...portfolioUrls.filter((u) => !isSourceCodeUrl(u) && !classified.some((c) => c.url === u) && !/stackoverflow|dev\.to|medium\.com|hashnode|blog/i.test(u)).map((u) => {
+        try { return { url: u, label: new URL(u).hostname } } catch { return { url: u, label: u } }
+      }),
+    ],
+  }
+  // If no classified data, fall back — but still exclude source code URLs from live projects
+  if (classified.length === 0 && portfolioUrls.length > 0) {
+    const nonCodeUrls = portfolioUrls.filter((u) => !isSourceCodeUrl(u)).map((u) => {
+      try { return { url: u, label: new URL(u).hostname } } catch { return { url: u, label: u } }
+    })
+    urlsForType.portfolio = nonCodeUrls
+    urlsForType.liveProjects = nonCodeUrls
+  }
+
+  const hasProjectUrls = urlsForType.liveProjects.length > 0
+  const hasBlogUrls = urlsForType.blog.length > 0
+  const hasSOUrls = urlsForType.stackoverflow.length > 0
+
+  // Categories
+  const categories: EnrichmentCategory[] = [
+    {
+      label: 'Social Profiles',
+      types: [
+        { key: 'linkedin', label: 'LinkedIn', desc: 'Crawl LinkedIn profile via TinyFish', available: hasLinkedIn },
+      ],
+    },
+    {
+      label: 'Web Presence',
+      types: [
+        { key: 'portfolio', label: 'Portfolio / Websites', desc: 'Analyze websites found in CV', available: urlsForType.portfolio.length > 0 || hasPortfolioUrls },
+        { key: 'blog', label: 'Blog / Articles', desc: 'Analyze dev.to, Medium, Hashnode posts', available: hasBlogUrls || hasPortfolioUrls },
+        { key: 'stackoverflow', label: 'Stack Overflow', desc: 'Check SO reputation, badges, top tags', available: hasSOUrls || hasPortfolioUrls },
+      ],
+    },
+    {
+      label: 'Projects',
+      types: [
+        { key: 'liveProjects', label: 'Live Projects', desc: 'Visit deployed apps & products from CV', available: hasProjectUrls },
+      ],
+    },
   ]
 
-  const [selected, setSelected] = useState<string[]>([])
+  const runType = async (type: string) => {
+    await candidatesApi.extendedEnrich(jobId, candidateId, [type])
+    setLiveProgress((prev) => ({ ...prev, [type]: { status: 'queued', logs: [] } }))
+  }
 
-  const runExtended = async () => {
-    if (selected.length === 0) return
-    await candidatesApi.extendedEnrich(jobId, candidateId, selected)
-    setForcePolling(true)
-    load()
-    setSelected([])
+  const runCategory = async (cat: EnrichmentCategory) => {
+    const available = cat.types.filter((t) => t.available).map((t) => t.key)
+    if (available.length === 0) return
+    await candidatesApi.extendedEnrich(jobId, candidateId, available)
+    setLiveProgress((prev) => {
+      const next = { ...prev }
+      for (const key of available) next[key] = { status: 'queued', logs: [] }
+      return next
+    })
+  }
+
+  // Helper to render inline result for a type
+  const renderResult = (key: string) => {
+    const li = enrichment?.linkedin
+    if (key === 'linkedin' && li && (li.headline || li.summary || li.experience.length > 0 || li.skills.length > 0)) {
+      return (
+        <div className="mt-3 space-y-2 border-t pt-3">
+          {li.headline && <p className="font-medium text-sm">{li.headline}</p>}
+          {li.summary && <p className="text-sm text-muted-foreground">{li.summary}</p>}
+          {li.skills.length > 0 && <div className="flex flex-wrap gap-1">{li.skills.map((s) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}</div>}
+          {li.experience.length > 0 && <ul className="list-disc pl-4 text-sm text-muted-foreground">{li.experience.map((e, i) => <li key={i}>{e}</li>)}</ul>}
+        </div>
+      )
+    }
+    if (key === 'portfolio' && ext?.portfolio) {
+      return (
+        <div className="mt-3 space-y-2 border-t pt-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <a href={ext.portfolio.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline">{ext.portfolio.url}</a>
+            <Badge variant={ext.portfolio.isOnline ? 'secondary' : 'destructive'} className="text-xs">{ext.portfolio.isOnline ? 'Online' : 'Offline'}</Badge>
+            <Badge variant="outline" className="text-xs">Design: {ext.portfolio.designQuality}</Badge>
+            {ext.portfolio.hasResponsive && <Badge variant="outline" className="text-xs">Responsive</Badge>}
+          </div>
+          {ext.portfolio.techStack.length > 0 && <div className="flex gap-1 flex-wrap">{ext.portfolio.techStack.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}</div>}
+          <p className="text-sm text-muted-foreground">{ext.portfolio.summary}</p>
+        </div>
+      )
+    }
+    if (key === 'liveProjects' && ext?.liveProjects && ext.liveProjects.length > 0) {
+      return (
+        <div className="mt-3 space-y-3 border-t pt-3">
+          {ext.liveProjects.map((p, i) => (
+            <div key={i} className="border-l-2 border-muted pl-3 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <a href={p.url} target="_blank" rel="noreferrer" className="font-medium text-sm hover:underline">{p.name}</a>
+                <Badge variant={p.isOnline ? 'secondary' : 'destructive'} className="text-xs">{p.isOnline ? 'Online' : 'Offline'}</Badge>
+                <Badge variant="outline" className="text-xs">UI: {p.uiQuality}</Badge>
+              </div>
+              {p.techDetected.length > 0 && <div className="flex gap-1 flex-wrap">{p.techDetected.map((t) => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}</div>}
+              {p.features.length > 0 && <p className="text-xs text-muted-foreground">Features: {p.features.join(', ')}</p>}
+              <p className="text-sm text-muted-foreground">{p.summary}</p>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (key === 'blog' && ext?.blog) {
+      return (
+        <div className="mt-3 space-y-2 border-t pt-3">
+          <p className="text-sm text-muted-foreground">{ext.blog.platform} | {ext.blog.totalPosts} posts | Writing: {ext.blog.writingQuality}</p>
+          {ext.blog.topicFocus.length > 0 && <div className="flex gap-1 flex-wrap">{ext.blog.topicFocus.map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}</div>}
+          {ext.blog.recentPosts.length > 0 && ext.blog.recentPosts.map((p, i) => <p key={i} className="text-xs text-muted-foreground">{p.title} ({p.date})</p>)}
+          <p className="text-sm text-muted-foreground">{ext.blog.summary}</p>
+        </div>
+      )
+    }
+    if (key === 'stackoverflow' && ext?.stackoverflow) {
+      return (
+        <div className="mt-3 space-y-2 border-t pt-3">
+          <p className="text-sm">Rep: <strong>{ext.stackoverflow.reputation.toLocaleString()}</strong> | Answers: {ext.stackoverflow.answerCount} | Badges: G{ext.stackoverflow.badges.gold} S{ext.stackoverflow.badges.silver} B{ext.stackoverflow.badges.bronze}</p>
+          {ext.stackoverflow.topTags.length > 0 && <div className="flex gap-1 flex-wrap">{ext.stackoverflow.topTags.map((t) => <Badge key={t.name} variant="outline" className="text-xs">{t.name} ({t.score})</Badge>)}</div>}
+          <p className="text-sm text-muted-foreground">{ext.stackoverflow.summary}</p>
+        </div>
+      )
+    }
+    return null
   }
 
   return (
     <>
-      {/* Run controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Run Extended Analysis</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isProcessing ? (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Analysis in progress...</p>
-              {candidate.progressLogs?.length > 0 && (
-                <div className="rounded border bg-muted/50 p-3 max-h-40 overflow-y-auto">
-                  {candidate.progressLogs.map((log, i) => (
-                    <p key={i} className="text-xs text-muted-foreground font-mono">{log}</p>
-                  ))}
-                </div>
+      {/* Score update indicator */}
+      {streaming && matchResult && matchResult !== candidate.matchResult && (
+        <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          Score updated to <strong>{matchResult.overallScore}/100</strong> with new enrichment data
+        </div>
+      )}
+
+      {/* Enrichment categories with integrated results */}
+      {categories.map((cat) => (
+        <Card key={cat.label}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">{cat.label}</CardTitle>
+              {cat.types.filter((t) => (urlsForType[t.key] || []).length > 0).length > 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => runCategory(cat)}
+                  disabled={cat.types.every((t) => !t.available || progress[t.key]?.status === 'running' || progress[t.key]?.status === 'queued')}
+                >
+                  Run All
+                </Button>
               )}
             </div>
-          ) : (
-            <>
-              <div className="grid gap-2 md:grid-cols-2">
-                {enrichmentTypes.map((t) => (
-                  <label
-                    key={t.key}
-                    className={`flex items-start gap-2 rounded border p-3 cursor-pointer transition-colors ${
-                      selected.includes(t.key) ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-                    } ${!t.available ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(t.key)}
-                      disabled={!t.available}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelected([...selected, t.key])
-                        else setSelected(selected.filter((s) => s !== t.key))
-                      }}
-                      className="mt-1"
-                    />
-                    <div>
-                      <p className="text-sm font-medium">{t.label}</p>
-                      <p className="text-xs text-muted-foreground">{t.desc}</p>
-                      {!t.available && <p className="text-xs text-yellow-600">No URLs found in CV</p>}
-                    </div>
-                  </label>
-                ))}
-              </div>
-              <Button onClick={runExtended} disabled={selected.length === 0} size="sm">
-                Run {selected.length} analysis{selected.length !== 1 ? 'es' : ''}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Results */}
-      {ext?.portfolio && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Portfolio: {ext.portfolio.url}</CardTitle></CardHeader>
+          </CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex gap-2 flex-wrap">
-              <Badge variant={ext.portfolio.isOnline ? 'secondary' : 'destructive'}>{ext.portfolio.isOnline ? 'Online' : 'Offline'}</Badge>
-              <Badge variant="outline">Design: {ext.portfolio.designQuality}</Badge>
-              {ext.portfolio.hasResponsive && <Badge variant="outline">Responsive</Badge>}
-            </div>
-            {ext.portfolio.techStack.length > 0 && (
-              <div className="flex gap-1 flex-wrap">
-                {ext.portfolio.techStack.map((t) => <Badge key={t} variant="secondary">{t}</Badge>)}
-              </div>
-            )}
-            <p className="text-sm">{ext.portfolio.summary}</p>
-          </CardContent>
-        </Card>
-      )}
+            {cat.types.map((t) => {
+              const typeProgress = progress[t.key]
+              const isActive = typeProgress?.status === 'running' || typeProgress?.status === 'queued'
+              const hasResult = renderResult(t.key) !== null
+              const typeUrls = urlsForType[t.key] || []
 
-      {ext?.liveProjects && ext.liveProjects.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Live Projects</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {ext.liveProjects.map((p, i) => (
-              <div key={i} className="border-l-2 pl-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-sm">{p.name}</p>
-                  <Badge variant={p.isOnline ? 'secondary' : 'destructive'} className="text-xs">{p.isOnline ? 'Online' : 'Offline'}</Badge>
-                  <Badge variant="outline" className="text-xs">UI: {p.uiQuality}</Badge>
-                </div>
-                {p.techDetected.length > 0 && (
-                  <div className="flex gap-1 flex-wrap">{p.techDetected.map((t) => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}</div>
-                )}
-                {p.features.length > 0 && <p className="text-xs text-muted-foreground">Features: {p.features.join(', ')}</p>}
-                <p className="text-sm">{p.summary}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {ext?.blog && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Blog ({ext.blog.platform})</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">{ext.blog.totalPosts} posts | Writing: {ext.blog.writingQuality}</p>
-            {ext.blog.topicFocus.length > 0 && (
-              <div className="flex gap-1 flex-wrap">{ext.blog.topicFocus.map((t) => <Badge key={t} variant="secondary">{t}</Badge>)}</div>
-            )}
-            {ext.blog.recentPosts.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium">Recent posts:</p>
-                {ext.blog.recentPosts.map((p, i) => (
-                  <p key={i} className="text-xs text-muted-foreground">• {p.title} ({p.date})</p>
-                ))}
-              </div>
-            )}
-            <p className="text-sm">{ext.blog.summary}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {ext?.stackoverflow && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Stack Overflow</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm">Reputation: <strong>{ext.stackoverflow.reputation.toLocaleString()}</strong> | Answers: {ext.stackoverflow.answerCount}</p>
-            <div className="flex gap-2 text-xs">
-              <span className="text-yellow-600">🥇 {ext.stackoverflow.badges.gold}</span>
-              <span className="text-gray-400">🥈 {ext.stackoverflow.badges.silver}</span>
-              <span className="text-orange-600">🥉 {ext.stackoverflow.badges.bronze}</span>
-            </div>
-            {ext.stackoverflow.topTags.length > 0 && (
-              <div className="flex gap-1 flex-wrap">{ext.stackoverflow.topTags.map((t) => <Badge key={t.name} variant="outline">{t.name} ({t.score})</Badge>)}</div>
-            )}
-            <p className="text-sm">{ext.stackoverflow.summary}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {ext?.verification && ext.verification.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Work Verification</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {ext.verification.map((v, i) => (
-                <div key={i} className="flex items-start gap-3 text-sm">
-                  <span className={v.verified === true ? 'text-green-600' : v.verified === false ? 'text-red-600' : 'text-yellow-600'}>
-                    {v.verified === true ? '✓' : v.verified === false ? '✗' : '?'}
-                  </span>
-                  <div>
-                    <p className="font-medium">{v.company} — {v.claimed}</p>
-                    <p className="text-muted-foreground text-xs">{v.evidence}</p>
+              return (
+                <div key={t.key} className="rounded border p-3 transition-colors">
+                  {/* Type header */}
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{t.label}</p>
+                    {typeProgress && (
+                      <Badge variant="outline" className={`text-xs ${statusColors[typeProgress.status] || ''}`}>
+                        {typeProgress.status}
+                      </Badge>
+                    )}
+                    {!typeProgress && hasResult && (
+                      <Badge variant="outline" className="text-xs bg-green-100 text-green-700">completed</Badge>
+                    )}
                   </div>
+
+                  {/* URLs as sub-items with per-link Run buttons */}
+                  {typeUrls.length > 0 ? (
+                    <div className="mt-2 space-y-1.5">
+                      {typeUrls.map((u) => (
+                        <div key={u.url} className="flex items-center justify-between gap-2 pl-2 py-0.5">
+                          <a href={u.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline truncate">{u.label}</a>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs shrink-0"
+                            onClick={() => runType(t.key)}
+                            disabled={isActive}
+                          >
+                            {isActive ? 'Running...' : (hasResult || typeProgress?.status === 'completed') ? 'Re-run' : 'Run'}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">No URLs found in CV</p>
+                  )}
+
+                  {/* Live logs */}
+                  {isActive && typeProgress?.logs && typeProgress.logs.length > 0 && (
+                    <div className="mt-2 rounded border bg-muted/50 p-2 max-h-32 overflow-y-auto">
+                      {typeProgress.logs.map((log, i) => (
+                        <p key={i} className="text-xs text-muted-foreground font-mono">{log}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Error */}
+                  {typeProgress?.status === 'error' && typeProgress.error && (
+                    <p className="mt-1 text-xs text-red-600">{typeProgress.error}</p>
+                  )}
+
+                  {/* Inline result */}
+                  {renderResult(t.key)}
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </CardContent>
         </Card>
-      )}
-
-      {!ext && !isProcessing && (
-        <p className="text-sm text-muted-foreground">No extended analysis run yet. Select analysis types above and click Run.</p>
-      )}
+      ))}
     </>
   )
 }
 
-function GitHubAnalysis({ raw }: { raw: string }) {
+function GitHubAnalysis({ raw, username }: { raw: string; username: string }) {
   try {
     const data = JSON.parse(raw)
     const { aiSummary, topProjects } = data
@@ -632,10 +725,10 @@ function GitHubAnalysis({ raw }: { raw: string }) {
         {topProjects && topProjects.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium">Top Projects (AI-analyzed)</p>
-            {topProjects.map((proj: { name: string; description: string | null; language: string | null; stars: number; languages: Record<string, number>; recentCommits: number; readmeSnippet: string | null; analysis: string | null }) => (
+            {topProjects.map((proj: { name: string; description: string | null; language: string | null; stars: number; url?: string; languages: Record<string, number>; recentCommits: number; readmeSnippet: string | null; analysis: string | null }) => (
               <div key={proj.name} className="rounded border p-3 space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-sm">{proj.name}</span>
+                  <a href={proj.url || `https://github.com/${username}/${proj.name}`} target="_blank" rel="noreferrer" className="font-medium text-sm hover:underline">{proj.name}</a>
                   {proj.language && <Badge variant="outline">{proj.language}</Badge>}
                   <span className="text-xs text-muted-foreground">{proj.stars} stars · {proj.recentCommits} commits (90d)</span>
                 </div>
@@ -647,14 +740,16 @@ function GitHubAnalysis({ raw }: { raw: string }) {
                   </div>
                 )}
                 {proj.description && <p className="text-sm text-muted-foreground">{proj.description}</p>}
+                {proj.analysis && (
+                  <div className="rounded border border-purple-200 bg-purple-50 p-2">
+                    <p className="text-sm text-purple-900">{typeof proj.analysis === 'string' ? proj.analysis : JSON.stringify(proj.analysis)}</p>
+                  </div>
+                )}
                 {proj.readmeSnippet && (
                   <details className="text-xs">
                     <summary className="cursor-pointer text-muted-foreground hover:text-foreground">README preview</summary>
                     <pre className="mt-1 whitespace-pre-wrap text-muted-foreground bg-muted p-2 rounded max-h-32 overflow-y-auto">{proj.readmeSnippet}</pre>
                   </details>
-                )}
-                {proj.analysis && (
-                  <p className="text-sm italic text-muted-foreground">{proj.analysis}</p>
                 )}
               </div>
             ))}

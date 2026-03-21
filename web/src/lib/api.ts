@@ -63,4 +63,6 @@ export const candidatesApi = {
   getCvUrl: (jobId: string, id: string) =>
     api.get<{ url: string }>(`/jobs/${jobId}/candidates/${id}/cv-url`).then((r) => r.data),
   delete: (jobId: string, id: string) => api.delete(`/jobs/${jobId}/candidates/${id}`),
+  enrichmentStreamUrl: (jobId: string, id: string) =>
+    `http://localhost:4005/jobs/${jobId}/candidates/${id}/enrichment-stream`,
 }

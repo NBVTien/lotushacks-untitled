@@ -91,9 +91,13 @@ export class GitHubApiService {
         .slice(0, 8)
         .map(([lang]) => lang)
 
-      // 6. AI analysis of top repos
+      // 6. AI analysis of top repos (returns overall summary + per-project analysis)
       onProgress?.('[GitHub] AI analyzing top projects...')
-      const aiAnalysis = await this.aiAnalyzeProjects(username, profile, analyses)
+      const aiResult = await this.aiAnalyzeProjects(username, profile, analyses)
+      // Merge per-project analyses back
+      for (const a of analyses) {
+        a.analysis = aiResult.projects[a.name] || null
+      }
       onProgress?.(`[GitHub] Done: ${topLanguages.join(', ')}, ${totalStars} stars, ${analyses.length} projects analyzed`)
 
       // 7. Build raw as detailed JSON for scoring
@@ -113,12 +117,13 @@ export class GitHubApiService {
           description: a.description,
           language: a.language,
           stars: a.stars,
+          url: a.url,
           languages: a.languages,
           recentCommits: a.recentCommits,
           readmeSnippet: a.readmeSnippet?.slice(0, 500),
           analysis: a.analysis,
         })),
-        aiSummary: aiAnalysis,
+        aiSummary: aiResult.summary,
       })
 
       return {
@@ -182,8 +187,8 @@ export class GitHubApiService {
     username: string,
     profile: Record<string, unknown>,
     repos: RepoAnalysis[],
-  ): Promise<string> {
-    if (repos.length === 0) return 'No repos to analyze'
+  ): Promise<{ summary: string; projects: Record<string, string> }> {
+    if (repos.length === 0) return { summary: 'No repos to analyze', projects: {} }
 
     let prompt = `Analyze this GitHub developer's top projects:\n\n`
     prompt += `Developer: @${username}\n`
@@ -200,21 +205,30 @@ export class GitHubApiService {
       prompt += '\n'
     }
 
-    prompt += `\nProvide a brief assessment (3-5 sentences) of this developer's skills, tech stack depth, code activity level, and project quality. Be specific about what you can infer from the repos.`
+    prompt += `\nReturn a JSON object with:\n`
+    prompt += `- "summary" (string): 3-5 sentence overall assessment of this developer's skills, tech stack depth, code activity level, and project quality\n`
+    prompt += `- "projects" (object): for each repo name as key, provide a 2-3 sentence analysis of that specific project — what it demonstrates about the developer's skills, strengths, and areas for improvement\n`
 
     try {
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a technical recruiter analyzing a developer\'s GitHub projects. Be concise, specific, and evidence-based.' },
+          { role: 'system', content: 'You are a technical recruiter analyzing a developer\'s GitHub projects. Be concise, specific, and evidence-based. Return JSON.' },
           { role: 'user', content: prompt },
         ],
+        response_format: { type: 'json_object' },
         temperature: 0.3,
-        max_tokens: 500,
+        max_tokens: 1000,
       })
-      return response.choices[0]?.message?.content || 'Analysis unavailable'
+      const content = response.choices[0]?.message?.content
+      if (!content) return { summary: 'Analysis unavailable', projects: {} }
+      const parsed = JSON.parse(content)
+      return {
+        summary: parsed.summary || 'Analysis unavailable',
+        projects: parsed.projects || {},
+      }
     } catch {
-      return 'AI analysis failed'
+      return { summary: 'AI analysis failed', projects: {} }
     }
   }
 

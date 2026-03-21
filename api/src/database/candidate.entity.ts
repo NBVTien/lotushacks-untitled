@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
-import type { ExtractedLinks, EnrichedProfile, MatchResult, CandidateStatus } from '@lotushack/shared'
+import type { ExtractedLinks, EnrichedProfile, EnrichmentProgress, MatchResult, CandidateStatus } from '@lotushack/shared'
 import { JobEntity } from './job.entity'
 
 @Entity('candidates')
@@ -29,7 +29,7 @@ export class CandidateEntity {
   @Column('varchar', { nullable: true })
   phone!: string | null
 
-  @Column('jsonb', { default: '{"github":null,"linkedin":null,"portfolio":[]}' })
+  @Column('jsonb', { default: '{"github":null,"linkedin":null,"portfolio":[],"classified":[]}' })
   links!: ExtractedLinks
 
   @Column('jsonb', { nullable: true })
@@ -40,6 +40,9 @@ export class CandidateEntity {
 
   @Column('jsonb', { nullable: true })
   extendedEnrichment!: Record<string, unknown> | null
+
+  @Column('jsonb', { default: '{}' })
+  enrichmentProgress!: EnrichmentProgress
 
   @Column('jsonb', { nullable: true })
   matchResult!: MatchResult | null
