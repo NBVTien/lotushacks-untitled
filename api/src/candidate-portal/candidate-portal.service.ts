@@ -254,26 +254,21 @@ Return JSON: {"devtoQuery": "...", "githubQuery": "...", "coreTech": "the core t
       return { skill, resources: [], searchedAt: new Date().toISOString() }
     }
 
-    const resources: LearningResource[] = []
-
     // Step 1: OpenAI generates targeted search queries from the gap description
     const queries = await this.generateSearchQueries(skill)
-    onProgress?.(`[AI] Analyzing gap: "${skill}" → searching for "${queries.devtoQuery}"`)
+    onProgress?.(`[AI] Analyzing gap: "${skill}" → searching for "${queries.coreTech}"`)
 
-    // Search dev.to for blog posts — using AI-generated query
+    // Step 2: TinyFish crawls — collect RAW text results
+    const rawResults: { source: string; data: string }[] = []
+
+    // Search dev.to
     const devToUrl = `https://dev.to/search?q=${encodeURIComponent(queries.devtoQuery)}`
     onProgress?.(`[dev.to] Searching tutorials for: ${queries.devtoQuery}`)
     const devToResult = await this.tinyFishCrawl.crawl(
       devToUrl,
       `Search for the top 3 most relevant blog posts/tutorials about "${queries.coreTech}".
-For each result, click into the actual article page and extract:
-1. The exact article title
-2. The actual URL (must be https://dev.to/username/article-slug, NOT a search URL)
-3. A brief factual description of the article content (2-3 sentences)
-4. The main topics covered
-
-Return JSON array:
-[{"title": "exact title", "url": "https://dev.to/...", "description": "factual description", "topics": ["topic1", "topic2"]}]`,
+For each result found, extract: the exact article title, the full URL, and a 2-3 sentence description of what the article covers.
+Return all information you find — raw text or JSON, either is fine.`,
       {
         label: `dev.to/${queries.coreTech}`,
         onProgress,
@@ -281,47 +276,21 @@ Return JSON array:
         timeoutMs: 360_000,
       }
     )
-
     if (devToResult) {
-      try {
-        const parsed = this.parseResourceJson(devToResult)
-        for (const item of parsed) {
-          const url = item.url && item.url.includes('dev.to/') && !item.url.includes('/search?')
-            ? item.url
-            : `https://dev.to/search?q=${encodeURIComponent(queries.devtoQuery)}`
-          resources.push({
-            title: item.title || `${queries.coreTech} tutorial`,
-            url,
-            source: 'dev.to',
-            type: 'blog',
-            description: item.description || '',
-            skill,
-            summary: '',
-            keyTakeaways: [],
-          })
-        }
-      } catch {
-        this.logger.warn(`Failed to parse dev.to results for ${skill}`)
-      }
+      rawResults.push({ source: 'dev.to', data: devToResult })
+      this.logger.log(`dev.to raw result (${devToResult.length} chars)`)
     }
 
-    onProgress?.(`Found ${resources.length} articles on dev.to for ${queries.coreTech}`)
+    onProgress?.(`[dev.to] Done. Searching GitHub...`)
 
-    // Search GitHub repos via Google (more reliable than github.com/search)
+    // Search GitHub via Google
     const githubGoogleUrl = `https://www.google.com/search?q=site:github.com+${encodeURIComponent(queries.githubQuery)}+tutorial+example`
     onProgress?.(`[GitHub] Searching via Google for: ${queries.githubQuery}`)
     const githubResult = await this.tinyFishCrawl.crawl(
       githubGoogleUrl,
       `Look at the Google search results for GitHub repositories about "${queries.coreTech}".
-Click on the top 3 GitHub repository links (must be https://github.com/owner/repo format).
-For each repository page, extract:
-1. The repository name in owner/repo format
-2. The actual GitHub URL (https://github.com/owner/repo)
-3. The repository description and what it teaches
-4. Star count if visible
-
-Return JSON array:
-[{"title": "owner/repo", "url": "https://github.com/owner/repo", "description": "what this repo teaches", "stars": 1234}]`,
+Click on the top 3 GitHub repository links and extract: the repository name (owner/repo), the full GitHub URL, description, and star count.
+Return all information you find — raw text or JSON, either is fine.`,
       {
         label: `github/${queries.coreTech}`,
         onProgress,
@@ -329,34 +298,15 @@ Return JSON array:
         timeoutMs: 360_000,
       }
     )
-
     if (githubResult) {
-      try {
-        const parsed = this.parseResourceJson(githubResult)
-        for (const item of parsed) {
-          const url = item.url && item.url.includes('github.com/') && !item.url.includes('/search?') && !item.url.includes('google.com')
-            ? item.url
-            : `https://github.com/search?q=${encodeURIComponent(queries.githubQuery)}&type=repositories&s=stars`
-          resources.push({
-            title: item.title || `${queries.coreTech} project`,
-            url,
-            source: 'github.com',
-            type: 'project',
-            description: item.description || '',
-            skill,
-            summary: '',
-            keyTakeaways: [],
-          })
-        }
-      } catch {
-        this.logger.warn(`Failed to parse GitHub results for ${skill}`)
-      }
+      rawResults.push({ source: 'github', data: githubResult })
+      this.logger.log(`GitHub raw result (${githubResult.length} chars)`)
     }
 
-    onProgress?.(`Found ${resources.length} total resources for ${skill}`)
+    onProgress?.(`Found raw data from ${rawResults.length} sources. AI is extracting resources...`)
 
-    // Synthesize mentor advice with OpenAI
-    const enrichedResources = await this.synthesizeWithOpenAI(skill, resources, onProgress)
+    // Step 3: Send ALL raw data to OpenAI — let it extract + synthesize in one pass
+    const enrichedResources = await this.extractAndSynthesize(skill, queries.coreTech, rawResults, onProgress)
 
     const result: LearningResourceResult = {
       skill,
@@ -509,62 +459,99 @@ Return JSON array:
     return results
   }
 
-  private async synthesizeWithOpenAI(
+  private async extractAndSynthesize(
     skill: string,
-    resources: LearningResource[],
+    coreTech: string,
+    rawResults: { source: string; data: string }[],
     onProgress?: (msg: string) => void
   ): Promise<LearningResource[]> {
-    if (resources.length === 0) return resources
+    if (rawResults.length === 0) return []
 
-    onProgress?.(`[AI Mentor] Generating learning advice for ${skill}...`)
+    onProgress?.(`[AI Mentor] Extracting resources and generating advice for ${skill}...`)
+
+    const rawDataBlock = rawResults.map(r =>
+      `=== SOURCE: ${r.source} ===\n${r.data.substring(0, 3000)}`
+    ).join('\n\n')
 
     try {
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
-      const resourceDescriptions = resources.map((r, i) =>
-        `${i + 1}. [${r.source}] "${r.title}"\n   URL: ${r.url}\n   Raw description: ${r.description || 'none'}`
-      ).join('\n\n')
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `You are an experienced software engineering mentor helping a developer learn "${skill}". You must analyze EACH specific resource and explain what knowledge that particular resource provides. Be concrete — reference the actual repo name, article title, or project. Never give generic advice.`
+            content: `You are an expert software engineering mentor. Your job is to extract specific learning resources from raw web crawl data and provide actionable learning advice for each one.
+
+RULES:
+- Extract EVERY distinct resource (article, repo, tutorial) found in the raw data
+- Each resource MUST have an actual URL (https://...) — never make up URLs
+- For GitHub repos, URL must be https://github.com/owner/repo format
+- For dev.to articles, URL must be https://dev.to/author/slug format
+- Use the EXACT title from the raw data, do not paraphrase
+- For each resource, explain specifically what the developer will learn from THAT resource
+- Key takeaways must be concrete (e.g. "How to configure a Spark standalone cluster" not "Understanding distributed systems")`
           },
           {
             role: 'user',
-            content: `A developer needs to learn "${skill}". Here are the specific resources found:\n\n${resourceDescriptions}\n\nFor EACH resource above (in order), provide:\n1. "summary": A specific mentor-style explanation (2-3 sentences) about THIS particular resource — what it contains, why it's valuable for learning ${skill}, and how the developer should use it. Reference the actual name/title.\n2. "keyTakeaways": 3 specific skills/knowledge the developer will gain from THIS resource. Be concrete (e.g. "How to set up a Spark cluster locally" not "Understanding distributed computing").\n\nReturn a JSON array with one object per resource, in the same order:\n[{"summary": "...", "keyTakeaways": ["...", "...", "..."]}]`
+            content: `A developer needs to learn "${coreTech}" (gap: "${skill}").
+
+Here is the raw data from web crawling:
+
+${rawDataBlock}
+
+Extract ALL individual resources found above. For EACH resource, provide:
+- "title": The exact name/title from the raw data
+- "url": The actual URL (must be a real URL from the data, not fabricated)
+- "source": "dev.to" or "github.com"
+- "type": "blog" for articles, "project" for repos
+- "description": 1-sentence factual description from the raw data
+- "summary": 2-3 sentences of mentor advice — why this resource is valuable and how to use it. Reference the specific title.
+- "keyTakeaways": 3 concrete things the developer will learn from THIS specific resource
+
+Return a JSON array:
+[{"title": "...", "url": "...", "source": "...", "type": "...", "description": "...", "summary": "...", "keyTakeaways": ["...", "...", "..."]}]`
           }
         ],
-        temperature: 0.5,
-        max_tokens: 3000,
+        temperature: 0.3,
+        max_tokens: 4000,
       })
 
       const content = response.choices[0]?.message?.content || ''
-      let mentorData: Array<{ summary?: string; keyTakeaways?: string[] }> = []
+      this.logger.debug(`OpenAI extract+synthesize response (${content.length} chars)`)
+
+      let extracted: LearningResource[] = []
       try {
         const match = content.match(/\[[\s\S]*\]/)
         if (match) {
-          mentorData = JSON.parse(match[0])
+          const parsed = JSON.parse(match[0])
+          extracted = parsed.map((item: Record<string, unknown>) => ({
+            title: item.title || coreTech,
+            url: (item.url as string) || '',
+            source: (item.source as string) || 'unknown',
+            type: (item.type as string) || 'blog',
+            description: (item.description as string) || '',
+            skill,
+            summary: (item.summary as string) || (item.description as string) || '',
+            keyTakeaways: (item.keyTakeaways as string[]) || [],
+          }))
         }
       } catch {
-        this.logger.warn('Failed to parse OpenAI mentor response')
+        this.logger.warn('Failed to parse OpenAI extract response')
       }
 
-      // Merge mentor data into resources — keep original title/url/description
-      return resources.map((r, i) => ({
-        ...r,
-        summary: mentorData[i]?.summary || r.description,
-        keyTakeaways: mentorData[i]?.keyTakeaways || [],
-      }))
+      // Filter out resources without valid URLs
+      extracted = extracted.filter(r =>
+        r.url && r.url.startsWith('https://') && !r.url.includes('google.com/search')
+      )
+
+      onProgress?.(`[AI Mentor] Extracted ${extracted.length} resources with advice`)
+      this.logger.log(`Extracted ${extracted.length} resources for "${skill}" from raw data`)
+
+      return extracted
     } catch (err) {
-      this.logger.warn(`OpenAI synthesis failed: ${err}`)
-      return resources.map(r => ({
-        ...r,
-        summary: r.description,
-        keyTakeaways: [],
-      }))
+      this.logger.warn(`OpenAI extract+synthesize failed: ${err}`)
+      return []
     }
   }
 
