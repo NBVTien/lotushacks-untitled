@@ -51,6 +51,7 @@ import type {
   InterviewQuestion,
   InterviewQuestionsResult,
   PipelineStage,
+  SurveyAnswer,
 } from '@lotushack/shared'
 
 const PIPELINE_STEPS = [
@@ -727,8 +728,33 @@ export function CandidateDetailPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Application Responses */}
+        {candidate.surveyAnswers && candidate.surveyAnswers.length > 0 && (
+          <ApplicationResponses answers={candidate.surveyAnswers} />
+        )}
       </div>
     </PageTransition>
+  )
+}
+
+function ApplicationResponses({ answers }: { answers: SurveyAnswer[] }) {
+  return (
+    <Card className="shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-base">Application Responses</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {answers.map((a) => (
+          <div key={a.questionId}>
+            <p className="text-sm font-semibold">{a.label}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {Array.isArray(a.value) ? a.value.join(', ') : a.value || '—'}
+            </p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   )
 }
 

@@ -8,11 +8,18 @@ import { ArrowLeft, Upload, CheckCircle, FileText, X, User, File, ArrowRight } f
 import { PageTransition } from '@/components/ui/motion'
 import { toast } from 'sonner'
 import { jobsApi, candidatesApi } from '@/lib/api'
-import type { Job } from '@lotushack/shared'
+import type { Job, SurveyAnswer, SurveyQuestion } from '@lotushack/shared'
 
-const STEPS = [
+const BASE_STEPS = [
   { label: 'Your Info', icon: User },
   { label: 'Upload CV', icon: File },
+  { label: 'Review & Submit', icon: CheckCircle },
+]
+
+const STEPS_WITH_SURVEY = [
+  { label: 'Your Info', icon: User },
+  { label: 'Upload CV', icon: File },
+  { label: 'Questions', icon: CheckCircle },
   { label: 'Review & Submit', icon: CheckCircle },
 ]
 
@@ -30,6 +37,7 @@ export function ApplyPage() {
   const [submitted, setSubmitted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [step, setStep] = useState(0)
+  const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswer[]>([])
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ApplyField, string>>>({})
   const [touched, setTouched] = useState<Partial<Record<ApplyField, boolean>>>({})
 
@@ -71,7 +79,7 @@ export function ApplyPage() {
     if (!file || !jobId) return
     setUploading(true)
     try {
-      await candidatesApi.upload(jobId, file, candidateName, candidateEmail)
+      await candidatesApi.upload(jobId, file, candidateName, candidateEmail, surveyAnswers)
       setSubmitted(true)
       toast.success('Application submitted successfully!')
     } catch {
@@ -91,6 +99,39 @@ export function ApplyPage() {
   }
 
   if (!job) return <p className="text-muted-foreground">Loading...</p>
+
+  const hasSurvey = (job.surveyQuestions ?? []).length > 0
+  const STEPS = hasSurvey ? STEPS_WITH_SURVEY : BASE_STEPS
+  // Step indices
+  const STEP_INFO = 0
+  const STEP_CV = 1
+  const STEP_QUESTIONS = hasSurvey ? 2 : -1
+  const STEP_REVIEW = hasSurvey ? 3 : 2
+
+  const setSurveyAnswer = (question: SurveyQuestion, value: string | string[]) => {
+    setSurveyAnswers((prev) => {
+      const existing = prev.findIndex((a) => a.questionId === question.id)
+      const entry: SurveyAnswer = { questionId: question.id, label: question.label, value }
+      if (existing >= 0) {
+        const next = [...prev]
+        next[existing] = entry
+        return next
+      }
+      return [...prev, entry]
+    })
+  }
+
+  const getSurveyAnswer = (questionId: string): string | string[] => {
+    return surveyAnswers.find((a) => a.questionId === questionId)?.value ?? ''
+  }
+
+  const allRequiredAnswered = (job.surveyQuestions ?? [])
+    .filter((q) => q.required)
+    .every((q) => {
+      const val = getSurveyAnswer(q.id)
+      if (Array.isArray(val)) return val.length > 0
+      return val.trim().length > 0
+    })
 
   if (submitted) {
     return (
@@ -170,7 +211,7 @@ export function ApplyPage() {
           </CardHeader>
           <CardContent>
             {/* Step 0: Your Info */}
-            {step === 0 && (
+            {step === STEP_INFO && (
               <div className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
@@ -211,7 +252,7 @@ export function ApplyPage() {
                   type="button"
                   disabled={!candidateName.trim() || !candidateEmail.trim() || !isValidEmail(candidateEmail)}
                   className="h-12 w-full text-base gap-2"
-                  onClick={() => setStep(1)}
+                  onClick={() => setStep(STEP_CV)}
                 >
                   Continue <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -219,7 +260,7 @@ export function ApplyPage() {
             )}
 
             {/* Step 1: Upload CV */}
-            {step === 1 && (
+            {step === STEP_CV && (
               <div className="space-y-5">
                 <div className="space-y-2">
                   <Label>Upload your CV (PDF)</Label>
@@ -292,7 +333,7 @@ export function ApplyPage() {
                     type="button"
                     variant="outline"
                     className="h-12 flex-1 text-base"
-                    onClick={() => setStep(0)}
+                    onClick={() => setStep(STEP_INFO)}
                   >
                     Back
                   </Button>
@@ -300,7 +341,7 @@ export function ApplyPage() {
                     type="button"
                     disabled={!file}
                     className="h-12 flex-1 text-base gap-2"
-                    onClick={() => setStep(2)}
+                    onClick={() => setStep(hasSurvey ? STEP_QUESTIONS : STEP_REVIEW)}
                   >
                     Continue <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -308,8 +349,117 @@ export function ApplyPage() {
               </div>
             )}
 
-            {/* Step 2: Review & Submit */}
-            {step === 2 && (
+            {/* Step 2 (survey only): Questions */}
+            {hasSurvey && step === STEP_QUESTIONS && (
+              <div className="space-y-5">
+                {(job.surveyQuestions ?? []).map((q) => {
+                  const value = getSurveyAnswer(q.id)
+                  return (
+                    <div key={q.id} className="space-y-2">
+                      <Label>
+                        {q.label}
+                        {q.required && <span className="ml-1 text-destructive">*</span>}
+                      </Label>
+                      {q.type === 'text' && (
+                        <Input
+                          value={typeof value === 'string' ? value : ''}
+                          onChange={(e) => setSurveyAnswer(q, e.target.value)}
+                          className="text-sm"
+                        />
+                      )}
+                      {q.type === 'textarea' && (
+                        <textarea
+                          value={typeof value === 'string' ? value : ''}
+                          onChange={(e) => setSurveyAnswer(q, e.target.value)}
+                          rows={4}
+                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      )}
+                      {q.type === 'rating' && (
+                        <div className="flex gap-2">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setSurveyAnswer(q, String(n))}
+                              className={`flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-semibold transition-colors ${
+                                value === String(n)
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {q.type === 'select' && (
+                        <div className="space-y-1.5">
+                          {(q.options ?? []).map((opt) => (
+                            <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm">
+                              <input
+                                type="radio"
+                                name={q.id}
+                                value={opt}
+                                checked={value === opt}
+                                onChange={() => setSurveyAnswer(q, opt)}
+                                className="h-4 w-4"
+                              />
+                              {opt}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {q.type === 'multiselect' && (
+                        <div className="space-y-1.5">
+                          {(q.options ?? []).map((opt) => {
+                            const selected = Array.isArray(value) ? value : []
+                            return (
+                              <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={selected.includes(opt)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSurveyAnswer(q, [...selected, opt])
+                                    } else {
+                                      setSurveyAnswer(q, selected.filter((s) => s !== opt))
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded"
+                                />
+                                {opt}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 flex-1 text-base"
+                    onClick={() => setStep(STEP_CV)}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!allRequiredAnswered}
+                    className="h-12 flex-1 text-base gap-2"
+                    onClick={() => setStep(STEP_REVIEW)}
+                  >
+                    Continue <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Review & Submit */}
+            {step === STEP_REVIEW && (
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                   <div className="flex items-center justify-between">
@@ -329,13 +479,27 @@ export function ApplyPage() {
                       {file?.name}
                     </span>
                   </div>
+                  {surveyAnswers.length > 0 && (
+                    <>
+                      <div className="border-t" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Survey Responses</p>
+                      {surveyAnswers.map((a) => (
+                        <div key={a.questionId} className="space-y-0.5">
+                          <p className="text-xs text-muted-foreground">{a.label}</p>
+                          <p className="text-sm font-medium">
+                            {Array.isArray(a.value) ? a.value.join(', ') : a.value}
+                          </p>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   <Button
                     type="button"
                     variant="outline"
                     className="h-12 flex-1 text-base"
-                    onClick={() => setStep(1)}
+                    onClick={() => setStep(hasSurvey ? STEP_QUESTIONS : STEP_CV)}
                   >
                     Back
                   </Button>

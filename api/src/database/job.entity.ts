@@ -9,6 +9,7 @@ import {
 } from 'typeorm'
 import { CandidateEntity } from './candidate.entity'
 import { CompanyEntity } from './company.entity'
+import type { SurveyQuestion } from '@lotushack/shared'
 
 @Entity('jobs')
 export class JobEntity {
@@ -33,6 +34,9 @@ export class JobEntity {
 
   @Column('text', { nullable: true })
   screeningCriteria!: string | null
+
+  @Column('jsonb', { default: '[]' })
+  surveyQuestions!: SurveyQuestion[]
 
   @Column({ default: true })
   isActive!: boolean

@@ -16,6 +16,7 @@ import type {
   PipelineStage,
   CandidateNote,
   PipelineHistoryEntry,
+  SurveyAnswer,
 } from '@lotushack/shared'
 import { JobEntity } from './job.entity'
 
@@ -66,6 +67,9 @@ export class CandidateEntity {
 
   @Column('jsonb', { nullable: true })
   interviewQuestions!: InterviewQuestionsResult | null
+
+  @Column('jsonb', { nullable: true })
+  surveyAnswers!: SurveyAnswer[] | null
 
   @Column({ default: 'uploaded' })
   status!: CandidateStatus

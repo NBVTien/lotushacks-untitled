@@ -40,6 +40,24 @@ export interface User {
   createdAt: string
 }
 
+// Survey
+export type SurveyQuestionType = 'text' | 'textarea' | 'rating' | 'select' | 'multiselect'
+
+export interface SurveyQuestion {
+  id: string
+  label: string
+  type: SurveyQuestionType
+  required: boolean
+  options?: string[]
+  order: number
+}
+
+export interface SurveyAnswer {
+  questionId: string
+  label: string
+  value: string | string[]
+}
+
 // Job
 export interface Job {
   id: string
@@ -49,6 +67,7 @@ export interface Job {
   description: string
   requirements: string[]
   screeningCriteria: string | null
+  surveyQuestions: SurveyQuestion[]
   isActive: boolean
   createdAt: string
 }
@@ -64,6 +83,7 @@ export interface CreateJobDto {
   description: string
   requirements: string[]
   screeningCriteria?: string
+  surveyQuestions?: SurveyQuestion[]
 }
 
 // Candidate
@@ -82,6 +102,7 @@ export interface Candidate {
   enrichmentProgress: EnrichmentProgress
   matchResult: MatchResult | null
   interviewQuestions: InterviewQuestionsResult | null
+  surveyAnswers: SurveyAnswer[] | null
   status: CandidateStatus
   errorMessage: string | null
   progressLogs: string[]

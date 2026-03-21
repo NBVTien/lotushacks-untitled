@@ -9,6 +9,7 @@ import type {
   AuthResponse,
   PaginatedResponse,
   PipelineStage,
+  SurveyAnswer,
 } from '@lotushack/shared'
 
 const api = axios.create({
@@ -104,11 +105,12 @@ export const candidatesApi = {
   list: (jobId: string) => api.get<Candidate[]>(`/jobs/${jobId}/candidates`).then((r) => r.data),
   get: (jobId: string, id: string) =>
     api.get<Candidate>(`/jobs/${jobId}/candidates/${id}`).then((r) => r.data),
-  upload: (jobId: string, file: File, name?: string, email?: string) => {
+  upload: (jobId: string, file: File, name?: string, email?: string, surveyAnswers?: SurveyAnswer[]) => {
     const form = new FormData()
     form.append('cv', file)
     if (name) form.append('name', name)
     if (email) form.append('email', email)
+    if (surveyAnswers && surveyAnswers.length > 0) form.append('surveyAnswers', JSON.stringify(surveyAnswers))
     return api.post<Candidate>(`/jobs/${jobId}/candidates/upload`, form).then((r) => r.data)
   },
   retry: (jobId: string, id: string) =>

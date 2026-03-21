@@ -29,9 +29,16 @@ export class CandidatesController {
     @Param('jobId') jobId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('name') name?: string,
-    @Body('email') email?: string
+    @Body('email') email?: string,
+    @Body('surveyAnswers') surveyAnswersRaw?: string
   ) {
-    return this.candidatesService.upload(jobId, file, { name, email })
+    let surveyAnswers
+    try {
+      surveyAnswers = surveyAnswersRaw ? JSON.parse(surveyAnswersRaw) : undefined
+    } catch {
+      surveyAnswers = undefined
+    }
+    return this.candidatesService.upload(jobId, file, { name, email, surveyAnswers })
   }
 
   @Get()

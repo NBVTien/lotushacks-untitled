@@ -20,7 +20,14 @@ import {
   Check,
   X,
   GitCompareArrows,
+  MoreHorizontal,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { PageTransition } from '@/components/ui/motion'
 import { ErrorState } from '@/components/ErrorState'
 import { EmptyState } from '@/components/EmptyState'
@@ -29,7 +36,16 @@ import { toast } from 'sonner'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
 import { jobsApi, candidatesApi } from '@/lib/api'
 import { PipelineBoard } from '@/components/PipelineBoard'
-import type { Job, Candidate } from '@lotushack/shared'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import type { Job, Candidate, SurveyQuestion, SurveyQuestionType } from '@lotushack/shared'
+
+const QUESTION_TYPE_LABELS: Record<string, string> = {
+  text: 'Short Text',
+  textarea: 'Long Text',
+  rating: 'Rating (1–5)',
+  select: 'Single Choice',
+  multiselect: 'Multiple Choice',
+}
 
 function getScoreTextColor(score: number): string {
   if (score >= 80) return 'text-foreground'
@@ -59,7 +75,15 @@ export function JobDetailPage() {
     description: '',
     requirements: '',
     screeningCriteria: '',
+    surveyQuestions: [] as SurveyQuestion[],
   })
+  const [newQuestion, setNewQuestion] = useState<{
+    label: string
+    type: SurveyQuestionType
+    required: boolean
+    options: string
+  }>({ label: '', type: 'text', required: false, options: '' })
+  const [addingQuestion, setAddingQuestion] = useState(false)
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -159,54 +183,72 @@ export function JobDetailPage() {
         </Link>
 
         <PageHeader title={job.title}>
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => {
-              const link = `${window.location.origin}/careers/${jobId}/apply`
-              navigator.clipboard.writeText(link)
-              setCopied(true)
-              setTimeout(() => setCopied(false), 2000)
-            }}
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
-                <span className="text-emerald-600">Copied!</span>
-              </>
-            ) : (
-              <>
-                <LinkIcon className="h-3.5 w-3.5" /> Copy Link
-              </>
-            )}
-          </Button>
-          <Link to={`/jobs/${jobId}/source`}>
-            <Button variant="outline" className="gap-2">
-              <Users className="h-3.5 w-3.5" /> Source Candidates
-            </Button>
-          </Link>
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => {
-              setEditing(true)
-              setEditForm({
-                title: job.title,
-                description: job.description,
-                requirements: job.requirements.join('\n'),
-                screeningCriteria: job.screeningCriteria || '',
-              })
-            }}
-          >
-            <Pencil className="h-3.5 w-3.5" /> Edit
-          </Button>
-          <Button
-            className="gap-2"
-            disabled={uploading}
-            onClick={() => document.getElementById('cv-upload')?.click()}
-          >
-            <Upload className="h-3.5 w-3.5" /> {uploading ? 'Uploading...' : 'Upload CV'}
-          </Button>
+          {editing ? (
+            <>
+              <Button type="submit" form="edit-job-form" disabled={saving} size="sm" className="gap-2">
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  setEditForm({
+                    title: job.title,
+                    description: job.description,
+                    requirements: job.requirements.join('\n'),
+                    screeningCriteria: job.screeningCriteria || '',
+                    surveyQuestions: job.surveyQuestions ?? [],
+                  })
+                  setAddingQuestion(false)
+                  setNewQuestion({ label: '', type: 'text', required: false, options: '' })
+                  setTimeout(() => setEditing(true), 0)
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </Button>
+              <Button
+                size="sm"
+                className="gap-2"
+                disabled={uploading}
+                onClick={() => document.getElementById('cv-upload')?.click()}
+              >
+                <Upload className="h-3.5 w-3.5" /> {uploading ? 'Uploading...' : 'Upload CV'}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  <Button variant="outline" size="sm" className="px-2" type="button">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-48">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const link = `${window.location.origin}/careers/${jobId}/apply`
+                      navigator.clipboard.writeText(link)
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 2000)
+                    }}
+                  >
+                    {copied ? (
+                      <><Check className="h-4 w-4 text-emerald-500" /><span className="text-emerald-600">Copied!</span></>
+                    ) : (
+                      <><LinkIcon className="h-4 w-4" /> Copy Apply Link</>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate(`/jobs/${jobId}/source`)}>
+                    <Users className="h-4 w-4" /> Source Candidates
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
           <input
             id="cv-upload"
             type="file"
@@ -241,109 +283,264 @@ export function JobDetailPage() {
         )}
 
         {editing ? (
-          /* Edit form — replaces the tabs view */
-          <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-base">Edit Job</CardTitle>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setEditing(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault()
-                  setSaving(true)
-                  try {
-                    const reqs = editForm.requirements
-                      .split('\n')
-                      .map((r) => r.trim())
-                      .filter(Boolean)
-                    const updated = await jobsApi.update(job.id, {
-                      title: editForm.title,
-                      description: editForm.description,
-                      requirements: reqs,
-                      screeningCriteria: editForm.screeningCriteria.trim() || undefined,
-                    })
-                    setJob(updated)
-                    setEditing(false)
-                    toast.success('Job updated successfully')
-                  } catch {
-                    toast.error('Failed to update job')
-                  }
-                  setSaving(false)
-                }}
-                className="space-y-6"
-              >
-                <div className="space-y-1.5">
-                  <Label>Title</Label>
-                  <Input
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                    required
-                  />
-                </div>
+          /* Edit form — tabbed to mirror the read-only view */
+          <form
+            id="edit-job-form"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              setSaving(true)
+              try {
+                const reqs = editForm.requirements
+                  .split('\n')
+                  .map((r) => r.trim())
+                  .filter(Boolean)
+                const updated = await jobsApi.update(job.id, {
+                  title: editForm.title,
+                  description: editForm.description,
+                  requirements: reqs,
+                  screeningCriteria: editForm.screeningCriteria.trim() || undefined,
+                  surveyQuestions: editForm.surveyQuestions,
+                })
+                setJob(updated)
+                setEditing(false)
+                toast.success('Job updated successfully')
+              } catch {
+                toast.error('Failed to update job')
+              }
+              setSaving(false)
+            }}
+          >
+            <Tabs defaultValue="jd">
+              <TabsList>
+                <TabsTrigger value="jd" className="gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Description
+                </TabsTrigger>
+                <TabsTrigger value="screening">Screening</TabsTrigger>
+                <TabsTrigger value="survey">Survey</TabsTrigger>
+              </TabsList>
 
-                <div className="space-y-1.5">
-                  <Label>Description</Label>
-                  <MarkdownEditor
-                    value={editForm.description}
-                    onChange={(val) => setEditForm({ ...editForm, description: val })}
-                    placeholder="Describe the role..."
-                  />
-                </div>
+              {/* Description tab */}
+              <TabsContent value="jd">
+                <Card className="shadow-sm">
+                  <CardContent className="space-y-6 py-6">
+                    <div className="space-y-1.5">
+                      <Label>Title</Label>
+                      <Input
+                        value={editForm.title}
+                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Description</Label>
+                      <MarkdownEditor
+                        value={editForm.description}
+                        onChange={(val) => setEditForm({ ...editForm, description: val })}
+                        placeholder="Describe the role..."
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Requirements</Label>
+                      <p className="text-xs text-muted-foreground">One per line</p>
+                      <Textarea
+                        value={editForm.requirements}
+                        onChange={(e) => setEditForm({ ...editForm, requirements: e.target.value })}
+                        rows={4}
+                        className="text-sm"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <div className="space-y-1.5">
-                  <Label>Requirements</Label>
-                  <p className="text-xs text-muted-foreground">One per line</p>
-                  <Textarea
-                    value={editForm.requirements}
-                    onChange={(e) => setEditForm({ ...editForm, requirements: e.target.value })}
-                    rows={4}
-                    className="text-sm"
-                  />
-                </div>
+              {/* Screening tab */}
+              <TabsContent value="screening">
+                <Card className="shadow-sm">
+                  <CardContent className="py-6 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Label>Screening Criteria</Label>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        Internal
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Private notes used by AI to score candidates — not visible to applicants.
+                    </p>
+                    <Textarea
+                      value={editForm.screeningCriteria}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, screeningCriteria: e.target.value })
+                      }
+                      rows={6}
+                      className="text-sm"
+                      placeholder="Private notes for AI scoring..."
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Label>Screening Criteria</Label>
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                      Internal
-                    </Badge>
-                  </div>
-                  <Textarea
-                    value={editForm.screeningCriteria}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, screeningCriteria: e.target.value })
-                    }
-                    rows={3}
-                    className="text-sm"
-                    placeholder="Private notes for AI scoring..."
-                  />
-                </div>
+              {/* Survey tab */}
+              <TabsContent value="survey">
+                <Card className="shadow-sm">
+                  <CardContent className="py-6 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Application Questions</p>
+                        <p className="text-xs text-muted-foreground">
+                          Candidates answer these when they apply.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAddingQuestion((v) => !v)}
+                      >
+                        {addingQuestion ? 'Cancel' : '+ Add Question'}
+                      </Button>
+                    </div>
 
-                <div className="flex items-center gap-2 pt-2 border-t">
-                  <Button type="submit" disabled={saving} size="sm">
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                    {editForm.surveyQuestions.length > 0 && (
+                      <div className="space-y-2">
+                        {editForm.surveyQuestions.map((q) => (
+                          <div
+                            key={q.id}
+                            className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
+                          >
+                            <span className="flex-1 font-medium truncate">{q.label}</span>
+                            <Badge variant="secondary" className="text-[10px] shrink-0">
+                              {QUESTION_TYPE_LABELS[q.type]}
+                            </Badge>
+                            {q.required && (
+                              <Badge variant="outline" className="text-[10px] shrink-0">
+                                Required
+                              </Badge>
+                            )}
+                            <button
+                              type="button"
+                              className="ml-1 rounded p-0.5 hover:bg-muted transition-colors shrink-0"
+                              onClick={() =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  surveyQuestions: f.surveyQuestions.filter((sq) => sq.id !== q.id),
+                                }))
+                              }
+                            >
+                              <X className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {editForm.surveyQuestions.length === 0 && !addingQuestion && (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        No questions yet. Add one to collect info from applicants.
+                      </p>
+                    )}
+
+                    {addingQuestion && (
+                      <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Question Label</Label>
+                          <Input
+                            value={newQuestion.label}
+                            onChange={(e) =>
+                              setNewQuestion((q) => ({ ...q, label: e.target.value }))
+                            }
+                            placeholder="e.g. How many years of experience do you have?"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Type</Label>
+                            <Select
+                              value={newQuestion.type}
+                              onValueChange={(v) =>
+                                setNewQuestion((q) => ({ ...q, type: v as SurveyQuestionType }))
+                              }
+                            >
+                              <SelectTrigger className="h-9 w-full text-sm">
+                                <span className="flex-1 text-left">
+                                  {QUESTION_TYPE_LABELS[newQuestion.type]}
+                                </span>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="text">Short Text</SelectItem>
+                                <SelectItem value="textarea">Long Text</SelectItem>
+                                <SelectItem value="rating">Rating (1–5)</SelectItem>
+                                <SelectItem value="select">Single Choice</SelectItem>
+                                <SelectItem value="multiselect">Multiple Choice</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <span className="text-xs invisible">Required</span>
+                            <label className="flex h-9 items-center gap-2 text-sm cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={newQuestion.required}
+                                onChange={(e) =>
+                                  setNewQuestion((q) => ({ ...q, required: e.target.checked }))
+                                }
+                                className="h-4 w-4 rounded border-muted-foreground/30"
+                              />
+                              Required
+                            </label>
+                          </div>
+                        </div>
+                        {(newQuestion.type === 'select' || newQuestion.type === 'multiselect') && (
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Options (comma-separated)</Label>
+                            <Input
+                              value={newQuestion.options}
+                              onChange={(e) =>
+                                setNewQuestion((q) => ({ ...q, options: e.target.value }))
+                              }
+                              placeholder="Option A, Option B, Option C"
+                              className="text-sm"
+                            />
+                          </div>
+                        )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!newQuestion.label.trim()}
+                          onClick={() => {
+                            const options =
+                              newQuestion.type === 'select' || newQuestion.type === 'multiselect'
+                                ? newQuestion.options
+                                    .split(',')
+                                    .map((o) => o.trim())
+                                    .filter(Boolean)
+                                : undefined
+                            const q: SurveyQuestion = {
+                              id: crypto.randomUUID(),
+                              label: newQuestion.label.trim(),
+                              type: newQuestion.type,
+                              required: newQuestion.required,
+                              order: editForm.surveyQuestions.length,
+                              ...(options ? { options } : {}),
+                            }
+                            setEditForm((f) => ({
+                              ...f,
+                              surveyQuestions: [...f.surveyQuestions, q],
+                            }))
+                            setNewQuestion({ label: '', type: 'text', required: false, options: '' })
+                            setAddingQuestion(false)
+                          }}
+                        >
+                          Add Question
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+          </form>
         ) : (
           /* Read-only view */
           <Tabs defaultValue="jd">
@@ -355,6 +552,7 @@ export function JobDetailPage() {
                 <Users className="h-3.5 w-3.5" /> Candidates ({candidates.length})
               </TabsTrigger>
               {job.screeningCriteria && <TabsTrigger value="screening">Screening</TabsTrigger>}
+              <TabsTrigger value="survey">Survey</TabsTrigger>
             </TabsList>
 
             <TabsContent value="jd" className="space-y-4">
@@ -555,6 +753,42 @@ export function JobDetailPage() {
                 </Card>
               </TabsContent>
             )}
+
+            <TabsContent value="survey">
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Application Questions</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Candidates answer these when they apply for this role.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {job.surveyQuestions?.length > 0 ? (
+                    job.surveyQuestions.map((q, i) => (
+                      <div
+                        key={q.id}
+                        className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
+                      >
+                        <span className="text-xs text-muted-foreground w-5 shrink-0">{i + 1}.</span>
+                        <span className="flex-1 font-medium">{q.label}</span>
+                        <Badge variant="secondary" className="text-[10px] shrink-0">
+                          {QUESTION_TYPE_LABELS[q.type]}
+                        </Badge>
+                        {q.required && (
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            Required
+                          </Badge>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      No questions configured. Edit the job to add application questions.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         )}
       </div>

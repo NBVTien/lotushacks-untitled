@@ -8,7 +8,7 @@ import { CandidateEntity } from '../database'
 import { MinioService } from './minio.service'
 import { JobsService } from '../jobs/jobs.service'
 import { MatchingService } from '../matching/matching.service'
-import type { CandidateStatus, PipelineStage, CandidateNote, PipelineHistoryEntry } from '@lotushack/shared'
+import type { CandidateStatus, PipelineStage, CandidateNote, PipelineHistoryEntry, SurveyAnswer } from '@lotushack/shared'
 import type { CandidateJobData } from './candidate.processor'
 
 @Injectable()
@@ -28,7 +28,7 @@ export class CandidatesService {
   async upload(
     jobId: string,
     file: Express.Multer.File,
-    overrides?: { name?: string; email?: string }
+    overrides?: { name?: string; email?: string; surveyAnswers?: SurveyAnswer[] }
   ) {
     this.logger.log(
       `Upload started: jobId=${jobId}, file=${file.originalname}, size=${(file.size / 1024).toFixed(1)}KB`
@@ -48,6 +48,7 @@ export class CandidatesService {
       email: overrides?.email || null,
       cvUrl,
       status: 'uploaded' as CandidateStatus,
+      surveyAnswers: overrides?.surveyAnswers ?? null,
     })
 
     const saved = await this.repo.save(candidate)
