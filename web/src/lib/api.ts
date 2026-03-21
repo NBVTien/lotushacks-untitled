@@ -67,7 +67,18 @@ export interface JobStats {
 
 export const jobsApi = {
   stats: () => api.get<JobStats>('/jobs/stats').then((r) => r.data),
-  list: () => api.get<Job[]>('/jobs').then((r) => r.data),
+  list: (params?: { search?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.search) q.set('search', params.search)
+    if (params?.page) q.set('page', String(params.page))
+    if (params?.limit) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return api
+      .get<{ data: Job[]; total: number; page: number; limit: number; totalPages: number }>(
+        `/jobs${qs ? `?${qs}` : ''}`
+      )
+      .then((r) => r.data)
+  },
   listPublic: (page = 1, limit = 10) =>
     api.get<PaginatedResponse<Job>>(`/jobs/public?page=${page}&limit=${limit}`).then((r) => r.data),
   get: (id: string) =>

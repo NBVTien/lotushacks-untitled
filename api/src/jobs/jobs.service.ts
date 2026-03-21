@@ -25,14 +25,31 @@ export class JobsService {
     return saved
   }
 
-  async findByCompany(companyId: string) {
-    this.logger.debug(`Listing jobs for company ${companyId}`)
-    const jobs = await this.repo.find({
-      where: { companyId },
-      relations: ['company'],
-      order: { createdAt: 'DESC' },
-    })
-    if (jobs.length === 0) return jobs
+  async findByCompany(
+    companyId: string,
+    opts: { search?: string; page: number; limit: number } = { page: 1, limit: 10 },
+  ) {
+    this.logger.debug(`Listing jobs for company ${companyId}, search=${opts.search}, page=${opts.page}`)
+    const qb = this.repo
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.company', 'company')
+      .where('job.companyId = :companyId', { companyId })
+
+    if (opts.search?.trim()) {
+      qb.andWhere('LOWER(job.title) LIKE :search', {
+        search: `%${opts.search.trim().toLowerCase()}%`,
+      })
+    }
+
+    qb.orderBy('job.createdAt', 'DESC')
+      .skip((opts.page - 1) * opts.limit)
+      .take(opts.limit)
+
+    const [jobs, total] = await qb.getManyAndCount()
+    const totalPages = Math.ceil(total / opts.limit)
+
+    if (jobs.length === 0) return { data: jobs, total, page: opts.page, limit: opts.limit, totalPages }
+
     const counts = await this.candidateRepo
       .createQueryBuilder('c')
       .select('c.jobId', 'jobId')
@@ -41,7 +58,14 @@ export class JobsService {
       .groupBy('c.jobId')
       .getRawMany<{ jobId: string; count: string }>()
     const countMap = Object.fromEntries(counts.map((r) => [r.jobId, Number(r.count)]))
-    return jobs.map((j) => ({ ...j, candidateCount: countMap[j.id] ?? 0 }))
+
+    return {
+      data: jobs.map((j) => ({ ...j, candidateCount: countMap[j.id] ?? 0 })),
+      total,
+      page: opts.page,
+      limit: opts.limit,
+      totalPages,
+    }
   }
 
   async findAllPublic(page: number, limit: number) {

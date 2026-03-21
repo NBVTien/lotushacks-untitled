@@ -28,9 +28,18 @@ export class JobsController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Req() req: Request) {
+  findAll(
+    @Req() req: Request,
+    @Query('search') search?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
     const user = req.user as { companyId: string }
-    return this.jobsService.findByCompany(user.companyId)
+    return this.jobsService.findByCompany(user.companyId, {
+      search,
+      page: Math.max(1, parseInt(page, 10) || 1),
+      limit: Math.min(50, Math.max(1, parseInt(limit, 10) || 10)),
+    })
   }
 
   @Get('public')

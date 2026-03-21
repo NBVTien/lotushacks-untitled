@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { JobCardSkeleton } from '@/components/ui/skeleton'
-import { Plus, Briefcase, X, Users, LinkIcon, Check, LayoutGrid, List, Search } from 'lucide-react'
+import { Plus, Briefcase, X, Users, LinkIcon, Check, LayoutGrid, List, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PageTransition, StaggerContainer, StaggerItem } from '@/components/ui/motion'
 import { ErrorState } from '@/components/ErrorState'
 import { EmptyState } from '@/components/EmptyState'
@@ -17,10 +17,14 @@ import { toast } from 'sonner'
 import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
 
+const JOBS_PER_PAGE = 10
+
 export function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
 
   useEffect(() => { document.title = 'Jobs — TalentLens Recruiter' }, [])
   const [submitting, setSubmitting] = useState(false)
@@ -35,6 +39,8 @@ export function JobsPage() {
   const setView = (v: 'card' | 'table') =>
     setSearchParams((p) => { const n = new URLSearchParams(p); n.set('view', v); return n })
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   type JobField = 'title' | 'description' | 'requirements'
   const [formErrors, setFormErrors] = useState<Partial<Record<JobField, string>>>({})
@@ -77,24 +83,39 @@ export function JobsPage() {
     description.trim().length < 20 ||
     reqInput.split('\n').map((r) => r.trim()).filter(Boolean).length === 0
 
-  const loadJobs = () => {
+  const loadJobs = useCallback((searchTerm?: string, pageNum?: number) => {
     setLoading(true)
     setError(null)
     jobsApi
-      .list()
-      .then((data) => {
-        setJobs(data)
+      .list({
+        search: searchTerm ?? search,
+        page: pageNum ?? page,
+        limit: JOBS_PER_PAGE,
+      })
+      .then((res) => {
+        setJobs(res.data)
+        setTotal(res.total)
+        setTotalPages(res.totalPages)
         setLoading(false)
       })
       .catch(() => {
         setError('Failed to load jobs. Please check your connection and try again.')
         setLoading(false)
       })
-  }
+  }, [search, page])
 
   useEffect(() => {
     loadJobs()
-  }, [])
+  }, [page])
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => {
+      setPage(1)
+      loadJobs(value, 1)
+    }, 300)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -105,13 +126,15 @@ export function JobsPage() {
         .split('\n')
         .map((r) => r.trim())
         .filter(Boolean)
-      const job = await jobsApi.create({
+      await jobsApi.create({
         title,
         description,
         requirements: reqs,
         screeningCriteria: screeningCriteria.trim() || undefined,
       })
-      setJobs([job, ...jobs])
+      loadJobs('', 1)
+      setPage(1)
+      setSearch('')
       setTitle('')
       setDescription('')
       setReqInput('')
@@ -131,7 +154,7 @@ export function JobsPage() {
     e.stopPropagation()
     try {
       const updated = await jobsApi.toggleActive(job.id, !job.isActive)
-      setJobs(jobs.map((j) => (j.id === updated.id ? { ...j, isActive: updated.isActive } : j)))
+      setJobs((prev) => prev.map((j) => (j.id === updated.id ? { ...j, isActive: updated.isActive } : j)))
       toast.success(`Job ${updated.isActive ? 'activated' : 'deactivated'}`)
     } catch {
       toast.error('Failed to update job status')
@@ -278,7 +301,7 @@ export function JobsPage() {
               <JobCardSkeleton key={i} />
             ))}
           </div>
-        ) : jobs.length === 0 ? (
+        ) : jobs.length === 0 && !search ? (
           <EmptyState
             icon={Briefcase}
             title="No jobs yet"
@@ -294,7 +317,7 @@ export function JobsPage() {
                 <Input
                   placeholder="Search jobs..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="h-9 pl-8 text-sm"
                 />
               </div>
@@ -316,19 +339,15 @@ export function JobsPage() {
               </div>
             </div>
 
-            {(() => {
-              const filteredJobs = search.trim()
-                ? jobs.filter((j) => j.title.toLowerCase().includes(search.toLowerCase()))
-                : jobs
-              return filteredJobs.length === 0 ? (
-                <EmptyState
-                  icon={Search}
-                  title="No matching jobs"
-                  description="Try a different search term"
-                />
-              ) : view === 'card' ? (
+            {jobs.length === 0 && !loading ? (
+              <EmptyState
+                icon={Search}
+                title="No matching jobs"
+                description={search ? 'Try a different search term' : 'No jobs found'}
+              />
+            ) : view === 'card' ? (
               <StaggerContainer className="grid gap-4 md:grid-cols-2">
-                {filteredJobs.map((job) => (
+                {jobs.map((job) => (
                   <StaggerItem key={job.id}>
                     <Link to={`/recruiter/jobs/${job.id}`}>
                       <Card
@@ -413,7 +432,7 @@ export function JobsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
-                    {filteredJobs.map((job) => {
+                    {jobs.map((job) => {
                       const jobWithCount = job as Job & { candidateCount?: number }
                       return (
                         <tr key={job.id} className="hover:bg-muted/20 transition-colors">
@@ -488,8 +507,39 @@ export function JobsPage() {
                   </tbody>
                 </table>
               </div>
-            )
-            })()}
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-sm text-muted-foreground">
+                  {total} job{total !== 1 ? 's' : ''} total
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {page} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="gap-1"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
