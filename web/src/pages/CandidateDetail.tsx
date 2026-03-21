@@ -38,6 +38,7 @@ import {
   Loader2,
   MessageSquare,
 } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { PageTransition } from '@/components/ui/motion'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ErrorState } from '@/components/ErrorState'
@@ -295,14 +296,6 @@ export function CandidateDetailPage() {
           </div>
         </div>
 
-        {/* Pipeline Stage & Notes */}
-        <PipelineStageSection
-          jobId={jobId!}
-          candidateId={candidateId!}
-          candidate={candidate}
-          onUpdate={setCandidate}
-        />
-
         {/* Error state */}
         {candidate.status === 'error' && (
           <Card className="border-destructive/50 bg-destructive/5 shadow-sm">
@@ -448,6 +441,14 @@ export function CandidateDetailPage() {
             <TabsTrigger value="documents" className="gap-1.5">
               <FileCode className="h-3.5 w-3.5" /> Documents
             </TabsTrigger>
+            <TabsTrigger value="pipeline" className="gap-1.5">
+              <Zap className="h-3.5 w-3.5" /> Pipeline
+            </TabsTrigger>
+            {candidate.surveyAnswers && candidate.surveyAnswers.length > 0 && (
+              <TabsTrigger value="responses" className="gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" /> Responses
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="score" className="space-y-4">
@@ -471,7 +472,16 @@ export function CandidateDetailPage() {
                                 {skill.level === 'no' && <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-red-400 text-red-400 text-[9px] font-bold">✕</span>}
                               </div>
                               <span className="text-sm font-medium">{skill.name}</span>
-                              <span className="text-xs text-muted-foreground truncate ml-auto max-w-[45%]" title={skill.evidence}>{skill.evidence}</span>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-xs text-muted-foreground truncate ml-auto max-w-[45%] cursor-default">{skill.evidence}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs text-xs">
+                                    {skill.evidence}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                           ))}
                         </div>
@@ -727,12 +737,22 @@ export function CandidateDetailPage() {
               <PdfViewer jobId={jobId!} candidateId={candidateId!} />
             </div>
           </TabsContent>
-        </Tabs>
 
-        {/* Application Responses */}
-        {candidate.surveyAnswers && candidate.surveyAnswers.length > 0 && (
-          <ApplicationResponses answers={candidate.surveyAnswers} />
-        )}
+          <TabsContent value="pipeline">
+            <PipelineStageSection
+              jobId={jobId!}
+              candidateId={candidateId!}
+              candidate={candidate}
+              onUpdate={setCandidate}
+            />
+          </TabsContent>
+
+          {candidate.surveyAnswers && candidate.surveyAnswers.length > 0 && (
+            <TabsContent value="responses">
+              <ApplicationResponses answers={candidate.surveyAnswers} />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
     </PageTransition>
   )
