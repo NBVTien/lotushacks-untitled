@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { discoveryApi } from '@/lib/api'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 interface DiscoveredJob {
   title: string
@@ -16,92 +16,174 @@ interface DiscoveredJob {
   salary?: string
   requirements: string[]
   matchReason?: string
+  matchScore?: number
 }
 
 const sourceBadgeColors: Record<string, string> = {
-  ITviec: 'bg-green-100 text-green-800',
-  TopDev: 'bg-blue-100 text-blue-800',
-  LinkedIn: 'bg-indigo-100 text-indigo-800',
+  Upwork: 'bg-green-100 text-green-800',
+  Wellfound: 'bg-amber-100 text-amber-800',
 }
 
 export function JobDiscoveryPage() {
+  const [tab, setTab] = useState('skills')
   const [skills, setSkills] = useState('')
   const [title, setTitle] = useState('')
   const [location, setLocation] = useState('')
+  const [cvFile, setCvFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [jobs, setJobs] = useState<DiscoveredJob[]>([])
   const [logs, setLogs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [searched, setSearched] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
-  const eventSourceRef = useRef<EventSource | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs])
 
   useEffect(() => {
-    return () => {
-      eventSourceRef.current?.close()
-    }
+    return () => { abortRef.current?.abort() }
   }, [])
 
-  const handleSearch = async () => {
-    const skillList = skills.split(',').map(s => s.trim()).filter(Boolean)
-    if (skillList.length === 0) return
-
+  /** Stream SSE from a POST endpoint (JSON body) */
+  const streamSearch = async (url: string, body: Record<string, unknown>) => {
     setLoading(true)
     setError(null)
     setLogs([])
     setJobs([])
     setSearched(true)
 
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
+
     try {
-      const result = await discoveryApi.discoverJobs({
-        skills: skillList,
-        experience: [],
-        location: location.trim() || null,
-        title: title.trim() || null,
+      const token = localStorage.getItem('token')
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+        signal: abort.signal,
       })
 
-      // If streaming ID returned, connect to SSE
-      if (result.streamId) {
-        const url = discoveryApi.streamUrl('jobs', result.streamId)
-        const es = new EventSource(url)
-        eventSourceRef.current = es
-
-        es.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            if (data.log) {
-              setLogs(prev => [...prev, data.log])
-            }
-            if (data.jobs) {
-              setJobs(data.jobs)
-            }
-            if (data.done) {
-              es.close()
-              eventSourceRef.current = null
-              setLoading(false)
-              if (data.jobs) setJobs(data.jobs)
-            }
-          } catch { /* ignore parse errors */ }
-        }
-
-        es.onerror = () => {
-          es.close()
-          eventSourceRef.current = null
-          setLoading(false)
-        }
-      } else {
-        // Direct response (no streaming)
-        if (result.jobs) setJobs(result.jobs)
-        setLoading(false)
-      }
+      if (!response.body) throw new Error('No response body')
+      await processStream(response.body)
     } catch (err: unknown) {
-      setError((err as { message?: string })?.message || 'Failed to search jobs')
+      if ((err as Error).name !== 'AbortError') {
+        setError((err as Error)?.message || 'Failed to search jobs')
+      }
       setLoading(false)
     }
+  }
+
+  /** Stream SSE from a POST endpoint (multipart form body) */
+  const streamUpload = async (url: string, formData: FormData) => {
+    setLoading(true)
+    setError(null)
+    setLogs([])
+    setJobs([])
+    setSearched(true)
+
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+        signal: abort.signal,
+      })
+
+      if (!response.body) throw new Error('No response body')
+      await processStream(response.body)
+    } catch (err: unknown) {
+      if ((err as Error).name !== 'AbortError') {
+        setError((err as Error)?.message || 'Failed to search jobs')
+      }
+      setLoading(false)
+    }
+  }
+
+  /** Process an SSE ReadableStream */
+  const processStream = async (body: ReadableStream<Uint8Array>) => {
+    const reader = body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith('data:')) continue
+        const jsonStr = trimmed.slice(5).trim()
+        if (!jsonStr) continue
+
+        try {
+          const event = JSON.parse(jsonStr)
+          if (event.type === 'progress' && event.message) {
+            setLogs(prev => [...prev, event.message])
+          }
+          if (event.log) {
+            setLogs(prev => [...prev, event.log])
+          }
+          if (event.type === 'complete' && event.result) {
+            const resultJobs: DiscoveredJob[] = event.result.jobs || event.result || []
+            setJobs(sortJobsByScore(resultJobs))
+          }
+          if (event.jobs) {
+            setJobs(sortJobsByScore(event.jobs))
+          }
+          if (event.type === 'error') {
+            setError(event.message || 'Search failed')
+          }
+          if (event.done) {
+            setLoading(false)
+          }
+        } catch { /* skip malformed */ }
+      }
+    }
+    setLoading(false)
+  }
+
+  const sortJobsByScore = (jobList: DiscoveredJob[]): DiscoveredJob[] => {
+    return [...jobList].sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
+  }
+
+  const handleSkillsSearch = () => {
+    const skillList = skills.split(',').map(s => s.trim()).filter(Boolean)
+    if (skillList.length === 0) return
+
+    streamSearch('http://localhost:4005/discovery/jobs', {
+      skills: skillList,
+      experience: [],
+      location: location.trim() || null,
+      title: title.trim() || null,
+    })
+  }
+
+  const handleCvUpload = () => {
+    if (!cvFile) return
+
+    const formData = new FormData()
+    formData.append('cv', cvFile)
+
+    streamUpload('http://localhost:4005/discovery/jobs-from-upload', formData)
   }
 
   return (
@@ -119,44 +201,81 @@ export function JobDiscoveryPage() {
         </p>
       </div>
 
-      {/* Search Form */}
-      <Card>
-        <CardContent className="py-6 space-y-4">
-          <div>
-            <Label>Skills (comma-separated)</Label>
-            <Input
-              value={skills}
-              onChange={e => setSkills(e.target.value)}
-              placeholder="React, TypeScript, Node.js, PostgreSQL"
-            />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label>Job Title (optional)</Label>
-              <Input
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="Senior Frontend Developer"
-              />
-            </div>
-            <div>
-              <Label>Location (optional)</Label>
-              <Input
-                value={location}
-                onChange={e => setLocation(e.target.value)}
-                placeholder="Ho Chi Minh City"
-              />
-            </div>
-          </div>
-          <Button
-            onClick={handleSearch}
-            disabled={loading || skills.trim().length === 0}
-            className="w-full"
-          >
-            {loading ? 'Searching...' : 'Search Jobs'}
-          </Button>
-        </CardContent>
-      </Card>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="skills">Search by Skills</TabsTrigger>
+          <TabsTrigger value="upload">Upload CV</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="skills" className="space-y-4">
+          <Card>
+            <CardContent className="py-6 space-y-4">
+              <div>
+                <Label>Skills (comma-separated)</Label>
+                <Input
+                  value={skills}
+                  onChange={e => setSkills(e.target.value)}
+                  placeholder="React, TypeScript, Node.js, PostgreSQL"
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label>Job Title (optional)</Label>
+                  <Input
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    placeholder="Senior Frontend Developer"
+                  />
+                </div>
+                <div>
+                  <Label>Location (optional)</Label>
+                  <Input
+                    value={location}
+                    onChange={e => setLocation(e.target.value)}
+                    placeholder="Ho Chi Minh City"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleSkillsSearch}
+                disabled={loading || skills.trim().length === 0}
+                className="w-full"
+              >
+                {loading ? 'Searching...' : 'Search Jobs'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="upload" className="space-y-4">
+          <Card>
+            <CardContent className="py-6 space-y-4">
+              <div>
+                <Label>Upload your CV (PDF)</Label>
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={e => setCvFile(e.target.files?.[0] || null)}
+                  className="mt-1"
+                />
+              </div>
+              {cvFile && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {cvFile.name}
+                </p>
+              )}
+              <Button
+                onClick={handleCvUpload}
+                disabled={loading || !cvFile}
+                className="w-full"
+              >
+                {loading ? 'Analyzing CV & Searching...' : 'Find Jobs from CV'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Error */}
       {error && (
@@ -217,6 +336,11 @@ export function JobDiscoveryPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {job.matchScore != null && (
+                      <Badge variant="outline" className="text-primary border-primary font-semibold">
+                        {Math.round(job.matchScore)}% match
+                      </Badge>
+                    )}
                     <Badge className={sourceBadgeColors[job.source] || 'bg-gray-100 text-gray-800'}>
                       {job.source}
                     </Badge>
@@ -270,7 +394,7 @@ export function JobDiscoveryPage() {
       {!searched && (
         <div className="text-center py-8">
           <p className="text-muted-foreground">
-            Enter your skills to discover matching jobs across multiple platforms
+            Enter your skills or upload your CV to discover matching jobs across multiple platforms
           </p>
         </div>
       )}

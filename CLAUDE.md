@@ -59,10 +59,10 @@ Extended enrichment (LinkedIn, portfolio, blog, SO, company intel) runs on-deman
 
 ### Discovery Module (TinyFish-powered)
 
-Three features powered by parallel TinyFish agents:
-- **Job Discovery** (`POST /discovery/jobs`) — Candidate skills → crawl ITviec, TopDev, LinkedIn Jobs → matching job listings
+Three features powered by parallel TinyFish agents (all use SSE streaming):
+- **Job Discovery** (`POST /discovery/jobs`, `POST /discovery/jobs-from-upload`) — Candidate skills or CV → crawl Upwork, Wellfound → matching job listings ranked by AI
 - **Company Research** (`POST /discovery/company-research`) — Company name → crawl Glassdoor, tech blog, website → company intelligence
-- **Candidate Sourcing** (`POST /discovery/source-candidates`) — Job requirements → crawl job boards → matching candidate profiles
+- **Candidate Sourcing** (`POST /discovery/source-candidates`) — Job requirements → crawl LinkedIn, Upwork, Toptal → matching candidate profiles
 
 Frontend routes:
 - `/careers/discover` — Job discovery for candidates
@@ -83,6 +83,18 @@ TypeORM with `synchronize: true` — entities auto-create tables. Two tables:
 - **Path alias**: `@/` maps to `web/src/` in the frontend
 - **Config**: NestJS `ConfigModule` reads `../.env` from the api directory
 - API uses **CommonJS** (`module: "commonjs"`), web uses **ESNext** modules
+
+### Working with Claude Code
+
+- **Always split BE + FE into 2 parallel agents** — when implementing features that span both backend and frontend, launch one agent for `api/` changes and another for `web/` changes. They work on non-overlapping files and can run concurrently.
+- Type-check both after agents complete: `npx tsc --noEmit -p api/tsconfig.json` and `npx tsc --noEmit -p web/tsconfig.app.json`
+- **Always update documentation** — after implementing or changing features, update README.md, CLAUDE.md, and any relevant docs in `docs/` (RECRUITER.md, CANDIDATE.md, etc.) to reflect the changes. Documentation must stay in sync with the codebase.
+
+### TinyFish Platform Selection
+
+- **Candidate Sourcing**: LinkedIn (stealth), Upwork (stealth), Toptal (lite)
+- **Job Discovery**: Upwork, Wellfound
+- **Company Research**: Glassdoor, tech blog, company website
 
 ## Environment Variables
 

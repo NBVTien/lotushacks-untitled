@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import OpenAI from 'openai'
 import { TinyFishCrawlService, type ProgressCallback } from '../enrichment/tinyfish-crawl.service'
 import type {
   JobDiscoveryRequest,
@@ -13,8 +15,16 @@ import type {
 @Injectable()
 export class DiscoveryService {
   private readonly logger = new Logger(DiscoveryService.name)
+  private readonly openai: OpenAI
 
-  constructor(private readonly tinyfish: TinyFishCrawlService) {}
+  constructor(
+    private readonly tinyfish: TinyFishCrawlService,
+    private readonly config: ConfigService,
+  ) {
+    this.openai = new OpenAI({
+      apiKey: this.config.get('OPENAI_API_KEY', ''),
+    })
+  }
 
   // ─── Feature C: Job Discovery ───────────────────────────────────────
 
@@ -43,19 +53,14 @@ export class DiscoveryService {
 
     const sources = [
       {
-        name: 'ITviec',
-        url: `https://itviec.com/it-jobs?query=${encodeURIComponent(skillsQuery)}&location=${encodeURIComponent(locationQuery)}`,
-        profile: 'lite' as const,
-      },
-      {
-        name: 'TopDev',
-        url: `https://topdev.vn/viec-lam-it?search=${encodeURIComponent(skillsQuery)}`,
-        profile: 'lite' as const,
-      },
-      {
-        name: 'LinkedIn',
-        url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(skillsQuery)}&location=${encodeURIComponent(locationQuery)}`,
+        name: 'Upwork Jobs',
+        url: `https://www.upwork.com/nx/search/jobs/?q=${encodeURIComponent(skillsQuery)}&sort=recency`,
         profile: 'stealth' as const,
+      },
+      {
+        name: 'Wellfound',
+        url: `https://wellfound.com/jobs?query=${encodeURIComponent(skillsQuery)}`,
+        profile: 'lite' as const,
       },
     ]
 
@@ -116,6 +121,83 @@ export class DiscoveryService {
     } catch {
       this.logger.warn(`Failed to parse ${source} job results`)
       return []
+    }
+  }
+
+  // ─── AI Job Ranking against CV ─────────────────────────────────────
+
+  async rankJobsByCv(
+    jobs: DiscoveredJob[],
+    cvText: string,
+    skills: string[],
+    onProgress?: ProgressCallback,
+  ): Promise<DiscoveredJob[]> {
+    if (jobs.length === 0) return jobs
+
+    onProgress?.(`Ranking ${jobs.length} jobs against your CV using AI...`)
+
+    const jobSummaries = jobs.map((j, i) => ({
+      index: i,
+      title: j.title,
+      company: j.company,
+      requirements: j.requirements.join(', '),
+      salary: j.salary,
+      location: j.location,
+    }))
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a job-matching AI. Score each job against the candidate\'s CV.\n' +
+              'For each job, return a JSON array of objects with:\n' +
+              '- index (number): the job index from the input\n' +
+              '- matchScore (number): 0-100 score of how well the job matches the CV\n' +
+              '- matchReason (string): 1-2 sentence explanation of why this score\n' +
+              'Return ONLY a JSON array, sorted by matchScore descending.',
+          },
+          {
+            role: 'user',
+            content:
+              `CANDIDATE CV TEXT:\n${cvText.slice(0, 3000)}\n\n` +
+              `CANDIDATE SKILLS: ${skills.join(', ')}\n\n` +
+              `JOBS TO RANK:\n${JSON.stringify(jobSummaries, null, 2)}`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+      })
+
+      const content = response.choices[0]?.message?.content
+      if (!content) {
+        this.logger.warn('No response from OpenAI for job ranking')
+        return jobs
+      }
+
+      const parsed = JSON.parse(content)
+      const rankings: { index: number; matchScore: number; matchReason: string }[] =
+        Array.isArray(parsed) ? parsed : parsed.rankings || parsed.jobs || parsed.results || []
+
+      // Apply scores to jobs
+      for (const rank of rankings) {
+        if (rank.index >= 0 && rank.index < jobs.length) {
+          jobs[rank.index].matchScore = rank.matchScore
+          jobs[rank.index].matchReason = rank.matchReason
+        }
+      }
+
+      // Sort by matchScore descending
+      jobs.sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
+
+      onProgress?.(`AI ranking complete — top match: "${jobs[0]?.title}" (${jobs[0]?.matchScore}/100)`)
+      return jobs
+    } catch (err) {
+      this.logger.error('AI job ranking failed:', err)
+      onProgress?.(`AI ranking failed: ${err instanceof Error ? err.message : String(err)}`)
+      return jobs
     }
   }
 
@@ -268,22 +350,10 @@ export class DiscoveryService {
         url: `https://www.upwork.com/nx/search/talent/?q=${encodeURIComponent(skillsQuery)}&nbs=1`,
         profile: 'stealth' as const,
       },
-      // GitHub — search by topic/language
-      {
-        name: 'GitHub',
-        url: `https://github.com/search?q=${encodeURIComponent(skillsQuery)}&type=users`,
-        profile: 'lite' as const,
-      },
       // Toptal — top 3% developers
       {
         name: 'Toptal',
         url: `https://www.toptal.com/developers?skill=${encodeURIComponent(request.skills[0] || 'javascript')}`,
-        profile: 'lite' as const,
-      },
-      // Fiverr — gig-based freelancers
-      {
-        name: 'Fiverr',
-        url: `https://www.fiverr.com/search/gigs?query=${encodeURIComponent(`${titleQuery} ${skillsQuery}`)}&source=top-bar`,
         profile: 'lite' as const,
       },
     ]

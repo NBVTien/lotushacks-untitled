@@ -236,10 +236,11 @@ export interface DiscoveredJob {
   company: string
   location: string | null
   url: string
-  source: string  // e.g. "ITviec", "TopDev", "LinkedIn"
+  source: string  // e.g. "Upwork", "Wellfound", "LinkedIn"
   salary: string | null
   requirements: string[]
   matchReason: string
+  matchScore?: number
   postedDate: string | null
 }
 

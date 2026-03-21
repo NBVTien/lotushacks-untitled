@@ -6,11 +6,15 @@ import {
   Param,
   Res,
   NotFoundException,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { Response } from 'express'
 import { DiscoveryService } from './discovery.service'
 import { CandidatesService } from '../candidates/candidates.service'
 import { JobsService } from '../jobs/jobs.service'
+import { PdfService } from '../candidates/pdf.service'
 import type {
   JobDiscoveryRequest,
   SourcingRequest,
@@ -23,13 +27,33 @@ export class DiscoveryController {
     private readonly discoveryService: DiscoveryService,
     private readonly candidatesService: CandidatesService,
     private readonly jobsService: JobsService,
+    private readonly pdfService: PdfService,
   ) {}
 
   // ─── Feature C: Job Discovery ───────────────────────────────────────
 
+  /** SSE endpoint — streams job discovery progress in real-time */
   @Post('jobs')
-  async discoverJobs(@Body() body: JobDiscoveryRequest) {
-    return this.discoveryService.discoverJobs(body)
+  async discoverJobs(@Body() body: JobDiscoveryRequest, @Res() res: Response) {
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.flushHeaders()
+
+    const onProgress = (msg: string) => {
+      res.write(`data: ${JSON.stringify({ type: 'progress', message: msg })}\n\n`)
+    }
+
+    try {
+      const result = await this.discoveryService.discoverJobs(body, onProgress)
+      res.write(`data: ${JSON.stringify({ type: 'complete', result })}\n\n`)
+    } catch (err) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: String(err) })}\n\n`)
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+    res.end()
   }
 
   @Post('jobs-from-cv')
@@ -48,6 +72,65 @@ export class DiscoveryController {
     }
 
     return this.discoveryService.discoverJobs(request)
+  }
+
+  /** SSE endpoint — upload CV, discover jobs, rank them with AI */
+  @Post('jobs-from-upload')
+  @UseInterceptors(FileInterceptor('cv'))
+  async discoverJobsFromUpload(
+    @UploadedFile() file: Express.Multer.File,
+    @Res() res: Response,
+  ) {
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.flushHeaders()
+
+    const onProgress = (msg: string) => {
+      res.write(`data: ${JSON.stringify({ type: 'progress', message: msg })}\n\n`)
+    }
+
+    try {
+      if (!file) {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'No CV file uploaded' })}\n\n`)
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+        res.end()
+        return
+      }
+
+      // Step 1: Parse the CV
+      onProgress('Parsing your CV...')
+      const parsedCV = await this.pdfService.parseCV(file.buffer, file.originalname)
+      onProgress(`CV parsed: found ${parsedCV.skills.length} skills, ${parsedCV.experience.length} experiences`)
+
+      // Step 2: Build discovery request from parsed CV
+      const request: JobDiscoveryRequest = {
+        skills: parsedCV.skills,
+        experience: parsedCV.experience.map((e) => `${e.title} at ${e.company}`),
+        location: null,
+        title: parsedCV.experience?.[0]?.title || null,
+      }
+
+      // Step 3: Discover jobs
+      const result = await this.discoveryService.discoverJobs(request, onProgress)
+
+      // Step 4: Rank jobs against CV using AI
+      const rankedJobs = await this.discoveryService.rankJobsByCv(
+        result.jobs,
+        parsedCV.rawText,
+        parsedCV.skills,
+        onProgress,
+      )
+      result.jobs = rankedJobs
+
+      res.write(`data: ${JSON.stringify({ type: 'complete', result })}\n\n`)
+    } catch (err) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: String(err) })}\n\n`)
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+    res.end()
   }
 
   /** SSE endpoint — streams job discovery progress in real-time */
