@@ -52,9 +52,11 @@ export class MatchingService {
               'improvementTips (array of 3-5 specific, actionable tips for the candidate to improve their profile for this role — ' +
               'each tip should reference concrete actions, e.g. "Add a portfolio project demonstrating React + TypeScript to address the frontend gap" ' +
               'rather than vague advice like "Learn more frontend"), ' +
-              'skillScores (array of 6-8 objects, each with: name (skill name), candidateScore (0-100 how well the candidate demonstrates this skill), ' +
-              'requiredScore (0-100 how important this skill is for the job). ' +
-              'Pick the most relevant skills from the job requirements and candidate profile. Score based on evidence from CV, GitHub, and LinkedIn.), ' +
+              'skillScores (array of 6-8 objects for the most important skills from job requirements, each with: ' +
+              'name (short skill name, max 15 chars, e.g. "TypeScript", "React", "SQL/DB"), ' +
+              'level (one of: "yes" if candidate clearly has this skill, "partial" if some experience but not strong, "no" if missing), ' +
+              'evidence (brief 5-15 word reason, e.g. "3 years React in CV, confirmed by 5 GitHub repos" or "Not mentioned in CV or GitHub")). ' +
+              'Be strict: only "yes" if there is clear evidence. "partial" means some related experience. "no" means no evidence found.), ' +
               'scoringCriteria (array of strings explaining what specific criteria you used to evaluate, e.g. "Technical skills alignment with 5/7 required technologies", ' +
               '"3+ years relevant experience at similar companies"), ' +
               'limitations (array of strings noting any missing data that limited your assessment, e.g. "No LinkedIn profile available to verify work history", ' +

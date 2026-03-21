@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton, JobCardSkeleton } from '@/components/ui/skeleton'
 import { ScoreRing } from '@/components/ui/score-ring'
@@ -14,7 +13,7 @@ import { Plus, Briefcase, CheckCircle, X, Users, LinkIcon, Check, BarChart3 } fr
 import { PageTransition, StaggerContainer, StaggerItem, FadeIn } from '@/components/ui/motion'
 import { ErrorState } from '@/components/ErrorState'
 import { EmptyState } from '@/components/EmptyState'
-import ReactMarkdown from 'react-markdown'
+import { MarkdownEditor } from '@/components/MarkdownEditor'
 import { toast } from 'sonner'
 import { jobsApi } from '@/lib/api'
 import type { JobStats } from '@/lib/api'
@@ -118,7 +117,6 @@ export function JobsPage() {
   const [description, setDescription] = useState('')
   const [reqInput, setReqInput] = useState('')
   const [screeningCriteria, setScreeningCriteria] = useState('')
-  const [previewMode, setPreviewMode] = useState<string>('write')
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -331,13 +329,22 @@ export function JobsPage() {
         {/* Create form */}
         {showForm && (
           <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle>Create Job Description</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-base">New Job</CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setShowForm(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Job Title</Label>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-1.5">
+                  <Label htmlFor="title">Title</Label>
                   <Input
                     id="title"
                     placeholder="e.g. Senior Backend Engineer (Node.js)"
@@ -354,84 +361,71 @@ export function JobsPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Job Description (Markdown supported)</Label>
-                  <Tabs value={previewMode} onValueChange={setPreviewMode}>
-                    <TabsList>
-                      <TabsTrigger value="write">Write</TabsTrigger>
-                      <TabsTrigger value="preview">Preview</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="write">
-                      <Textarea
-                        placeholder={
-                          "## About the role\n\nDescribe responsibilities, team, tech stack...\n\n## What you'll do\n\n- Build microservices\n- Design APIs\n- ..."
-                        }
-                        rows={12}
-                        value={description}
-                        onChange={(e) => {
-                          setDescription(e.target.value)
-                          if (formErrors.description) setFormErrors((prev) => ({ ...prev, description: undefined }))
-                        }}
-                        onBlur={() => handleJobBlur('description')}
-                        className={`font-mono text-sm ${formTouched.description && formErrors.description ? 'border-destructive' : ''}`}
-                      />
-                    </TabsContent>
-                    <TabsContent value="preview">
-                      <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border p-4">
-                        {description ? (
-                          <ReactMarkdown>{description}</ReactMarkdown>
-                        ) : (
-                          <p className="text-muted-foreground">Nothing to preview</p>
-                        )}
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                <div className="space-y-1.5">
+                  <Label>Description</Label>
+                  <MarkdownEditor
+                    value={description}
+                    onChange={(val) => {
+                      setDescription(val)
+                      if (formErrors.description) setFormErrors((prev) => ({ ...prev, description: undefined }))
+                    }}
+                    placeholder="Describe the role, responsibilities, tech stack..."
+                  />
                   {formTouched.description && formErrors.description && (
                     <p className="text-sm text-destructive mt-1">{formErrors.description}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="requirements">Requirements (one per line)</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="requirements">Requirements</Label>
+                  <p className="text-xs text-muted-foreground">One per line</p>
                   <Textarea
                     id="requirements"
                     placeholder="4+ years Node.js/TypeScript&#10;Experience with PostgreSQL&#10;Docker & Kubernetes"
-                    rows={5}
+                    rows={4}
                     value={reqInput}
                     onChange={(e) => {
                       setReqInput(e.target.value)
                       if (formErrors.requirements) setFormErrors((prev) => ({ ...prev, requirements: undefined }))
                     }}
                     onBlur={() => handleJobBlur('requirements')}
-                    className={formTouched.requirements && formErrors.requirements ? 'border-destructive' : ''}
+                    className={`text-sm ${formTouched.requirements && formErrors.requirements ? 'border-destructive' : ''}`}
                   />
                   {formTouched.requirements && formErrors.requirements && (
                     <p className="text-sm text-destructive mt-1">{formErrors.requirements}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="screening">Screening Criteria</Label>
-                    <Badge variant="outline" className="text-xs">
-                      Internal only
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      Internal
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Private notes for AI scoring. Candidates won't see this.
-                  </p>
                   <Textarea
                     id="screening"
-                    placeholder="Prefer candidates with:&#10;- Open source contributions&#10;- Experience in fintech or payments&#10;&#10;Red flags:&#10;- Job hopping (less than 1 year per role)"
-                    rows={5}
+                    placeholder="Private notes for AI scoring..."
+                    rows={4}
                     value={screeningCriteria}
                     onChange={(e) => setScreeningCriteria(e.target.value)}
+                    className="text-sm"
                   />
                 </div>
 
-                <Button type="submit" disabled={submitting || jobFormHasErrors} className="h-10">
-                  {submitting ? 'Creating...' : 'Create Job'}
-                </Button>
+                <div className="flex items-center gap-2 pt-2 border-t">
+                  <Button type="submit" disabled={submitting || jobFormHasErrors} size="sm">
+                    {submitting ? 'Creating...' : 'Create Job'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>

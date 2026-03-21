@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Upload, CheckCircle, FileText, X, User, File } from 'lucide-react'
+import { ArrowLeft, Upload, CheckCircle, FileText, X, User, File, ArrowRight } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
 import { toast } from 'sonner'
 import { jobsApi, candidatesApi } from '@/lib/api'
@@ -29,6 +29,7 @@ export function ApplyPage() {
   const [uploading, setUploading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [step, setStep] = useState(0)
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ApplyField, string>>>({})
   const [touched, setTouched] = useState<Partial<Record<ApplyField, boolean>>>({})
 
@@ -59,12 +60,6 @@ export function ApplyPage() {
     setTouched(t)
     return !Object.values(errs).some(Boolean)
   }
-
-  const hasErrors =
-    !candidateName.trim() || !candidateEmail.trim() || !isValidEmail(candidateEmail) || !file
-
-  // Derive current step: 0 = info, 1 = upload, 2 = review
-  const currentStep = !candidateName || !candidateEmail ? 0 : !file ? 1 : 2
 
   useEffect(() => {
     if (jobId) jobsApi.get(jobId).then(setJob)
@@ -131,11 +126,11 @@ export function ApplyPage() {
 
         {/* Step indicator */}
         <div className="flex items-center justify-between px-4">
-          {STEPS.map((step, i) => {
-            const isCompleted = i < currentStep
-            const isCurrent = i === currentStep
+          {STEPS.map((s, i) => {
+            const isCompleted = i < step
+            const isCurrent = i === step
             return (
-              <div key={step.label} className="flex flex-1 items-center">
+              <div key={s.label} className="flex flex-1 items-center">
                 <div className="flex flex-col items-center gap-1.5">
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-200 ${
@@ -155,7 +150,7 @@ export function ApplyPage() {
                   <span
                     className={`text-xs font-medium ${isCurrent ? 'text-primary' : 'text-muted-foreground'}`}
                   >
-                    {step.label}
+                    {s.label}
                   </span>
                 </div>
                 {i < STEPS.length - 1 && (
@@ -174,124 +169,193 @@ export function ApplyPage() {
             {job.company && <p className="text-sm text-muted-foreground">{job.company.name}</p>}
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Your full name"
-                  value={candidateName}
-                  onChange={(e) => {
-                    setCandidateName(e.target.value)
-                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }))
-                  }}
-                  onBlur={() => handleFieldBlur('name')}
-                  className={`h-12 text-base ${touched.name && fieldErrors.name ? 'border-destructive' : ''}`}
-                />
-                {touched.name && fieldErrors.name && (
-                  <p className="text-sm text-destructive mt-1">{fieldErrors.name}</p>
-                )}
+            {/* Step 0: Your Info */}
+            {step === 0 && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Your full name"
+                    value={candidateName}
+                    onChange={(e) => {
+                      setCandidateName(e.target.value)
+                      if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }))
+                    }}
+                    onBlur={() => handleFieldBlur('name')}
+                    className={`h-12 text-base ${touched.name && fieldErrors.name ? 'border-destructive' : ''}`}
+                  />
+                  {touched.name && fieldErrors.name && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@email.com"
+                    value={candidateEmail}
+                    onChange={(e) => {
+                      setCandidateEmail(e.target.value)
+                      if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }))
+                    }}
+                    onBlur={() => handleFieldBlur('email')}
+                    className={`h-12 text-base ${touched.email && fieldErrors.email ? 'border-destructive' : ''}`}
+                  />
+                  {touched.email && fieldErrors.email && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  disabled={!candidateName.trim() || !candidateEmail.trim() || !isValidEmail(candidateEmail)}
+                  className="h-12 w-full text-base gap-2"
+                  onClick={() => setStep(1)}
+                >
+                  Continue <ArrowRight className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@email.com"
-                  value={candidateEmail}
-                  onChange={(e) => {
-                    setCandidateEmail(e.target.value)
-                    if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }))
-                  }}
-                  onBlur={() => handleFieldBlur('email')}
-                  className={`h-12 text-base ${touched.email && fieldErrors.email ? 'border-destructive' : ''}`}
-                />
-                {touched.email && fieldErrors.email && (
-                  <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Upload your CV (PDF)</Label>
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    setDragOver(true)
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                  onClick={() => document.getElementById('cv-file')?.click()}
-                  className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-colors duration-200 ${
-                    touched.file && fieldErrors.file
-                      ? 'border-destructive'
-                      : dragOver
+            )}
+
+            {/* Step 1: Upload CV */}
+            {step === 1 && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label>Upload your CV (PDF)</Label>
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      setDragOver(true)
+                    }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={handleDrop}
+                    onClick={() => document.getElementById('cv-file')?.click()}
+                    className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-10 transition-colors duration-200 ${
+                      dragOver
                         ? 'border-primary/50 bg-primary/5'
                         : file
                           ? 'border-border bg-muted/30'
                           : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                  }`}
-                >
-                  {file ? (
-                    <div className="flex items-center gap-4 rounded-lg border bg-card p-3 shadow-sm w-full">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                        <FileText className="h-5 w-5 text-primary/60" />
+                    }`}
+                  >
+                    {file ? (
+                      <div className="flex items-center gap-4 rounded-lg border bg-card p-3 shadow-sm w-full">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                          <FileText className="h-5 w-5 text-primary/60" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setFile(null)
+                          }}
+                          className="rounded-md p-1.5 hover:bg-muted transition-colors"
+                        >
+                          <X className="h-4 w-4 text-muted-foreground" />
+                        </button>
                       </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-sm font-medium">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {(file.size / 1024).toFixed(1)} KB
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setFile(null)
-                        }}
-                        className="rounded-md p-1.5 hover:bg-muted transition-colors"
-                      >
-                        <X className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                        <Upload className="h-6 w-6 text-muted-foreground/50" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium">Drop your CV here</p>
-                        <p className="text-xs text-muted-foreground">
-                          or click to browse (PDF only)
-                        </p>
-                      </div>
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                          <Upload className="h-6 w-6 text-muted-foreground/50" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium">Drop your CV here</p>
+                          <p className="text-xs text-muted-foreground">
+                            or click to browse (PDF only)
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    id="cv-file"
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null
+                      setFile(f)
+                      if (f) setFieldErrors((prev) => ({ ...prev, file: undefined }))
+                    }}
+                    className="hidden"
+                  />
                 </div>
-                <input
-                  id="cv-file"
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0] ?? null
-                    setFile(f)
-                    if (f) setFieldErrors((prev) => ({ ...prev, file: undefined }))
-                  }}
-                  className="hidden"
-                />
-                {touched.file && fieldErrors.file && (
-                  <p className="text-sm text-destructive mt-1">{fieldErrors.file}</p>
-                )}
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 flex-1 text-base"
+                    onClick={() => setStep(0)}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!file}
+                    className="h-12 flex-1 text-base gap-2"
+                    onClick={() => setStep(2)}
+                  >
+                    Continue <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <Button type="submit" disabled={uploading || hasErrors} className="h-12 w-full text-base">
-                {uploading ? (
-                  <span className="flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                    Submitting...
-                  </span>
-                ) : (
-                  'Submit Application'
-                )}
-              </Button>
-            </form>
+            )}
+
+            {/* Step 2: Review & Submit */}
+            {step === 2 && (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Name</span>
+                    <span className="text-sm font-medium">{candidateName}</span>
+                  </div>
+                  <div className="border-t" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Email</span>
+                    <span className="text-sm font-medium">{candidateEmail}</span>
+                  </div>
+                  <div className="border-t" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">CV</span>
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      {file?.name}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 flex-1 text-base"
+                    onClick={() => setStep(1)}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={uploading}
+                    className="h-12 flex-1 text-base"
+                  >
+                    {uploading ? (
+                      <span className="flex items-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                        Submitting...
+                      </span>
+                    ) : (
+                      'Submit Application'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>

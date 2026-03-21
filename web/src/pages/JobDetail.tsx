@@ -18,6 +18,7 @@ import {
   FileText,
   LinkIcon,
   Check,
+  X,
   GitCompareArrows,
 } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
@@ -25,6 +26,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { EmptyState } from '@/components/EmptyState'
 import ReactMarkdown from 'react-markdown'
 import { toast } from 'sonner'
+import { MarkdownEditor } from '@/components/MarkdownEditor'
 import { jobsApi, candidatesApi } from '@/lib/api'
 import { PipelineBoard } from '@/components/PipelineBoard'
 import type { Job, Candidate } from '@lotushack/shared'
@@ -238,11 +240,20 @@ export function JobDetailPage() {
           </div>
         )}
 
-        {/* Edit form */}
-        {editing && (
+        {editing ? (
+          /* Edit form — replaces the tabs view */
           <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle>Edit Job</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-base">Edit Job</CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setEditing(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent>
               <form
@@ -268,40 +279,42 @@ export function JobDetailPage() {
                   }
                   setSaving(false)
                 }}
-                className="space-y-5"
+                className="space-y-6"
               >
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Title</Label>
                   <Input
                     value={editForm.title}
                     onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                     required
-                    className="h-11"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Description (Markdown)</Label>
-                  <Textarea
+
+                <div className="space-y-1.5">
+                  <Label>Description</Label>
+                  <MarkdownEditor
                     value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    rows={10}
-                    className="font-mono text-sm"
-                    required
+                    onChange={(val) => setEditForm({ ...editForm, description: val })}
+                    placeholder="Describe the role..."
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Requirements (one per line)</Label>
+
+                <div className="space-y-1.5">
+                  <Label>Requirements</Label>
+                  <p className="text-xs text-muted-foreground">One per line</p>
                   <Textarea
                     value={editForm.requirements}
                     onChange={(e) => setEditForm({ ...editForm, requirements: e.target.value })}
-                    rows={5}
+                    rows={4}
+                    className="text-sm"
                   />
                 </div>
-                <div className="space-y-2">
+
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <Label>Screening Criteria</Label>
-                    <Badge variant="outline" className="text-xs">
-                      Internal only
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      Internal
                     </Badge>
                   </div>
                   <Textarea
@@ -309,233 +322,241 @@ export function JobDetailPage() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, screeningCriteria: e.target.value })
                     }
-                    rows={4}
+                    rows={3}
+                    className="text-sm"
+                    placeholder="Private notes for AI scoring..."
                   />
                 </div>
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={saving}>
+
+                <div className="flex items-center gap-2 pt-2 border-t">
+                  <Button type="submit" disabled={saving} size="sm">
                     {saving ? 'Saving...' : 'Save Changes'}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setEditing(false)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditing(false)}
+                  >
                     Cancel
                   </Button>
                 </div>
               </form>
             </CardContent>
           </Card>
-        )}
+        ) : (
+          /* Read-only view */
+          <Tabs defaultValue="jd">
+            <TabsList>
+              <TabsTrigger value="jd" className="gap-1.5">
+                <FileText className="h-3.5 w-3.5" /> Description
+              </TabsTrigger>
+              <TabsTrigger value="candidates" className="gap-1.5">
+                <Users className="h-3.5 w-3.5" /> Candidates ({candidates.length})
+              </TabsTrigger>
+              {job.screeningCriteria && <TabsTrigger value="screening">Screening</TabsTrigger>}
+            </TabsList>
 
-        <Tabs defaultValue="jd">
-          <TabsList>
-            <TabsTrigger value="jd" className="gap-1.5">
-              <FileText className="h-3.5 w-3.5" /> Description
-            </TabsTrigger>
-            <TabsTrigger value="candidates" className="gap-1.5">
-              <Users className="h-3.5 w-3.5" /> Candidates ({candidates.length})
-            </TabsTrigger>
-            {job.screeningCriteria && <TabsTrigger value="screening">Screening</TabsTrigger>}
-          </TabsList>
-
-          <TabsContent value="jd" className="space-y-4">
-            <Card className="shadow-sm">
-              <CardContent className="py-6">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{job.description}</ReactMarkdown>
-                </div>
-              </CardContent>
-            </Card>
-
-            {job.requirements.length > 0 && (
-              <div>
-                <h3 className="mb-3 text-sm font-semibold">Requirements</h3>
-                <div className="flex flex-wrap gap-2">
-                  {job.requirements.map((req, i) => (
-                    <Badge key={i} variant="secondary">
-                      {req}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="candidates" className="space-y-3">
-            {candidates.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title="No candidates yet"
-                description="Upload a CV to start evaluating candidates for this position"
-                action={{
-                  label: 'Upload CV',
-                  onClick: () => document.getElementById('cv-upload')?.click(),
-                }}
-              />
-            ) : (
-              <>
-              {/* View toggle */}
-              <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 w-fit">
-                <button
-                  onClick={() => setCandidateView('table')}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    candidateView === 'table'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Table
-                </button>
-                <button
-                  onClick={() => setCandidateView('pipeline')}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    candidateView === 'pipeline'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Pipeline
-                </button>
-              </div>
-
-              {candidateView === 'pipeline' ? (
-                <PipelineBoard jobId={jobId!} />
-              ) : (
-              <div className="overflow-hidden rounded-xl border shadow-sm">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/40">
-                      <th className="w-10 px-3 py-3 text-center text-xs font-medium text-muted-foreground">
-                        <span className="sr-only">Select</span>
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                        Candidate
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                        Score
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                        Recommendation
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {candidates.map((c) => {
-                      const isSelected = selectedIds.has(c.id)
-                      const canSelect =
-                        isSelected || selectedIds.size < 3
-                      return (
-                        <tr
-                          key={c.id}
-                          className={`group border-b last:border-0 transition-colors hover:bg-muted/40 ${isSelected ? 'bg-primary/5' : ''}`}
-                        >
-                          <td className="px-3 py-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              disabled={!canSelect && !isSelected}
-                              title={
-                                !canSelect && !isSelected
-                                  ? 'Maximum 3 candidates can be compared'
-                                  : 'Select for comparison'
-                              }
-                              onChange={() => {
-                                setSelectedIds((prev) => {
-                                  const next = new Set(prev)
-                                  if (next.has(c.id)) {
-                                    next.delete(c.id)
-                                  } else if (next.size < 3) {
-                                    next.add(c.id)
-                                  }
-                                  return next
-                                })
-                              }}
-                              className="h-4 w-4 rounded border-muted-foreground/30 text-primary focus:ring-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <Link to={`/jobs/${jobId}/candidates/${c.id}`} className="block">
-                              <p className="font-medium text-sm group-hover:text-primary transition-colors">
-                                {c.name}
-                              </p>
-                              {c.email && (
-                                <p className="text-xs text-muted-foreground">{c.email}</p>
-                              )}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-3">
-                            <StatusBadge status={c.status} />
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {c.matchResult && (
-                              <span
-                                className={`inline-flex items-center gap-1.5 text-sm font-semibold ${getScoreTextColor(c.matchResult.overallScore)}`}
-                              >
-                                {c.matchResult.overallScore}
-                                <span
-                                  className={`inline-block h-2 w-2 rounded-full ${getScoreDotColor(c.matchResult.overallScore)}`}
-                                />
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {c.matchResult && (
-                              <RecommendationBadge
-                                recommendation={c.matchResult.recommendation}
-                              />
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              )}
-
-              {/* Floating compare button */}
-              {selectedIds.size >= 2 && (
-                <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-                  <Button
-                    size="lg"
-                    className="gap-2 shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-300"
-                    onClick={() => {
-                      const ids = Array.from(selectedIds).join(',')
-                      navigate(`/jobs/${jobId}/compare?ids=${ids}`)
-                    }}
-                  >
-                    <GitCompareArrows className="h-4 w-4" />
-                    Compare ({selectedIds.size})
-                  </Button>
-                </div>
-              )}
-              </>
-            )}
-          </TabsContent>
-
-          {job.screeningCriteria && (
-            <TabsContent value="screening">
+            <TabsContent value="jd" className="space-y-4">
               <Card className="shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-base">Screening Criteria</CardTitle>
-                    <Badge variant="outline" className="text-xs">
-                      Internal only
-                    </Badge>
+                <CardContent className="py-6">
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{job.description}</ReactMarkdown>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    These criteria are used by AI to score candidates but are not visible to
-                    applicants.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="whitespace-pre-wrap text-sm">{job.screeningCriteria}</div>
                 </CardContent>
               </Card>
+
+              {job.requirements.length > 0 && (
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold">Requirements</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {job.requirements.map((req, i) => (
+                      <Badge key={i} variant="secondary">
+                        {req}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </TabsContent>
-          )}
-        </Tabs>
+
+            <TabsContent value="candidates" className="space-y-3">
+              {candidates.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="No candidates yet"
+                  description="Upload a CV to start evaluating candidates for this position"
+                  action={{
+                    label: 'Upload CV',
+                    onClick: () => document.getElementById('cv-upload')?.click(),
+                  }}
+                />
+              ) : (
+                <>
+                  {/* View toggle */}
+                  <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 w-fit">
+                    <button
+                      onClick={() => setCandidateView('table')}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                        candidateView === 'table'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Table
+                    </button>
+                    <button
+                      onClick={() => setCandidateView('pipeline')}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                        candidateView === 'pipeline'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Pipeline
+                    </button>
+                  </div>
+
+                  {candidateView === 'pipeline' ? (
+                    <PipelineBoard jobId={jobId!} />
+                  ) : (
+                  <div className="overflow-hidden rounded-xl border shadow-sm">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          <th className="w-10 px-3 py-3 text-center text-xs font-medium text-muted-foreground">
+                            <span className="sr-only">Select</span>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                            Candidate
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                            Status
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                            Score
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                            Recommendation
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {candidates.map((c) => {
+                          const isSelected = selectedIds.has(c.id)
+                          const canSelect = isSelected || selectedIds.size < 3
+                          return (
+                            <tr
+                              key={c.id}
+                              className={`group border-b last:border-0 transition-colors hover:bg-muted/40 ${isSelected ? 'bg-primary/5' : ''}`}
+                            >
+                              <td className="px-3 py-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  disabled={!canSelect && !isSelected}
+                                  title={
+                                    !canSelect && !isSelected
+                                      ? 'Maximum 3 candidates can be compared'
+                                      : 'Select for comparison'
+                                  }
+                                  onChange={() => {
+                                    setSelectedIds((prev) => {
+                                      const next = new Set(prev)
+                                      if (next.has(c.id)) {
+                                        next.delete(c.id)
+                                      } else if (next.size < 3) {
+                                        next.add(c.id)
+                                      }
+                                      return next
+                                    })
+                                  }}
+                                  className="h-4 w-4 rounded border-muted-foreground/30 text-primary focus:ring-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <Link to={`/jobs/${jobId}/candidates/${c.id}`} className="block">
+                                  <p className="font-medium text-sm group-hover:text-primary transition-colors">
+                                    {c.name}
+                                  </p>
+                                  {c.email && (
+                                    <p className="text-xs text-muted-foreground">{c.email}</p>
+                                  )}
+                                </Link>
+                              </td>
+                              <td className="px-4 py-3">
+                                <StatusBadge status={c.status} />
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {c.matchResult && (
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 text-sm font-semibold ${getScoreTextColor(c.matchResult.overallScore)}`}
+                                  >
+                                    {c.matchResult.overallScore}
+                                    <span
+                                      className={`inline-block h-2 w-2 rounded-full ${getScoreDotColor(c.matchResult.overallScore)}`}
+                                    />
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {c.matchResult && (
+                                  <RecommendationBadge
+                                    recommendation={c.matchResult.recommendation}
+                                  />
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  )}
+
+                  {/* Floating compare button */}
+                  {selectedIds.size >= 2 && (
+                    <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+                      <Button
+                        size="lg"
+                        className="gap-2 shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-300"
+                        onClick={() => {
+                          const ids = Array.from(selectedIds).join(',')
+                          navigate(`/jobs/${jobId}/compare?ids=${ids}`)
+                        }}
+                      >
+                        <GitCompareArrows className="h-4 w-4" />
+                        Compare ({selectedIds.size})
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </TabsContent>
+
+            {job.screeningCriteria && (
+              <TabsContent value="screening">
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">Screening Criteria</CardTitle>
+                      <Badge variant="outline" className="text-xs">
+                        Internal only
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      These criteria are used by AI to score candidates but are not visible to
+                      applicants.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="whitespace-pre-wrap text-sm">{job.screeningCriteria}</div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+          </Tabs>
+        )}
       </div>
     </PageTransition>
   )
