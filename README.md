@@ -1,8 +1,8 @@
-# Beyond CV — AI Recruitment Copilot
+# TalentLens — AI Recruitment Copilot
 
 <div align="center">
 
-**Go beyond the resume.** Enrich candidates with real-world data, discover jobs across platforms, and make explainable hiring decisions — all powered by AI.
+**See candidates clearly through AI.** Enrich profiles with real-world data, discover jobs across platforms, and make explainable hiring decisions — all powered by AI.
 
 [![Built with TinyFish](https://img.shields.io/badge/Built%20with-TinyFish-blue?style=for-the-badge)](https://tinyfish.ai)
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
