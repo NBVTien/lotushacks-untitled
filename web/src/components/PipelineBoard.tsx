@@ -253,7 +253,7 @@ export function PipelineBoard({ jobId }: PipelineBoardProps) {
                             handleStageChange(c, stage.key, val as PipelineStage)
                           }
                         >
-                          <SelectTrigger size="sm" className="w-full text-xs">
+                          <SelectTrigger size="sm" className="w-full text-xs capitalize">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
