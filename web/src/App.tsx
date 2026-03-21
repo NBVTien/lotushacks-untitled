@@ -8,6 +8,7 @@ import { CareersPage } from './pages/Careers'
 import { ApplyPage } from './pages/Apply'
 import { LoginPage } from './pages/Login'
 import { RegisterPage } from './pages/Register'
+import { Briefcase, LogOut, LayoutDashboard } from 'lucide-react'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -15,53 +16,122 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function NavBar() {
+function Sidebar() {
   const location = useLocation()
-  const { isAuthenticated, user, logout } = useAuth()
-  const isCareers = location.pathname.startsWith('/careers')
-  const isAuth = location.pathname === '/login' || location.pathname === '/register'
+  const { user, logout } = useAuth()
 
-  if (isCareers) {
-    return (
-      <header className="border-b bg-white">
-        <div className="mx-auto flex h-14 max-w-4xl items-center px-4">
-          <Link to="/careers" className="text-lg font-semibold">
-            Careers
-          </Link>
-        </div>
-      </header>
-    )
-  }
-
-  if (isAuth) return null
+  const navItems = [
+    { to: '/', label: 'Jobs', icon: Briefcase },
+  ]
 
   return (
-    <header className="border-b bg-white">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <div className="flex items-center gap-6">
-          <Link to="/" className="text-lg font-semibold">
-            Recruitment Copilot
-          </Link>
-          {isAuthenticated && (
-            <nav className="flex gap-4 text-sm text-muted-foreground">
-              <Link to="/" className="hover:text-foreground">
-                Jobs
-              </Link>
-            </nav>
-          )}
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r bg-sidebar lg:flex">
+      {/* Brand */}
+      <div className="flex h-16 items-center gap-2.5 border-b px-6">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-brand">
+          <LayoutDashboard className="h-4 w-4 text-white" />
         </div>
-        {isAuthenticated && user && (
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground">
-              {user.name} &middot; {user.company?.name}
-            </span>
-            <Button variant="outline" size="sm" onClick={logout}>
-              Logout
-            </Button>
+        <span className="text-base font-semibold tracking-tight">Recruit AI</span>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 space-y-1 px-3 py-4">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to))
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+              }`}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* User info */}
+      {user && (
+        <div className="border-t p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+              {user.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+            <div className="flex-1 truncate">
+              <p className="truncate text-sm font-medium">{user.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{user.company?.name}</p>
+            </div>
+            <button
+              onClick={logout}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
-        )}
+        </div>
+      )}
+    </aside>
+  )
+}
+
+function MobileHeader() {
+  const { user, logout } = useAuth()
+
+  return (
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:hidden">
+      <Link to="/" className="flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-brand">
+          <LayoutDashboard className="h-3.5 w-3.5 text-white" />
+        </div>
+        <span className="text-sm font-semibold">Recruit AI</span>
+      </Link>
+      {user && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{user.name}</span>
+          <Button variant="ghost" size="xs" onClick={logout}>
+            <LogOut className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+    </header>
+  )
+}
+
+function CareersNav() {
+  return (
+    <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur-sm dark:bg-background/80">
+      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
+        <Link to="/careers" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-brand">
+            <Briefcase className="h-4 w-4 text-white" />
+          </div>
+          <span className="text-base font-semibold tracking-tight">Careers</span>
+        </Link>
+        <Link to="/login" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          For Recruiters
+        </Link>
       </div>
     </header>
+  )
+}
+
+function RecruiterLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <Sidebar />
+      <MobileHeader />
+      <main className="min-h-screen lg:pl-64">
+        <div className="mx-auto max-w-6xl px-6 py-8">
+          {children}
+        </div>
+      </main>
+    </>
   )
 }
 
@@ -69,25 +139,46 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="min-h-screen bg-background">
-          <NavBar />
-          <main className="mx-auto max-w-6xl p-4">
-            <Routes>
-              {/* Auth */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+        <Routes>
+          {/* Auth — no nav */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-              {/* Recruiter (protected) */}
-              <Route path="/" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
-              <Route path="/jobs/:jobId" element={<ProtectedRoute><JobDetailPage /></ProtectedRoute>} />
-              <Route path="/jobs/:jobId/candidates/:candidateId" element={<ProtectedRoute><CandidateDetailPage /></ProtectedRoute>} />
+          {/* Recruiter (protected) — sidebar layout */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <RecruiterLayout><JobsPage /></RecruiterLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/jobs/:jobId" element={
+            <ProtectedRoute>
+              <RecruiterLayout><JobDetailPage /></RecruiterLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/jobs/:jobId/candidates/:candidateId" element={
+            <ProtectedRoute>
+              <RecruiterLayout><CandidateDetailPage /></RecruiterLayout>
+            </ProtectedRoute>
+          } />
 
-              {/* Candidate (public) */}
-              <Route path="/careers" element={<CareersPage />} />
-              <Route path="/careers/:jobId/apply" element={<ApplyPage />} />
-            </Routes>
-          </main>
-        </div>
+          {/* Candidate (public) — careers nav */}
+          <Route path="/careers" element={
+            <>
+              <CareersNav />
+              <main className="mx-auto max-w-5xl px-6 py-8">
+                <CareersPage />
+              </main>
+            </>
+          } />
+          <Route path="/careers/:jobId/apply" element={
+            <>
+              <CareersNav />
+              <main className="mx-auto max-w-5xl px-6 py-8">
+                <ApplyPage />
+              </main>
+            </>
+          } />
+        </Routes>
       </AuthProvider>
     </BrowserRouter>
   )

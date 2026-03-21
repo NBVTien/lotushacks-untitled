@@ -7,26 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { StatusBadge, RecommendationBadge } from '@/components/ui/status-badge'
+import { SkeletonCard } from '@/components/ui/skeleton'
+import { ArrowLeft, Upload, Pencil, Users, FileText } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi, candidatesApi } from '@/lib/api'
 import type { Job, Candidate } from '@lotushack/shared'
-
-const statusColors: Record<string, string> = {
-  uploaded: 'bg-gray-200 text-gray-800',
-  parsed: 'bg-blue-100 text-blue-800',
-  enriching: 'bg-yellow-100 text-yellow-800',
-  enriched: 'bg-orange-100 text-orange-800',
-  scoring: 'bg-purple-100 text-purple-800',
-  completed: 'bg-green-100 text-green-800',
-  error: 'bg-red-100 text-red-800',
-}
-
-const recommendationColors: Record<string, string> = {
-  strong_match: 'bg-green-100 text-green-800',
-  good_match: 'bg-blue-100 text-blue-800',
-  partial_match: 'bg-yellow-100 text-yellow-800',
-  weak_match: 'bg-red-100 text-red-800',
-}
 
 export function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -75,59 +62,65 @@ export function JobDetailPage() {
 
   if (notFound) {
     return (
-      <div className="space-y-4">
-        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">&larr; Back to Jobs</Link>
+      <div className="space-y-4 animate-fade-up">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
+        </Link>
         <p className="text-muted-foreground">Job not found. It may have been deleted.</p>
       </div>
     )
   }
 
-  if (!job) return <p>Loading...</p>
+  if (!job) {
+    return (
+      <div className="space-y-6">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
-          &larr; Back to Jobs
-        </Link>
-      </div>
+    <div className="space-y-6 animate-fade-up">
+      <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
+      </Link>
 
-      <div className="flex items-start justify-between">
-        <h1 className="text-2xl font-bold">{job.title}</h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setEditing(true)
-              setEditForm({
-                title: job.title,
-                description: job.description,
-                requirements: job.requirements.join('\n'),
-                screeningCriteria: job.screeningCriteria || '',
-              })
-            }}
-          >
-            Edit
-          </Button>
-          <Button
-            type="button"
-            disabled={uploading}
-            onClick={() => document.getElementById('cv-upload')?.click()}
-          >
-            {uploading ? 'Uploading...' : 'Upload CV'}
-          </Button>
-          <input
-            id="cv-upload"
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            onChange={handleUpload}
-          />
-        </div>
-      </div>
+      <PageHeader title={job.title}>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => {
+            setEditing(true)
+            setEditForm({
+              title: job.title,
+              description: job.description,
+              requirements: job.requirements.join('\n'),
+              screeningCriteria: job.screeningCriteria || '',
+            })
+          }}
+        >
+          <Pencil className="h-3.5 w-3.5" /> Edit
+        </Button>
+        <Button
+          className="gap-2"
+          disabled={uploading}
+          onClick={() => document.getElementById('cv-upload')?.click()}
+        >
+          <Upload className="h-3.5 w-3.5" /> {uploading ? 'Uploading...' : 'Upload CV'}
+        </Button>
+        <input
+          id="cv-upload"
+          type="file"
+          accept=".pdf"
+          className="hidden"
+          onChange={handleUpload}
+        />
+      </PageHeader>
 
+      {/* Edit form — slide-over style */}
       {editing && (
-        <Card>
+        <Card className="shadow-card animate-fade-up">
           <CardHeader>
             <CardTitle>Edit Job</CardTitle>
           </CardHeader>
@@ -147,13 +140,13 @@ export function JobDetailPage() {
                 setEditing(false)
                 setSaving(false)
               }}
-              className="space-y-4"
+              className="space-y-5"
             >
-              <div>
+              <div className="space-y-2">
                 <Label>Title</Label>
-                <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} required />
+                <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} required className="h-11" />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label>Description (Markdown)</Label>
                 <Textarea
                   value={editForm.description}
@@ -163,7 +156,7 @@ export function JobDetailPage() {
                   required
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label>Requirements (one per line)</Label>
                 <Textarea
                   value={editForm.requirements}
@@ -171,7 +164,7 @@ export function JobDetailPage() {
                   rows={5}
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Label>Screening Criteria</Label>
                   <Badge variant="outline" className="text-xs">Internal only</Badge>
@@ -183,7 +176,7 @@ export function JobDetailPage() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+                <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
                 <Button type="button" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
               </div>
             </form>
@@ -193,20 +186,22 @@ export function JobDetailPage() {
 
       <Tabs defaultValue="jd">
         <TabsList>
-          <TabsTrigger value="jd">Job Description</TabsTrigger>
-          <TabsTrigger value="candidates">
-            Candidates ({candidates.length})
+          <TabsTrigger value="jd" className="gap-1.5">
+            <FileText className="h-3.5 w-3.5" /> Description
+          </TabsTrigger>
+          <TabsTrigger value="candidates" className="gap-1.5">
+            <Users className="h-3.5 w-3.5" /> Candidates ({candidates.length})
           </TabsTrigger>
           {job.screeningCriteria && (
             <TabsTrigger value="screening">
-              Screening Criteria
+              Screening
             </TabsTrigger>
           )}
         </TabsList>
 
         <TabsContent value="jd" className="space-y-4">
-          <Card>
-            <CardContent className="py-4">
+          <Card className="shadow-card">
+            <CardContent className="py-6">
               <div className="prose prose-sm max-w-none">
                 <ReactMarkdown>{job.description}</ReactMarkdown>
               </div>
@@ -215,7 +210,7 @@ export function JobDetailPage() {
 
           {job.requirements.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold">Requirements</h3>
+              <h3 className="mb-3 text-sm font-semibold">Requirements</h3>
               <div className="flex flex-wrap gap-2">
                 {job.requirements.map((req, i) => (
                   <Badge key={i} variant="secondary">
@@ -227,55 +222,57 @@ export function JobDetailPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="candidates" className="space-y-4">
+        <TabsContent value="candidates" className="space-y-3">
           {candidates.length === 0 ? (
-            <p className="text-muted-foreground">
-              No candidates yet. Upload a CV to get started.
-            </p>
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 py-16">
+              <Users className="h-10 w-10 text-muted-foreground/50" />
+              <p className="mt-4 text-sm font-medium text-muted-foreground">No candidates yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">Upload a CV to get started</p>
+            </div>
           ) : (
-            <div className="space-y-3">
-              {candidates.map((c) => (
-                <Link key={c.id} to={`/jobs/${jobId}/candidates/${c.id}`}>
-                  <Card className="transition-shadow hover:shadow-md">
-                    <CardContent className="flex items-center justify-between py-4">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <p className="font-medium">{c.name}</p>
-                          {c.email && (
-                            <p className="text-sm text-muted-foreground">{c.email}</p>
-                          )}
-                        </div>
-                        <Badge className={statusColors[c.status] || ''}>
-                          {c.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3">
+            <div className="overflow-hidden rounded-xl border shadow-card">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Candidate</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Score</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Recommendation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {candidates.map((c) => (
+                    <tr key={c.id} className="group border-b last:border-0 transition-colors hover:bg-muted/30">
+                      <td className="px-4 py-3">
+                        <Link to={`/jobs/${jobId}/candidates/${c.id}`} className="block">
+                          <p className="font-medium text-sm group-hover:text-primary transition-colors">{c.name}</p>
+                          {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={c.status} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
                         {c.matchResult && (
-                          <>
-                            <span className="text-2xl font-bold">
-                              {c.matchResult.overallScore}
-                            </span>
-                            <Badge
-                              className={
-                                recommendationColors[c.matchResult.recommendation] || ''
-                              }
-                            >
-                              {c.matchResult.recommendation.replace('_', ' ')}
-                            </Badge>
-                          </>
+                          <span className="text-lg font-bold">{c.matchResult.overallScore}</span>
                         )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {c.matchResult && (
+                          <RecommendationBadge recommendation={c.matchResult.recommendation} />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </TabsContent>
 
         {job.screeningCriteria && (
           <TabsContent value="screening">
-            <Card>
+            <Card className="shadow-card">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-base">Screening Criteria</CardTitle>
