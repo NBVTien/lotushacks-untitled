@@ -160,7 +160,7 @@ export function JobsPage() {
                       />
                     </TabsContent>
                     <TabsContent value="preview">
-                      <div className="prose prose-sm max-w-none rounded-lg border p-4">
+                      <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border p-4">
                         {description ? (
                           <ReactMarkdown>{description}</ReactMarkdown>
                         ) : (

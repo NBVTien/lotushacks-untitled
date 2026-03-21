@@ -300,7 +300,7 @@ export function JobDetailPage() {
           <TabsContent value="jd" className="space-y-4">
             <Card className="shadow-sm">
               <CardContent className="py-6">
-                <div className="prose prose-sm max-w-none">
+                <div className="prose prose-sm dark:prose-invert max-w-none">
                   <ReactMarkdown>{job.description}</ReactMarkdown>
                 </div>
               </CardContent>

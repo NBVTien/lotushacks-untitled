@@ -135,7 +135,7 @@ export function CareersPage() {
                           </div>
 
                           {expanded === job.id ? (
-                            <div className="prose prose-sm max-w-none">
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
                               <ReactMarkdown>{job.description}</ReactMarkdown>
                             </div>
                           ) : (
