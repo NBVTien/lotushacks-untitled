@@ -7,6 +7,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { SkeletonCard } from '@/components/ui/skeleton'
+import { Plus, Briefcase, CheckCircle, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
@@ -14,7 +17,8 @@ import type { Job } from '@lotushack/shared'
 export function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [showForm, setShowForm] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [reqInput, setReqInput] = useState('')
@@ -22,12 +26,15 @@ export function JobsPage() {
   const [previewMode, setPreviewMode] = useState<string>('write')
 
   useEffect(() => {
-    jobsApi.list().then(setJobs)
+    jobsApi.list().then((data) => {
+      setJobs(data)
+      setLoading(false)
+    })
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setSubmitting(true)
     const reqs = reqInput
       .split('\n')
       .map((r) => r.trim())
@@ -44,7 +51,7 @@ export function JobsPage() {
     setReqInput('')
     setScreeningCriteria('')
     setShowForm(false)
-    setLoading(false)
+    setSubmitting(false)
   }
 
   const handleToggle = async (e: React.MouseEvent, job: Job) => {
@@ -54,23 +61,46 @@ export function JobsPage() {
     setJobs(jobs.map((j) => (j.id === updated.id ? { ...j, isActive: updated.isActive } : j)))
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Job Descriptions</h1>
-        <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancel' : 'New Job'}
-        </Button>
-      </div>
+  const activeCount = jobs.filter((j) => j.isActive).length
 
+  return (
+    <div className="space-y-8 animate-fade-up">
+      <PageHeader title="Jobs" description="Manage your job descriptions and candidates">
+        <Button onClick={() => setShowForm(!showForm)} className="gap-2">
+          {showForm ? <><X className="h-4 w-4" /> Cancel</> : <><Plus className="h-4 w-4" /> New Job</>}
+        </Button>
+      </PageHeader>
+
+      {/* Stats */}
+      {!loading && jobs.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+          <div className="rounded-xl border bg-card p-4 shadow-card">
+            <p className="text-sm text-muted-foreground">Total Jobs</p>
+            <p className="mt-1 text-2xl font-semibold">{jobs.length}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4 shadow-card">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+              Active
+            </div>
+            <p className="mt-1 text-2xl font-semibold">{activeCount}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4 shadow-card">
+            <p className="text-sm text-muted-foreground">Inactive</p>
+            <p className="mt-1 text-2xl font-semibold">{jobs.length - activeCount}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Create form */}
       {showForm && (
-        <Card>
+        <Card className="shadow-card animate-fade-up">
           <CardHeader>
             <CardTitle>Create Job Description</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
                 <Label htmlFor="title">Job Title</Label>
                 <Input
                   id="title"
@@ -78,10 +108,11 @@ export function JobsPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
+                  className="h-11"
                 />
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label>Job Description (Markdown supported)</Label>
                 <Tabs value={previewMode} onValueChange={setPreviewMode}>
                   <TabsList>
@@ -99,7 +130,7 @@ export function JobsPage() {
                     />
                   </TabsContent>
                   <TabsContent value="preview">
-                    <div className="prose prose-sm max-w-none rounded-md border p-4">
+                    <div className="prose prose-sm max-w-none rounded-lg border p-4">
                       {description ? (
                         <ReactMarkdown>{description}</ReactMarkdown>
                       ) : (
@@ -110,7 +141,7 @@ export function JobsPage() {
                 </Tabs>
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="requirements">Requirements (one per line)</Label>
                 <Textarea
                   id="requirements"
@@ -121,48 +152,61 @@ export function JobsPage() {
                 />
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Label htmlFor="screening">Screening Criteria</Label>
                   <Badge variant="outline" className="text-xs">
                     Internal only
                   </Badge>
                 </div>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Private notes for AI scoring. Candidates won't see this. Use this to add
-                  additional filters like preferred universities, specific project experience, etc.
+                <p className="text-xs text-muted-foreground">
+                  Private notes for AI scoring. Candidates won't see this.
                 </p>
                 <Textarea
                   id="screening"
-                  placeholder="Prefer candidates with:&#10;- Open source contributions&#10;- Experience in fintech or payments&#10;- Based in Ho Chi Minh City&#10;&#10;Red flags:&#10;- Job hopping (less than 1 year per role)&#10;- No GitHub or portfolio"
+                  placeholder="Prefer candidates with:&#10;- Open source contributions&#10;- Experience in fintech or payments&#10;&#10;Red flags:&#10;- Job hopping (less than 1 year per role)"
                   rows={5}
                   value={screeningCriteria}
                   onChange={(e) => setScreeningCriteria(e.target.value)}
                 />
               </div>
 
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Creating...' : 'Create Job'}
+              <Button type="submit" disabled={submitting} className="h-10">
+                {submitting ? 'Creating...' : 'Create Job'}
               </Button>
             </form>
           </CardContent>
         </Card>
       )}
 
-      {jobs.length === 0 ? (
-        <p className="text-muted-foreground">No jobs yet. Create one to get started.</p>
+      {/* Job list */}
+      {loading ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : jobs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 py-16">
+          <Briefcase className="h-10 w-10 text-muted-foreground/50" />
+          <p className="mt-4 text-sm font-medium text-muted-foreground">No jobs yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">Create a job description to get started</p>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {jobs.map((job) => (
             <Link key={job.id} to={`/jobs/${job.id}`}>
-              <Card className={`transition-shadow hover:shadow-md ${!job.isActive ? 'opacity-50' : ''}`}>
+              <Card className={`group relative overflow-hidden shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5 ${!job.isActive ? 'opacity-60' : ''}`}>
+                <div className="absolute inset-y-0 left-0 w-1 bg-gradient-brand opacity-0 transition-opacity group-hover:opacity-100" />
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{job.title}</CardTitle>
+                    <CardTitle className="text-base">{job.title}</CardTitle>
                     <Button
                       variant={job.isActive ? 'outline' : 'secondary'}
-                      size="sm"
+                      size="xs"
                       onClick={(e) => handleToggle(e, job)}
+                      className="shrink-0"
                     >
                       {job.isActive ? 'Active' : 'Inactive'}
                     </Button>
@@ -172,7 +216,7 @@ export function JobsPage() {
                   <p className="line-clamp-2 text-sm text-muted-foreground">
                     {job.description.replace(/[#*_`\[\]]/g, '').slice(0, 150)}...
                   </p>
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-3 flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
                       {job.requirements.length} requirements
                     </span>

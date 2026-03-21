@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { authApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { LayoutDashboard } from 'lucide-react'
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -37,19 +37,47 @@ export function RegisterPage() {
   const update = (field: string, value: string) => setForm({ ...form, [field]: value })
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl">Create Account</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="flex min-h-screen">
+      {/* Left — brand panel */}
+      <div className="hidden w-1/2 bg-gradient-brand bg-grid-pattern lg:flex lg:flex-col lg:justify-between lg:p-12">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+            <LayoutDashboard className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-lg font-semibold text-white">Recruit AI</span>
+        </div>
+        <div>
+          <h2 className="text-3xl font-bold leading-tight text-white">
+            Start hiring<br />smarter today.
+          </h2>
+          <p className="mt-4 max-w-md text-base text-white/70">
+            Create your account and begin evaluating candidates with AI-powered insights from their online presence.
+          </p>
+        </div>
+        <p className="text-sm text-white/40">AI Recruitment Copilot</p>
+      </div>
+
+      {/* Right — form */}
+      <div className="flex flex-1 items-center justify-center px-6 py-12">
+        <div className="w-full max-w-sm animate-fade-up">
+          {/* Mobile brand */}
+          <div className="mb-8 flex items-center gap-2 lg:hidden">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-brand">
+              <LayoutDashboard className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-lg font-semibold">Recruit AI</span>
+          </div>
+
+          <h1 className="text-2xl font-semibold tracking-tight">Create Account</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Get started with your hiring copilot</p>
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
-              <p className="rounded bg-destructive/10 p-2 text-center text-sm text-destructive">
+              <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
-              </p>
+              </div>
             )}
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="name">Your Name</Label>
               <Input
                 id="name"
@@ -57,9 +85,10 @@ export function RegisterPage() {
                 value={form.name}
                 onChange={(e) => update('name', e.target.value)}
                 required
+                className="h-11"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
@@ -68,9 +97,10 @@ export function RegisterPage() {
                 value={form.email}
                 onChange={(e) => update('email', e.target.value)}
                 required
+                className="h-11"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -80,9 +110,10 @@ export function RegisterPage() {
                 onChange={(e) => update('password', e.target.value)}
                 required
                 minLength={6}
+                className="h-11"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="company">Company Name</Label>
               <Input
                 id="company"
@@ -90,20 +121,22 @@ export function RegisterPage() {
                 value={form.companyName}
                 onChange={(e) => update('companyName', e.target.value)}
                 required
+                className="h-11"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="h-11 w-full" disabled={loading}>
               {loading ? 'Creating...' : 'Create Account'}
             </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary underline">
-                Sign In
-              </Link>
-            </p>
           </form>
-        </CardContent>
-      </Card>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-primary hover:underline">
+              Sign In
+            </Link>
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
