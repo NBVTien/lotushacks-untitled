@@ -1,11 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScoreRing } from '@/components/ui/score-ring'
 import { PageHeader } from '@/components/ui/page-header'
 import { PageTransition, FadeIn } from '@/components/ui/motion'
-import { Briefcase, Users, BarChart3, CheckCircle, ArrowRight } from 'lucide-react'
+import { Briefcase, Users, BarChart3, CheckCircle } from 'lucide-react'
 import { jobsApi } from '@/lib/api'
 import type { JobStats } from '@/lib/api'
 
@@ -214,35 +213,6 @@ export function DashboardPage() {
             </Card>
           </FadeIn>
         )}
-
-        {/* Quick Actions */}
-        <FadeIn>
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Quick Actions
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Link to="/jobs">
-                <Card className="group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-md cursor-pointer">
-                  <CardContent className="flex items-center justify-between p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                        <Briefcase className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">View all jobs</p>
-                        <p className="text-xs text-muted-foreground">
-                          Manage job postings and candidates
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5" />
-                  </CardContent>
-                </Card>
-              </Link>
-            </div>
-          </div>
-        </FadeIn>
       </div>
     </PageTransition>
   )
