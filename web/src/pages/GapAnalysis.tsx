@@ -24,6 +24,10 @@ import {
   ChevronUp,
   BookOpen,
   History,
+  Search,
+  LayoutGrid,
+  List,
+  Building2,
 } from 'lucide-react'
 import type { Job, GapAnalysis, SavedJD } from '@lotushack/shared'
 
@@ -61,6 +65,9 @@ export function GapAnalysisPage() {
   const [jobsHasMore, setJobsHasMore] = useState(true)
   const [jobsLoading, setJobsLoading] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [search, setSearch] = useState('')
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set())
+  const [browseView, setBrowseView] = useState<'card' | 'table'>('card')
 
   // Paste JD state
   const [jdTitle, setJdTitle] = useState('')
@@ -267,67 +274,247 @@ export function GapAnalysisPage() {
 
           {/* Browse Jobs Tab */}
           <TabsContent value="browse" className="space-y-4">
-            {publicJobs.length === 0 && !jobsLoading && (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No jobs available. Try pasting a JD instead.</p>
+            {/* Search + view toggle row */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by title or company…"
+                  className="pl-9"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-            )}
-            {publicJobs.map((job) => (
-              <Card
-                key={job.id}
-                className={`cursor-pointer border-border/50 shadow-sm transition-all duration-200 hover:shadow-md ${
-                  selectedJob?.id === job.id ? 'border-primary ring-1 ring-primary/20' : ''
-                }`}
-                onClick={() => setSelectedJob(job)}
-              >
-                <CardContent className="py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h3 className="font-semibold">{job.title}</h3>
-                      {job.company && (
-                        <p className="text-sm text-muted-foreground">{job.company.name}</p>
-                      )}
-                      {job.requirements.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {job.requirements.slice(0, 6).map((r, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">
-                              {r}
-                            </Badge>
-                          ))}
-                          {job.requirements.length > 6 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{job.requirements.length - 6}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      disabled={analyzing}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleAnalyzeFromJob(job)
-                      }}
+              <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 shrink-0">
+                <button
+                  onClick={() => setBrowseView('card')}
+                  title="Card view"
+                  className={`rounded-md p-1.5 transition-colors ${browseView === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setBrowseView('table')}
+                  title="Table view"
+                  className={`rounded-md p-1.5 transition-colors ${browseView === 'table' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <List className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tag filters */}
+            {publicJobs.length > 0 && (() => {
+              const tagCounts = new Map<string, number>()
+              for (const job of publicJobs) {
+                for (const r of job.requirements) {
+                  tagCounts.set(r, (tagCounts.get(r) ?? 0) + 1)
+                }
+              }
+              const topTags = [...tagCounts.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 16)
+                .map(([tag]) => tag)
+              if (topTags.length === 0) return null
+              return (
+                <div className="flex flex-wrap gap-1.5">
+                  {topTags.map((tag) => {
+                    const active = activeTags.has(tag)
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => setActiveTags((prev) => {
+                          const next = new Set(prev)
+                          active ? next.delete(tag) : next.add(tag)
+                          return next
+                        })}
+                        className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                          active
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-border/60 text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    )
+                  })}
+                  {activeTags.size > 0 && (
+                    <button
+                      onClick={() => setActiveTags(new Set())}
+                      className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
                     >
-                      {analyzing && selectedJob?.id === job.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        'Analyze'
-                      )}
-                    </Button>
+                      <X className="h-3 w-3" /> Clear
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Filtered results */}
+            {(() => {
+              const q = search.toLowerCase()
+              const filtered = publicJobs.filter((job) => {
+                const matchesSearch = !q ||
+                  job.title.toLowerCase().includes(q) ||
+                  (job.company?.name ?? '').toLowerCase().includes(q)
+                const matchesTags = activeTags.size === 0 ||
+                  [...activeTags].every((tag) => job.requirements.includes(tag))
+                return matchesSearch && matchesTags
+              })
+
+              if (filtered.length === 0 && !jobsLoading) {
+                return (
+                  <div className="text-center py-10">
+                    <p className="text-muted-foreground">No jobs match your search.</p>
+                    {(search || activeTags.size > 0) && (
+                      <button
+                        onClick={() => { setSearch(''); setActiveTags(new Set()) }}
+                        className="mt-2 text-sm text-primary hover:underline"
+                      >
+                        Clear filters
+                      </button>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                )
+              }
+
+              return (
+                <>
+                  {(search || activeTags.size > 0) && (
+                    <p className="text-xs text-muted-foreground">
+                      {filtered.length} job{filtered.length !== 1 ? 's' : ''} found
+                    </p>
+                  )}
+
+                  {browseView === 'table' ? (
+                    <div className="rounded-xl border border-border/50 overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/40 border-b border-border/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Job</th>
+                            <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden sm:table-cell">Company</th>
+                            <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Requirements</th>
+                            <th className="px-4 py-3 text-right font-medium text-muted-foreground"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                          {filtered.map((job) => (
+                            <tr
+                              key={job.id}
+                              className={`hover:bg-muted/20 transition-colors cursor-pointer ${selectedJob?.id === job.id ? 'bg-primary/5' : ''}`}
+                              onClick={() => setSelectedJob(job)}
+                            >
+                              <td className="px-4 py-3 font-medium">{job.title}</td>
+                              <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                                {job.company ? (
+                                  <span className="flex items-center gap-1.5">
+                                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+                                    {job.company.name}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="px-4 py-3 hidden md:table-cell">
+                                <div className="flex flex-wrap gap-1">
+                                  {job.requirements.slice(0, 3).map((r, i) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">{r}</Badge>
+                                  ))}
+                                  {job.requirements.length > 3 && (
+                                    <Badge variant="outline" className="text-xs">+{job.requirements.length - 3}</Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <Button
+                                  size="sm"
+                                  disabled={analyzing}
+                                  onClick={(e) => { e.stopPropagation(); handleAnalyzeFromJob(job) }}
+                                >
+                                  {analyzing && selectedJob?.id === job.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : 'Analyze'}
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filtered.map((job) => (
+                        <Card
+                          key={job.id}
+                          className={`cursor-pointer border-border/50 shadow-sm transition-all duration-200 hover:shadow-md ${
+                            selectedJob?.id === job.id ? 'border-primary ring-1 ring-primary/20' : ''
+                          }`}
+                          onClick={() => setSelectedJob(job)}
+                        >
+                          <CardContent className="py-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <h3 className="font-semibold">{job.title}</h3>
+                                {job.company && (
+                                  <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+                                    {job.company.name}
+                                  </p>
+                                )}
+                                {job.requirements.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {job.requirements.slice(0, 6).map((r, i) => (
+                                      <Badge
+                                        key={i}
+                                        variant={activeTags.has(r) ? 'default' : 'secondary'}
+                                        className="text-xs cursor-pointer"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setActiveTags((prev) => {
+                                            const next = new Set(prev)
+                                            prev.has(r) ? next.delete(r) : next.add(r)
+                                            return next
+                                          })
+                                        }}
+                                      >
+                                        {r}
+                                      </Badge>
+                                    ))}
+                                    {job.requirements.length > 6 && (
+                                      <Badge variant="outline" className="text-xs">+{job.requirements.length - 6}</Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                disabled={analyzing}
+                                onClick={(e) => { e.stopPropagation(); handleAnalyzeFromJob(job) }}
+                              >
+                                {analyzing && selectedJob?.id === job.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : 'Analyze'}
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+
             {jobsHasMore && (
               <div className="flex justify-center">
                 <Button variant="outline" onClick={loadPublicJobs} disabled={jobsLoading}>
-                  {jobsLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    'Load More Jobs'
-                  )}
+                  {jobsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Load More Jobs'}
                 </Button>
               </div>
             )}
