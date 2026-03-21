@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Search, Radio } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
+import { ErrorState } from '@/components/ErrorState'
+import { toast } from 'sonner'
 
 interface DiscoveredJob {
   title: string
@@ -78,7 +80,9 @@ export function JobDiscoveryPage() {
       await processStream(response.body)
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
-        setError((err as Error)?.message || 'Failed to search jobs')
+        const msg = (err as Error)?.message || 'Failed to search jobs'
+        setError(msg)
+        toast.error(msg)
       }
       setLoading(false)
     }
@@ -110,7 +114,9 @@ export function JobDiscoveryPage() {
       await processStream(response.body)
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
-        setError((err as Error)?.message || 'Failed to search jobs')
+        const msg = (err as Error)?.message || 'Failed to search jobs'
+        setError(msg)
+        toast.error(msg)
       }
       setLoading(false)
     }
@@ -151,7 +157,9 @@ export function JobDiscoveryPage() {
             setJobs(sortJobsByScore(event.jobs))
           }
           if (event.type === 'error') {
-            setError(event.message || 'Search failed')
+            const msg = event.message || 'Search failed'
+            setError(msg)
+            toast.error(msg)
           }
           if (event.done) {
             setLoading(false)
@@ -278,13 +286,7 @@ export function JobDiscoveryPage() {
         </Tabs>
 
         {/* Error */}
-        {error && (
-          <Card className="border-destructive">
-            <CardContent className="py-4">
-              <p className="text-destructive text-sm">{error}</p>
-            </CardContent>
-          </Card>
-        )}
+        {error && <ErrorState message={error} />}
 
         {/* Log viewer */}
         {(loading || logs.length > 0) && (

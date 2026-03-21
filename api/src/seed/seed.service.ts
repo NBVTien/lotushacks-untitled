@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import * as bcrypt from 'bcrypt'
-import { CompanyEntity, UserEntity, JobEntity } from '../database'
+import { CompanyEntity, UserEntity, JobEntity, CandidateEntity } from '../database'
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -14,7 +14,9 @@ export class SeedService implements OnModuleInit {
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(JobEntity)
-    private readonly jobRepo: Repository<JobEntity>
+    private readonly jobRepo: Repository<JobEntity>,
+    @InjectRepository(CandidateEntity)
+    private readonly candidateRepo: Repository<CandidateEntity>
   ) {}
 
   async onModuleInit() {
@@ -77,7 +79,7 @@ export class SeedService implements OnModuleInit {
 
     // === TechCorp Jobs ===
 
-    await this.jobRepo.save(
+    const seniorBackend = await this.jobRepo.save(
       this.jobRepo.create({
         companyId: techCorp.id,
         title: 'Senior Backend Engineer (Node.js)',
@@ -129,7 +131,7 @@ Red flags:
       })
     )
 
-    await this.jobRepo.save(
+    const frontendReact = await this.jobRepo.save(
       this.jobRepo.create({
         companyId: techCorp.id,
         title: 'Frontend Developer (React)',
@@ -182,7 +184,7 @@ Disqualify if:
       })
     )
 
-    await this.jobRepo.save(
+    const devopsJob = await this.jobRepo.save(
       this.jobRepo.create({
         companyId: techCorp.id,
         title: 'DevOps Engineer',
@@ -215,7 +217,7 @@ Strong hands-on experience with AWS, Kubernetes, and Terraform. Comfortable with
 
     // === Moonlight Labs Jobs ===
 
-    await this.jobRepo.save(
+    const mlEngineer = await this.jobRepo.save(
       this.jobRepo.create({
         companyId: startupAI.id,
         title: 'Machine Learning Engineer',
@@ -430,6 +432,748 @@ Preferred:
 
     // === Bulk jobs for infinite scroll demo ===
     await this.seedBulkJobs([techCorp.id, startupAI.id, globalSoft.id])
+
+    // === Seed candidates for key jobs ===
+    await this.seedCandidates(seniorBackend.id, frontendReact.id, devopsJob.id, mlEngineer.id)
+  }
+
+  private async seedCandidates(
+    backendJobId: string,
+    frontendJobId: string,
+    devopsJobId: string,
+    mlJobId: string
+  ) {
+    this.logger.log('Seeding candidates...')
+
+    // Candidate 1 — Strong match for Senior Backend Engineer (score: 91)
+    await this.candidateRepo.save(
+      this.candidateRepo.create({
+        jobId: backendJobId,
+        name: 'Nguyen Minh Tuan',
+        email: 'tuan.nguyen@gmail.com',
+        phone: '+84 912 345 678',
+        cvUrl: 'seed/tuan-nguyen-cv.pdf',
+        cvText: `NGUYEN MINH TUAN
+Senior Backend Engineer | Ho Chi Minh City, Vietnam
+tuan.nguyen@gmail.com | github.com/tuannguyen-dev | linkedin.com/in/tuannguyen-dev
+
+PROFESSIONAL SUMMARY
+Senior backend engineer with 6+ years of experience building high-throughput distributed systems in Node.js and TypeScript. Specialized in payment processing, event-driven architectures, and database optimization. Led the migration of a monolithic payment gateway to microservices handling 2M+ daily transactions at VNPay.
+
+EXPERIENCE
+Senior Software Engineer — VNPay (2021 - Present)
+- Architected and built payment processing microservices handling $30M+ monthly transaction volume
+- Reduced API latency from 450ms to 65ms through PostgreSQL query optimization and Redis caching
+- Designed event-driven architecture using Apache Kafka for real-time transaction reconciliation
+- Led team of 4 engineers; implemented CQRS pattern for payment ledger system
+- Achieved 99.97% uptime across all payment services over 18 months
+
+Backend Developer — Tiki Corporation (2019 - 2021)
+- Built order management microservices serving 500K+ daily orders during flash sales
+- Implemented distributed caching layer reducing database load by 60%
+- Developed webhook system for merchant notifications with guaranteed delivery
+- Contributed to internal Node.js framework used by 12 engineering teams
+
+Junior Developer — FPT Software (2017 - 2019)
+- Developed RESTful APIs for banking client using Node.js and Express
+- Built automated testing pipeline reducing QA cycle from 3 days to 4 hours
+- Maintained PostgreSQL databases with 500M+ records
+
+EDUCATION
+B.S. Computer Science — Ho Chi Minh City University of Technology (2017)
+
+SKILLS
+Languages: TypeScript, JavaScript, Python, SQL
+Frameworks: NestJS, Express, Fastify
+Databases: PostgreSQL, Redis, MongoDB
+Infrastructure: Docker, Kubernetes, Terraform, AWS (EKS, RDS, SQS)
+Messaging: Apache Kafka, RabbitMQ
+Observability: Datadog, Prometheus, Grafana, OpenTelemetry`,
+        status: 'completed',
+        links: {
+          github: 'https://github.com/tuannguyen-dev',
+          linkedin: 'https://linkedin.com/in/tuannguyen-dev',
+          portfolio: [],
+          classified: [],
+        },
+        parsedCV: {
+          summary:
+            'Senior backend engineer with 6+ years building high-throughput distributed systems in Node.js and TypeScript. Specialized in payment processing and event-driven architectures.',
+          skills: [
+            'TypeScript',
+            'Node.js',
+            'NestJS',
+            'PostgreSQL',
+            'Redis',
+            'Kafka',
+            'Docker',
+            'Kubernetes',
+            'Terraform',
+            'AWS',
+          ],
+          experience: [
+            {
+              title: 'Senior Software Engineer',
+              company: 'VNPay',
+              duration: '2021 - Present',
+              description:
+                'Architected payment processing microservices handling $30M+ monthly. Led team of 4 engineers.',
+            },
+            {
+              title: 'Backend Developer',
+              company: 'Tiki Corporation',
+              duration: '2019 - 2021',
+              description:
+                'Built order management microservices serving 500K+ daily orders during flash sales.',
+            },
+            {
+              title: 'Junior Developer',
+              company: 'FPT Software',
+              duration: '2017 - 2019',
+              description:
+                'Developed RESTful APIs for banking client using Node.js and Express.',
+            },
+          ],
+          education: [
+            {
+              degree: 'B.S. Computer Science',
+              school: 'Ho Chi Minh City University of Technology',
+              year: '2017',
+            },
+          ],
+        },
+        enrichment: {
+          github: {
+            username: 'tuannguyen-dev',
+            bio: 'Senior Backend Engineer | Node.js, TypeScript, PostgreSQL | Building payment systems at scale',
+            topLanguages: ['TypeScript', 'JavaScript', 'Python', 'Go'],
+            repositories: [
+              {
+                name: 'nest-kafka-microservices',
+                description:
+                  'Production-ready NestJS microservices template with Kafka, CQRS, and event sourcing',
+                language: 'TypeScript',
+                stars: 342,
+              },
+              {
+                name: 'pg-query-optimizer',
+                description: 'PostgreSQL query analysis and optimization toolkit for Node.js',
+                language: 'TypeScript',
+                stars: 128,
+              },
+              {
+                name: 'distributed-lock-redis',
+                description: 'Robust distributed locking library using Redis with fencing tokens',
+                language: 'TypeScript',
+                stars: 89,
+              },
+              {
+                name: 'payment-gateway-sdk',
+                description: 'TypeScript SDK for Vietnamese payment gateways (VNPay, MoMo, ZaloPay)',
+                language: 'TypeScript',
+                stars: 215,
+              },
+            ],
+            totalStars: 774,
+            totalContributions: 1847,
+            raw: 'GitHub profile data fetched via API',
+          },
+          linkedin: null,
+        },
+        matchResult: {
+          overallScore: 91,
+          explanation:
+            'Nguyen Minh Tuan is an exceptional match for the Senior Backend Engineer position. With 6+ years of Node.js/TypeScript experience focused specifically on payment processing systems, he directly aligns with the core requirements. His track record at VNPay — architecting microservices handling $30M+ monthly transactions and reducing API latency to 65ms — demonstrates exactly the scale and performance optimization skills needed. His experience with PostgreSQL, Kafka, Docker, Kubernetes, and Terraform covers the entire tech stack. His GitHub profile shows high-quality open source work with 774 total stars, including a NestJS Kafka microservices template that directly relates to this role.',
+          strengths: [
+            'Direct payment system experience at VNPay with $30M+ monthly transaction volume',
+            'Proven PostgreSQL optimization skills — reduced latency from 450ms to 65ms',
+            'Strong Kafka and event-driven architecture experience matching job requirements',
+            'Active open source contributor with 774 GitHub stars and relevant projects',
+            'Team leadership experience mentoring 4 engineers and conducting code reviews',
+            'Based in Ho Chi Minh City, matching the preferred location',
+          ],
+          gaps: [
+            'No explicit mention of event sourcing pattern experience (though CQRS is mentioned)',
+          ],
+          recommendation: 'strong_match',
+          improvementTips: [
+            'Consider highlighting any event sourcing implementations in the interview',
+            'Ask about experience with OpenTelemetry and distributed tracing in production',
+          ],
+        },
+        enrichmentProgress: {},
+        progressLogs: [
+          'CV uploaded successfully',
+          'PDF parsed — extracted 1,247 words',
+          'GitHub profile enriched — 4 repositories found, 774 total stars',
+          'Match scoring complete — 91/100 (strong_match)',
+        ],
+        retryCount: 0,
+      })
+    )
+
+    // Candidate 2 — Good match for Senior Backend Engineer (score: 73)
+    await this.candidateRepo.save(
+      this.candidateRepo.create({
+        jobId: backendJobId,
+        name: 'Tran Hoang Khoi',
+        email: 'khoi.tran@outlook.com',
+        phone: '+84 903 456 789',
+        cvUrl: 'seed/khoi-tran-cv.pdf',
+        cvText: `TRAN HOANG KHOI
+Full-Stack Developer | Da Nang, Vietnam
+khoi.tran@outlook.com | github.com/khoitran-fs | linkedin.com/in/khoitrandev
+
+PROFESSIONAL SUMMARY
+Full-stack developer with 4 years of experience building web applications with Node.js and React. Strong database skills with PostgreSQL and MongoDB. Transitioning toward backend-focused roles with growing interest in distributed systems and microservices.
+
+EXPERIENCE
+Full-Stack Developer — Axon Active Vietnam (2022 - Present)
+- Built RESTful APIs using NestJS and TypeScript for Swiss healthcare clients
+- Implemented real-time notification system using WebSockets and Redis pub/sub
+- Designed database schemas for multi-tenant SaaS application serving 50K users
+- Wrote integration tests achieving 85% code coverage across backend services
+- Optimized slow PostgreSQL queries reducing p95 response time by 40%
+
+Web Developer —Ến Solutions (2020 - 2022)
+- Developed full-stack features for e-commerce platform using Express.js and React
+- Built admin dashboard with data visualization using Recharts and D3.js
+- Implemented payment integration with Stripe and local Vietnamese gateways
+- Managed Docker-based development environment for team of 6
+
+EDUCATION
+B.S. Information Technology — Da Nang University of Science and Technology (2020)
+
+SKILLS
+Languages: TypeScript, JavaScript, Python
+Frontend: React, Next.js, Tailwind CSS
+Backend: NestJS, Express, Fastify
+Databases: PostgreSQL, MongoDB, Redis
+Tools: Docker, GitHub Actions, Nginx`,
+        status: 'completed',
+        links: {
+          github: 'https://github.com/khoitran-fs',
+          linkedin: 'https://linkedin.com/in/khoitrandev',
+          portfolio: ['https://khoitran.dev'],
+          classified: [
+            {
+              url: 'https://khoitran.dev',
+              kind: 'portfolio' as const,
+              label: 'Personal portfolio',
+            },
+          ],
+        },
+        parsedCV: {
+          summary:
+            'Full-stack developer with 4 years of experience building web applications with Node.js and React. Strong PostgreSQL skills.',
+          skills: [
+            'TypeScript',
+            'Node.js',
+            'NestJS',
+            'React',
+            'PostgreSQL',
+            'MongoDB',
+            'Redis',
+            'Docker',
+          ],
+          experience: [
+            {
+              title: 'Full-Stack Developer',
+              company: 'Axon Active Vietnam',
+              duration: '2022 - Present',
+              description:
+                'Built RESTful APIs using NestJS for Swiss healthcare clients. Multi-tenant SaaS serving 50K users.',
+            },
+            {
+              title: 'Web Developer',
+              company: 'Ến Solutions',
+              duration: '2020 - 2022',
+              description:
+                'Full-stack development for e-commerce platform using Express.js and React.',
+            },
+          ],
+          education: [
+            {
+              degree: 'B.S. Information Technology',
+              school: 'Da Nang University of Science and Technology',
+              year: '2020',
+            },
+          ],
+        },
+        enrichment: {
+          github: {
+            username: 'khoitran-fs',
+            bio: 'Full-stack developer | NestJS + React | Da Nang, Vietnam',
+            topLanguages: ['TypeScript', 'JavaScript', 'Python'],
+            repositories: [
+              {
+                name: 'nestjs-boilerplate',
+                description: 'Production-ready NestJS boilerplate with auth, RBAC, and Swagger docs',
+                language: 'TypeScript',
+                stars: 45,
+              },
+              {
+                name: 'react-admin-dashboard',
+                description: 'Full-featured admin dashboard with React, Tailwind, and Recharts',
+                language: 'TypeScript',
+                stars: 32,
+              },
+            ],
+            totalStars: 77,
+            totalContributions: 623,
+            raw: 'GitHub profile data fetched via API',
+          },
+          linkedin: null,
+        },
+        matchResult: {
+          overallScore: 73,
+          explanation:
+            'Tran Hoang Khoi is a good match with solid Node.js/TypeScript fundamentals and growing backend expertise. His 4 years of experience meets the minimum requirement, and his NestJS work at Axon Active is directly relevant. He has PostgreSQL optimization experience and Docker skills. However, he lacks experience with message queues (Kafka/RabbitMQ), Kubernetes, and has no payment domain experience. His profile skews full-stack rather than backend-specialized, which is a minor concern for a senior backend role.',
+          strengths: [
+            'Solid NestJS and TypeScript experience directly applicable to the role',
+            'PostgreSQL query optimization experience with measurable results (40% p95 improvement)',
+            'Experience with real-time systems using WebSockets and Redis pub/sub',
+            'Some payment integration experience (Stripe, Vietnamese gateways)',
+            'Good testing practices with 85% code coverage',
+          ],
+          gaps: [
+            'No experience with message queues like Kafka or RabbitMQ',
+            'No Kubernetes experience — only Docker-based workflows',
+            'Limited distributed systems experience at scale',
+            'Based in Da Nang, not Ho Chi Minh City (remote may be needed)',
+            'More full-stack oriented than backend-specialized',
+          ],
+          recommendation: 'good_match',
+          improvementTips: [
+            'Probe depth of payment integration experience in the interview',
+            'Assess willingness to relocate to HCM or work in a hybrid arrangement',
+            'Test understanding of distributed systems concepts (CAP theorem, eventual consistency)',
+            'Evaluate Kafka/messaging knowledge — could be learned on the job',
+          ],
+        },
+        enrichmentProgress: {},
+        progressLogs: [
+          'CV uploaded successfully',
+          'PDF parsed — extracted 892 words',
+          'GitHub profile enriched — 2 repositories found, 77 total stars',
+          'Match scoring complete — 73/100 (good_match)',
+        ],
+        retryCount: 0,
+      })
+    )
+
+    // Candidate 3 — Good match for Frontend Developer (score: 78)
+    await this.candidateRepo.save(
+      this.candidateRepo.create({
+        jobId: frontendJobId,
+        name: 'Le Thi Mai Anh',
+        email: 'maianh.le@gmail.com',
+        phone: '+84 908 765 432',
+        cvUrl: 'seed/maianh-le-cv.pdf',
+        cvText: `LE THI MAI ANH
+Frontend Developer | Ho Chi Minh City, Vietnam
+maianh.le@gmail.com | github.com/maianhle | linkedin.com/in/maianhle-dev
+
+PROFESSIONAL SUMMARY
+Frontend developer with 3 years of experience specializing in React and modern CSS. Passionate about building accessible, performant user interfaces with excellent attention to design detail. Experience with design systems, component libraries, and performance optimization.
+
+EXPERIENCE
+Frontend Developer — Shopee (2022 - Present)
+- Built reusable component library used across 8 product teams with Storybook documentation
+- Implemented lazy loading and code splitting reducing initial bundle size by 45%
+- Improved Largest Contentful Paint from 3.2s to 1.4s on product listing pages
+- Collaborated with UX team to implement WCAG AA compliance across checkout flow
+- Developed real-time inventory status using Server-Sent Events and React Query
+
+Junior Frontend Developer — NashTech Vietnam (2021 - 2022)
+- Built customer-facing dashboards using React, TypeScript, and Material UI
+- Implemented responsive designs achieving 98+ Lighthouse mobile scores
+- Created animated product showcase pages using Framer Motion
+- Wrote unit tests with React Testing Library achieving 80% component coverage
+
+EDUCATION
+B.S. Software Engineering — University of Science, Ho Chi Minh City (2021)
+
+SKILLS
+Languages: TypeScript, JavaScript, HTML, CSS
+Frameworks: React 18, Next.js 14, Vite
+Styling: Tailwind CSS, CSS Modules, Styled Components, Framer Motion
+State: React Query, Zustand, Redux Toolkit
+Testing: Vitest, React Testing Library, Playwright
+Tools: Figma, Storybook, Chromatic`,
+        status: 'completed',
+        links: {
+          github: 'https://github.com/maianhle',
+          linkedin: 'https://linkedin.com/in/maianhle-dev',
+          portfolio: ['https://maianhle.dev'],
+          classified: [
+            {
+              url: 'https://maianhle.dev',
+              kind: 'portfolio' as const,
+              label: 'Personal portfolio with project showcases',
+            },
+          ],
+        },
+        parsedCV: {
+          summary:
+            'Frontend developer with 3 years specializing in React and modern CSS. Focus on accessibility, performance, and design systems.',
+          skills: [
+            'React',
+            'TypeScript',
+            'Next.js',
+            'Tailwind CSS',
+            'React Query',
+            'Zustand',
+            'Framer Motion',
+            'Storybook',
+            'Playwright',
+          ],
+          experience: [
+            {
+              title: 'Frontend Developer',
+              company: 'Shopee',
+              duration: '2022 - Present',
+              description:
+                'Built reusable component library. Improved LCP from 3.2s to 1.4s. WCAG AA compliance.',
+            },
+            {
+              title: 'Junior Frontend Developer',
+              company: 'NashTech Vietnam',
+              duration: '2021 - 2022',
+              description:
+                'Built dashboards with React and TypeScript. Achieved 98+ Lighthouse mobile scores.',
+            },
+          ],
+          education: [
+            {
+              degree: 'B.S. Software Engineering',
+              school: 'University of Science, Ho Chi Minh City',
+              year: '2021',
+            },
+          ],
+        },
+        enrichment: {
+          github: {
+            username: 'maianhle',
+            bio: 'Frontend Developer @Shopee | React, TypeScript, Tailwind | Building beautiful UIs',
+            topLanguages: ['TypeScript', 'JavaScript', 'CSS'],
+            repositories: [
+              {
+                name: 'react-component-kit',
+                description:
+                  'Accessible React component library built with Radix UI and Tailwind CSS',
+                language: 'TypeScript',
+                stars: 156,
+              },
+              {
+                name: 'next-ecommerce-template',
+                description: 'Production-ready Next.js e-commerce starter with Tailwind and Stripe',
+                language: 'TypeScript',
+                stars: 89,
+              },
+              {
+                name: 'framer-motion-recipes',
+                description: 'Collection of copy-paste animation patterns for React apps',
+                language: 'TypeScript',
+                stars: 234,
+              },
+            ],
+            totalStars: 479,
+            totalContributions: 956,
+            raw: 'GitHub profile data fetched via API',
+          },
+          linkedin: null,
+        },
+        matchResult: {
+          overallScore: 78,
+          explanation:
+            'Le Thi Mai Anh is a strong frontend developer with directly relevant experience at Shopee. Her 3 years of React and TypeScript experience, combined with Tailwind CSS proficiency, component library development, and Core Web Vitals optimization, align well with the role. Her work on accessibility (WCAG AA) and Framer Motion animations are notable bonuses. Her open source work (479 GitHub stars) demonstrates initiative and community engagement. The main gap is that she has used Next.js 14 but the role uses Next.js 15 and React 19 — though this is a minor version upgrade concern.',
+          strengths: [
+            'Strong React and TypeScript skills with 3 years of production experience at Shopee',
+            'Tailwind CSS expertise with a published component library (156 stars)',
+            'Proven Core Web Vitals optimization — reduced LCP from 3.2s to 1.4s',
+            'WCAG AA accessibility compliance experience',
+            'Framer Motion and animation skills with a popular open source project (234 stars)',
+            'Testing experience with Vitest, React Testing Library, and Playwright',
+          ],
+          gaps: [
+            'Experience with Next.js 14, not 15 — minor gap but worth noting',
+            'No explicit Turborepo or monorepo experience mentioned',
+            'Relatively early career — 3 years total may need mentorship for complex architecture decisions',
+          ],
+          recommendation: 'good_match',
+          improvementTips: [
+            'Ask about experience with large-scale design systems and cross-team collaboration',
+            'Explore depth of React Query knowledge, especially optimistic updates and caching strategies',
+            'Verify Playwright E2E testing experience is hands-on, not just unit testing',
+          ],
+        },
+        enrichmentProgress: {},
+        progressLogs: [
+          'CV uploaded successfully',
+          'PDF parsed — extracted 1,034 words',
+          'GitHub profile enriched — 3 repositories found, 479 total stars',
+          'Match scoring complete — 78/100 (good_match)',
+        ],
+        retryCount: 0,
+      })
+    )
+
+    // Candidate 4 — Partial match for DevOps Engineer (score: 52)
+    await this.candidateRepo.save(
+      this.candidateRepo.create({
+        jobId: devopsJobId,
+        name: 'Pham Duc Hieu',
+        email: 'hieu.pham@proton.me',
+        phone: '+84 987 654 321',
+        cvUrl: 'seed/hieu-pham-cv.pdf',
+        cvText: `PHAM DUC HIEU
+Systems Administrator | Hanoi, Vietnam
+hieu.pham@proton.me | linkedin.com/in/hieuphamsys
+
+PROFESSIONAL SUMMARY
+Systems administrator with 5 years of experience managing Linux servers and on-premise infrastructure. Currently upskilling in cloud technologies and container orchestration. Strong scripting skills in Bash and Python with experience in monitoring and alerting.
+
+EXPERIENCE
+Senior Systems Administrator — Viettel IDC (2021 - Present)
+- Manage 200+ Linux servers across 3 data centers with 99.95% uptime
+- Implemented Ansible automation for server provisioning reducing setup time by 70%
+- Built monitoring dashboards using Prometheus and Grafana for infrastructure health
+- Configured Nginx load balancers handling 50K concurrent connections
+- Led migration of legacy monitoring from Nagios to Prometheus stack
+
+Systems Administrator — FPT Telecom (2019 - 2021)
+- Managed CentOS and Ubuntu servers for internal development teams
+- Wrote Bash scripts for log rotation, backup automation, and health checks
+- Administered PostgreSQL and MySQL databases for internal applications
+- Supported Docker containerization pilot project for development environments
+
+CERTIFICATIONS
+- AWS Solutions Architect Associate (2024)
+- Red Hat Certified System Administrator (2021)
+- Linux Professional Institute LPIC-1 (2019)
+
+EDUCATION
+B.S. Network Engineering — Hanoi University of Science and Technology (2019)
+
+SKILLS
+OS: CentOS, Ubuntu, Red Hat Enterprise Linux
+Tools: Ansible, Docker, Prometheus, Grafana, Nginx, HAProxy
+Scripting: Bash, Python
+Cloud: AWS (EC2, S3, RDS) — learning
+Networking: TCP/IP, DNS, VPN, Firewall (iptables)`,
+        status: 'completed',
+        links: {
+          github: null,
+          linkedin: 'https://linkedin.com/in/hieuphamsys',
+          portfolio: [],
+          classified: [],
+        },
+        parsedCV: {
+          summary:
+            'Systems administrator with 5 years managing Linux servers and on-premise infrastructure. Upskilling in cloud and containers.',
+          skills: [
+            'Linux',
+            'Ansible',
+            'Docker',
+            'Prometheus',
+            'Grafana',
+            'Nginx',
+            'Bash',
+            'Python',
+            'AWS',
+          ],
+          experience: [
+            {
+              title: 'Senior Systems Administrator',
+              company: 'Viettel IDC',
+              duration: '2021 - Present',
+              description:
+                'Manage 200+ Linux servers across 3 data centers. Built Prometheus/Grafana monitoring.',
+            },
+            {
+              title: 'Systems Administrator',
+              company: 'FPT Telecom',
+              duration: '2019 - 2021',
+              description:
+                'Managed servers for internal teams. Docker containerization pilot project.',
+            },
+          ],
+          education: [
+            {
+              degree: 'B.S. Network Engineering',
+              school: 'Hanoi University of Science and Technology',
+              year: '2019',
+            },
+          ],
+        },
+        enrichment: {
+          github: null,
+          linkedin: null,
+        },
+        matchResult: {
+          overallScore: 52,
+          explanation:
+            'Pham Duc Hieu has strong foundational infrastructure skills but significant gaps in the modern DevOps toolchain required for this role. His 5 years of Linux administration and Prometheus/Grafana monitoring experience are relevant. However, he has minimal Kubernetes experience (the core requirement), no Terraform or Infrastructure-as-Code experience beyond Ansible, and only beginner-level AWS knowledge despite a recent certification. His background is primarily on-premise systems administration rather than cloud-native DevOps. He is clearly transitioning toward DevOps and shows initiative with the AWS certification, but would need significant ramp-up time.',
+          strengths: [
+            'Strong Linux server administration with 200+ server fleet management',
+            'Prometheus and Grafana monitoring experience directly matches job requirements',
+            'Automation mindset demonstrated through Ansible playbooks',
+            'AWS Solutions Architect certification shows learning initiative',
+            'Solid scripting skills in Bash and Python',
+          ],
+          gaps: [
+            'No Kubernetes experience — the primary requirement for this role',
+            'No Terraform or IaC experience beyond Ansible',
+            'Limited AWS hands-on experience despite certification',
+            'No CI/CD pipeline design experience (GitHub Actions)',
+            'No GitHub profile — difficult to assess technical depth',
+            'On-premise focused background vs. cloud-native requirements',
+          ],
+          recommendation: 'partial_match',
+          improvementTips: [
+            'If considering, plan a 3-6 month ramp-up period for Kubernetes and Terraform',
+            'Test practical AWS and container knowledge beyond certification theory',
+            'Assess appetite for CI/CD and GitOps workflows',
+            'Consider for a junior DevOps role with mentorship rather than this senior position',
+          ],
+        },
+        enrichmentProgress: {},
+        progressLogs: [
+          'CV uploaded successfully',
+          'PDF parsed — extracted 876 words',
+          'No GitHub profile found — skipping enrichment',
+          'Match scoring complete — 52/100 (partial_match)',
+        ],
+        retryCount: 0,
+      })
+    )
+
+    // Candidate 5 — Weak match for ML Engineer (score: 34)
+    await this.candidateRepo.save(
+      this.candidateRepo.create({
+        jobId: mlJobId,
+        name: 'Vo Thanh Dat',
+        email: 'dat.vo@yahoo.com',
+        phone: '+84 976 543 210',
+        cvUrl: 'seed/dat-vo-cv.pdf',
+        cvText: `VO THANH DAT
+Data Analyst | Ho Chi Minh City, Vietnam
+dat.vo@yahoo.com | linkedin.com/in/datvo-analyst
+
+PROFESSIONAL SUMMARY
+Data analyst with 2 years of experience creating reports, dashboards, and data visualizations. Proficient in SQL, Excel, and Power BI. Basic Python skills for data cleaning and automation. Interested in transitioning to machine learning and AI.
+
+EXPERIENCE
+Data Analyst — Masan Group (2023 - Present)
+- Created weekly sales reports and KPI dashboards using Power BI for executive team
+- Wrote complex SQL queries for data extraction from MySQL data warehouse
+- Automated report generation with Python scripts saving 10 hours per week
+- Performed A/B test analysis for marketing campaigns using basic statistical methods
+- Collaborated with engineering team to define data requirements for new ETL pipelines
+
+Junior Data Analyst — PwC Vietnam (2022 - 2023)
+- Assisted audit team with data extraction and validation from client ERP systems
+- Built Excel models for financial forecasting and variance analysis
+- Learned basic Python (pandas, matplotlib) for data cleaning tasks
+- Created Tableau dashboards for client engagement presentations
+
+EDUCATION
+B.S. Business Administration — Foreign Trade University, HCMC (2022)
+Online Courses: Andrew Ng's Machine Learning Specialization (Coursera), Fast.ai Practical Deep Learning (in progress)
+
+SKILLS
+Analysis: SQL (MySQL, PostgreSQL), Excel (advanced), Power BI, Tableau
+Programming: Python (pandas, numpy, matplotlib — intermediate)
+Statistics: Hypothesis testing, regression analysis, A/B testing
+Other: Power Automate, Google Analytics, Jira`,
+        status: 'completed',
+        links: {
+          github: null,
+          linkedin: 'https://linkedin.com/in/datvo-analyst',
+          portfolio: [],
+          classified: [],
+        },
+        parsedCV: {
+          summary:
+            'Data analyst with 2 years of experience in reports, dashboards, and data visualizations. Interested in transitioning to ML.',
+          skills: [
+            'SQL',
+            'Python',
+            'Power BI',
+            'Tableau',
+            'Excel',
+            'pandas',
+            'numpy',
+            'matplotlib',
+          ],
+          experience: [
+            {
+              title: 'Data Analyst',
+              company: 'Masan Group',
+              duration: '2023 - Present',
+              description:
+                'Sales reports and KPI dashboards using Power BI. Python automation scripts.',
+            },
+            {
+              title: 'Junior Data Analyst',
+              company: 'PwC Vietnam',
+              duration: '2022 - 2023',
+              description:
+                'Data extraction and validation for audit team. Excel models and Tableau dashboards.',
+            },
+          ],
+          education: [
+            {
+              degree: 'B.S. Business Administration',
+              school: 'Foreign Trade University, HCMC',
+              year: '2022',
+            },
+          ],
+        },
+        enrichment: {
+          github: null,
+          linkedin: null,
+        },
+        matchResult: {
+          overallScore: 34,
+          explanation:
+            'Vo Thanh Dat is a data analyst aspiring to transition into machine learning, but currently lacks the core skills required for this ML Engineer role. He has no experience with PyTorch, TensorFlow, or any ML frameworks. His Python skills are intermediate (pandas/matplotlib level), far below the advanced Python and ML engineering skills needed. He has no experience with model training, deployment, or LLMs. His educational background is in Business Administration, not Computer Science or a quantitative field. While his interest in ML is evident from online courses (Andrew Ng, Fast.ai), completing coursework alone does not prepare someone for a production ML engineering role.',
+          strengths: [
+            'Basic Python and SQL skills provide a foundation to build upon',
+            'Shows initiative with ML coursework (Andrew Ng, Fast.ai)',
+            'Data analysis experience provides understanding of data quality and preprocessing',
+            'A/B testing experience shows basic statistical understanding',
+          ],
+          gaps: [
+            'No PyTorch, TensorFlow, or ML framework experience',
+            'No model training, evaluation, or deployment experience',
+            'No experience with LLMs, NLP, or computer vision',
+            'Python skills at intermediate level — needs advanced proficiency',
+            'Business Administration degree, not CS or quantitative field',
+            'No GitHub profile or ML project portfolio',
+            'No production engineering experience (the "E" in ML Engineer)',
+          ],
+          recommendation: 'weak_match',
+          improvementTips: [
+            'This candidate would benefit from 1-2 years of focused ML study and practice before being ready for this role',
+            'Suggest they build personal ML projects and publish them on GitHub',
+            'Consider for a junior data engineering or analytics engineering role instead',
+            'The Fast.ai course (in progress) is a good direction — encourage completion and hands-on projects',
+          ],
+        },
+        enrichmentProgress: {},
+        progressLogs: [
+          'CV uploaded successfully',
+          'PDF parsed — extracted 734 words',
+          'No GitHub profile found — skipping enrichment',
+          'Match scoring complete — 34/100 (weak_match)',
+        ],
+        retryCount: 0,
+      })
+    )
+
+    this.logger.log('Seeded 5 candidates across 4 jobs')
   }
 
   private async seedBulkJobs(companyIds: string[]) {

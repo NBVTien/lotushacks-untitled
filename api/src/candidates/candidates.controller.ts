@@ -7,10 +7,12 @@ import {
   Body,
   Res,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { Response } from 'express'
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { CandidatesService } from './candidates.service'
 
 @Controller('jobs/:jobId/candidates')
@@ -112,6 +114,12 @@ export class CandidatesController {
     @Body('types') types: string[]
   ) {
     return this.candidatesService.extendedEnrich(jobId, id, types)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/interview-questions')
+  generateInterviewQuestions(@Param('jobId') jobId: string, @Param('id') id: string) {
+    return this.candidatesService.generateInterviewQuestions(jobId, id)
   }
 
   @Delete(':id')

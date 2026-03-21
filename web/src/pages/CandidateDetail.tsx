@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { ScoreRing } from '@/components/ui/score-ring'
 import { StatusBadge, RecommendationBadge } from '@/components/ui/status-badge'
-import { SkeletonCard } from '@/components/ui/skeleton'
+import { CandidateDetailSkeleton } from '@/components/ui/skeleton'
 import {
   ArrowLeft,
   Github,
@@ -34,10 +34,25 @@ import {
   CheckCircle,
   Zap,
   Star,
+  Sparkles,
+  Loader2,
+  MessageSquare,
+  Lightbulb,
 } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
-import { candidatesApi } from '@/lib/api'
-import type { Candidate, EnrichmentProgress, CompanyIntel } from '@lotushack/shared'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ErrorState } from '@/components/ErrorState'
+import { toast } from 'sonner'
+import { candidatesApi, jobsApi } from '@/lib/api'
+import { SkillRadar, extractSkillRadarData } from '@/components/SkillRadar'
+import type {
+  Candidate,
+  EnrichmentProgress,
+  CompanyIntel,
+  Job,
+  InterviewQuestion,
+  InterviewQuestionsResult,
+} from '@lotushack/shared'
 
 const PIPELINE_STEPS = [
   { key: 'uploaded', label: 'Uploaded', icon: Upload },
@@ -63,11 +78,18 @@ function getStepIndex(status: string): number {
 export function CandidateDetailPage() {
   const { jobId, candidateId } = useParams<{ jobId: string; candidateId: string }>()
   const [candidate, setCandidate] = useState<Candidate | null>(null)
+  const [job, setJob] = useState<Job | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [forcePolling, setForcePolling] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const loadRef = useRef<() => Promise<void>>(async () => {})
+  const candidateRef = useRef(candidate)
+  candidateRef.current = candidate
+
+  loadRef.current = async () => {
     if (!jobId || !candidateId || notFound) return
+    setError(null)
     try {
       const data = await candidatesApi.get(jobId, candidateId)
       setCandidate(data)
@@ -77,30 +99,48 @@ export function CandidateDetailPage() {
     } catch (err: unknown) {
       if ((err as { response?: { status?: number } })?.response?.status === 404) {
         setNotFound(true)
+      } else if (!candidateRef.current) {
+        setError('Failed to load candidate details. Please try again.')
       }
     }
-  }, [jobId, candidateId, notFound, forcePolling])
+  }
 
   const isDone =
     !forcePolling && (candidate?.status === 'completed' || candidate?.status === 'error')
 
   useEffect(() => {
-    load()
+    loadRef.current?.()
     if (isDone) return
-    const interval = setInterval(load, 3000)
+    const interval = setInterval(() => loadRef.current?.(), 3000)
     return () => clearInterval(interval)
-  }, [load, isDone])
+  }, [jobId, candidateId, isDone]) // stable deps only
+
+  // Fetch job data (for requirements, used by skill radar)
+  useEffect(() => {
+    if (!jobId) return
+    jobsApi.get(jobId).then(setJob).catch(() => {})
+  }, [jobId])
 
   const handleReEnrich = async () => {
-    await candidatesApi.reEnrich(jobId!, candidateId!)
-    setForcePolling(true)
-    load()
+    try {
+      await candidatesApi.reEnrich(jobId!, candidateId!)
+      setForcePolling(true)
+      loadRef.current?.()
+      toast.success('Re-enrichment started')
+    } catch {
+      toast.error('Failed to start re-enrichment')
+    }
   }
 
   const handleRetry = async () => {
-    await candidatesApi.retry(jobId!, candidateId!)
-    setForcePolling(true)
-    load()
+    try {
+      await candidatesApi.retry(jobId!, candidateId!)
+      setForcePolling(true)
+      loadRef.current?.()
+      toast.success('Retry started')
+    } catch {
+      toast.error('Failed to retry processing')
+    }
   }
 
   if (notFound) {
@@ -117,13 +157,22 @@ export function CandidateDetailPage() {
     )
   }
 
-  if (!candidate) {
+  if (error) {
     return (
       <div className="space-y-6">
-        <SkeletonCard />
-        <SkeletonCard />
+        <Link
+          to={`/jobs/${jobId}`}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Job
+        </Link>
+        <ErrorState message={error} onRetry={() => loadRef.current?.()} />
       </div>
     )
+  }
+
+  if (!candidate) {
+    return <CandidateDetailSkeleton />
   }
 
   const { matchResult, enrichment, links } = candidate
@@ -305,6 +354,83 @@ export function CandidateDetailPage() {
           <TabsContent value="score" className="space-y-4">
             {matchResult ? (
               <>
+                {/* Scoring Methodology Notice */}
+                <Card className="shadow-sm border-blue-200 dark:border-blue-800/30 bg-blue-50/50 dark:bg-blue-950/10">
+                  <CardContent className="py-3 px-4">
+                    <details className="group">
+                      <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-blue-700 dark:text-blue-300 select-none">
+                        <Brain className="h-4 w-4" />
+                        How is this score calculated?
+                        {matchResult.scoringBasis && (
+                          <Badge variant="outline" className={`ml-2 text-xs ${
+                            matchResult.scoringBasis.confidence === 'high' ? 'text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-700' :
+                            matchResult.scoringBasis.confidence === 'medium' ? 'text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700' :
+                            'text-red-600 border-red-300 dark:text-red-400 dark:border-red-700'
+                          }`}>
+                            {matchResult.scoringBasis.confidence} confidence
+                          </Badge>
+                        )}
+                        <span className="ml-auto text-xs text-blue-500 group-open:hidden">Click to expand</span>
+                      </summary>
+                      <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                        <p>Score generated by <strong>AI (GPT-4o-mini)</strong> based on:</p>
+                        <div className="grid gap-2 sm:grid-cols-2 mt-2">
+                          <div className="rounded-md border bg-background/50 p-2.5">
+                            <p className="font-medium text-foreground mb-1">Data Sources Used</p>
+                            <ul className="space-y-0.5 text-xs">
+                              {matchResult.scoringBasis?.dataSources ? matchResult.scoringBasis.dataSources.map((src, i) => (
+                                <li key={i} className="flex items-start gap-1.5">
+                                  <CheckCircle className="h-3 w-3 shrink-0 text-emerald-500 mt-0.5" /> {src}
+                                </li>
+                              )) : (
+                                <>
+                                  <li className="flex items-center gap-1.5"><FileText className="h-3 w-3 shrink-0" /> CV content</li>
+                                  {enrichment?.github && <li className="flex items-center gap-1.5"><Github className="h-3 w-3 shrink-0" /> GitHub profile</li>}
+                                  {enrichment?.linkedin && <li className="flex items-center gap-1.5"><Linkedin className="h-3 w-3 shrink-0" /> LinkedIn profile</li>}
+                                </>
+                              )}
+                            </ul>
+                          </div>
+                          <div className="rounded-md border bg-background/50 p-2.5">
+                            <p className="font-medium text-foreground mb-1">Evaluation Criteria</p>
+                            <ul className="space-y-0.5 text-xs">
+                              {matchResult.scoringBasis?.scoringCriteria && matchResult.scoringBasis.scoringCriteria.length > 0
+                                ? matchResult.scoringBasis.scoringCriteria.map((c, i) => (
+                                  <li key={i}>• {c}</li>
+                                ))
+                                : (
+                                <>
+                                  <li>• Skills alignment with job requirements</li>
+                                  <li>• Relevant work experience</li>
+                                  <li>• Open-source contributions</li>
+                                </>
+                              )}
+                            </ul>
+                          </div>
+                        </div>
+                        {matchResult.scoringBasis?.limitations && matchResult.scoringBasis.limitations.length > 0 && (
+                          <div className="rounded-md border border-amber-200 dark:border-amber-800/30 bg-amber-50/50 dark:bg-amber-950/10 p-2.5">
+                            <p className="font-medium text-amber-700 dark:text-amber-300 mb-1 text-xs">Limitations</p>
+                            <ul className="space-y-0.5 text-xs text-amber-600 dark:text-amber-400">
+                              {matchResult.scoringBasis.limitations.map((l, i) => (
+                                <li key={i} className="flex items-start gap-1.5">
+                                  <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" /> {l}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <Badge variant="outline" className="text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-700 text-xs">80-100: Strong Match</Badge>
+                          <Badge variant="outline" className="text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-700 text-xs">60-79: Good Match</Badge>
+                          <Badge variant="outline" className="text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700 text-xs">40-59: Partial Match</Badge>
+                          <Badge variant="outline" className="text-red-600 border-red-300 dark:text-red-400 dark:border-red-700 text-xs">0-39: Weak Match</Badge>
+                        </div>
+                      </div>
+                    </details>
+                  </CardContent>
+                </Card>
+
                 <div className="flex flex-wrap gap-2 text-xs">
                   <Badge variant="secondary">Based on: CV</Badge>
                   {candidate.parsedCV && (
@@ -356,6 +482,77 @@ export function CandidateDetailPage() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Improvement Tips */}
+                {matchResult.improvementTips && matchResult.improvementTips.length > 0 && (
+                  <Card className="shadow-sm bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-amber-500" />
+                        Profile Improvement Tips
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {matchResult.improvementTips.map((tip, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: -12 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.08, duration: 0.3 }}
+                            className="flex gap-3 items-start rounded-md border-l-3 border-amber-400 bg-white/60 dark:bg-white/5 px-3 py-2"
+                          >
+                            <span className="mt-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400 shrink-0">
+                              {i + 1}.
+                            </span>
+                            <p className="text-sm text-foreground/80 leading-relaxed">{tip}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Skill Radar Chart */}
+                {(() => {
+                  // Prefer AI-generated skill scores, fallback to heuristic extraction
+                  const radarData = (matchResult.skillScores && matchResult.skillScores.length >= 3)
+                    ? matchResult.skillScores
+                    : extractSkillRadarData(
+                        matchResult,
+                        job?.requirements ?? [],
+                        candidate.parsedCV?.skills,
+                      )
+                  if (!radarData) return null
+                  const isAIGenerated = !!(matchResult.skillScores && matchResult.skillScores.length >= 3)
+                  return (
+                    <Card className="shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-base">Skills Analysis</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {isAIGenerated
+                            ? 'Skill scores generated by AI based on CV content, GitHub repositories, and job requirements. Blue area shows candidate proficiency, red dashed line shows job requirement level.'
+                            : 'Skill scores estimated from match analysis (strengths & gaps). Re-score this candidate for AI-generated skill scores.'}
+                        </p>
+                      </CardHeader>
+                      <CardContent>
+                        <SkillRadar skills={radarData} />
+                      </CardContent>
+                    </Card>
+                  )
+                })()}
+
+                {/* Interview Questions */}
+                <InterviewQuestionsSection
+                  jobId={jobId!}
+                  candidateId={candidateId!}
+                  cached={candidate.interviewQuestions}
+                  onGenerated={(result) =>
+                    setCandidate((prev) =>
+                      prev ? { ...prev, interviewQuestions: result } : prev
+                    )
+                  }
+                />
               </>
             ) : (
               <p className="text-muted-foreground">Score not yet available.</p>
@@ -603,7 +800,7 @@ export function CandidateDetailPage() {
               jobId={jobId!}
               candidateId={candidateId!}
               onAction={handleReEnrich}
-              load={load}
+              load={() => loadRef.current?.()}
               setForcePolling={setForcePolling}
             />
           </TabsContent>
@@ -624,6 +821,179 @@ export function CandidateDetailPage() {
         </Tabs>
       </div>
     </PageTransition>
+  )
+}
+
+const CATEGORY_STYLES: Record<
+  InterviewQuestion['category'],
+  { bg: string; text: string; border: string; label: string }
+> = {
+  technical: {
+    bg: 'bg-blue-50 dark:bg-blue-950/30',
+    text: 'text-blue-700 dark:text-blue-300',
+    border: 'border-blue-200 dark:border-blue-800',
+    label: 'Technical',
+  },
+  behavioral: {
+    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+    text: 'text-emerald-700 dark:text-emerald-300',
+    border: 'border-emerald-200 dark:border-emerald-800',
+    label: 'Behavioral',
+  },
+  experience: {
+    bg: 'bg-amber-50 dark:bg-amber-950/30',
+    text: 'text-amber-700 dark:text-amber-300',
+    border: 'border-amber-200 dark:border-amber-800',
+    label: 'Experience',
+  },
+  'gap-exploration': {
+    bg: 'bg-red-50 dark:bg-red-950/30',
+    text: 'text-red-700 dark:text-red-300',
+    border: 'border-red-200 dark:border-red-800',
+    label: 'Gap Exploration',
+  },
+}
+
+function InterviewQuestionsSection({
+  jobId,
+  candidateId,
+  cached,
+  onGenerated,
+}: {
+  jobId: string
+  candidateId: string
+  cached: InterviewQuestionsResult | null
+  onGenerated: (result: InterviewQuestionsResult) => void
+}) {
+  const [questions, setQuestions] = useState<InterviewQuestion[]>(
+    cached?.questions ?? []
+  )
+  const [loading, setLoading] = useState(false)
+  const [hasGenerated, setHasGenerated] = useState(!!cached)
+
+  // Sync if cached data arrives later (e.g. from polling)
+  useEffect(() => {
+    if (cached?.questions && !hasGenerated) {
+      setQuestions(cached.questions)
+      setHasGenerated(true)
+    }
+  }, [cached, hasGenerated])
+
+  const generate = async () => {
+    setLoading(true)
+    try {
+      const result = await candidatesApi.generateInterviewQuestions(jobId, candidateId)
+      setQuestions(result.questions)
+      setHasGenerated(true)
+      onGenerated(result)
+      toast.success('Interview questions generated')
+    } catch {
+      toast.error('Failed to generate interview questions')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageSquare className="h-4 w-4" />
+            Interview Questions
+          </CardTitle>
+          {hasGenerated && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generate}
+              disabled={loading}
+              className="gap-1.5"
+            >
+              {loading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Regenerate
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!hasGenerated && !loading && (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <Sparkles className="h-7 w-7 text-primary" />
+            </div>
+            <p className="mb-1 font-medium">AI-Generated Interview Questions</p>
+            <p className="mb-5 max-w-sm text-sm text-muted-foreground">
+              Generate tailored interview questions based on this candidate's profile,
+              match analysis, and identified gaps.
+            </p>
+            <Button onClick={generate} disabled={loading} className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              Generate Interview Questions
+            </Button>
+          </div>
+        )}
+
+        {loading && !hasGenerated && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              Analyzing candidate profile and generating questions...
+            </p>
+          </div>
+        )}
+
+        <AnimatePresence mode="wait">
+          {hasGenerated && questions.length > 0 && (
+            <motion.div
+              key="questions-list"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-3"
+            >
+              {questions.map((q, i) => {
+                const style = CATEGORY_STYLES[q.category] || CATEGORY_STYLES.technical
+                return (
+                  <motion.div
+                    key={`${q.category}-${i}`}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.07, duration: 0.3, ease: 'easeOut' }}
+                  >
+                    <div
+                      className={`rounded-lg border p-4 transition-colors hover:bg-muted/30 ${style.border}`}
+                    >
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Q{i + 1}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${style.bg} ${style.text} ${style.border}`}
+                        >
+                          {style.label}
+                        </Badge>
+                      </div>
+                      <p className="text-sm font-medium leading-relaxed">
+                        {q.question}
+                      </p>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        {q.rationale}
+                      </p>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -866,19 +1236,29 @@ function ExtendedAnalysis({
   ]
 
   const runType = async (type: string) => {
-    await candidatesApi.extendedEnrich(jobId, candidateId, [type])
-    setLiveProgress((prev) => ({ ...prev, [type]: { status: 'queued', logs: [] } }))
+    try {
+      await candidatesApi.extendedEnrich(jobId, candidateId, [type])
+      setLiveProgress((prev) => ({ ...prev, [type]: { status: 'queued', logs: [] } }))
+      toast.success(`Extended enrichment started: ${type}`)
+    } catch {
+      toast.error(`Failed to start enrichment: ${type}`)
+    }
   }
 
   const runCategory = async (cat: EnrichmentCategory) => {
     const available = cat.types.filter((t) => t.available).map((t) => t.key)
     if (available.length === 0) return
-    await candidatesApi.extendedEnrich(jobId, candidateId, available)
-    setLiveProgress((prev) => {
-      const next = { ...prev }
-      for (const key of available) next[key] = { status: 'queued', logs: [] }
-      return next
-    })
+    try {
+      await candidatesApi.extendedEnrich(jobId, candidateId, available)
+      setLiveProgress((prev) => {
+        const next = { ...prev }
+        for (const key of available) next[key] = { status: 'queued', logs: [] }
+        return next
+      })
+      toast.success(`Extended enrichment started: ${cat.label}`)
+    } catch {
+      toast.error(`Failed to start enrichment: ${cat.label}`)
+    }
   }
 
   // Helper to render inline result for a type

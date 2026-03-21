@@ -7,6 +7,11 @@ import { authApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { LayoutDashboard, Loader2 } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
+import { toast } from 'sonner'
+
+const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+
+type RegField = 'name' | 'email' | 'password' | 'companyName'
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -19,9 +24,52 @@ export function RegisterPage() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<RegField, string>>>({})
+  const [touched, setTouched] = useState<Partial<Record<RegField, boolean>>>({})
+
+  const validateField = (field: RegField, value: string) => {
+    if (field === 'name' && !value.trim()) return 'Name is required'
+    if (field === 'email') {
+      if (!value.trim()) return 'Email is required'
+      if (!isValidEmail(value)) return 'Please enter a valid email'
+    }
+    if (field === 'password') {
+      if (!value.trim()) return 'Password is required'
+      if (value.length < 6) return 'Password must be at least 6 characters'
+    }
+    if (field === 'companyName' && !value.trim()) return 'Company name is required'
+    return undefined
+  }
+
+  const handleBlur = (field: RegField) => {
+    setTouched((t) => ({ ...t, [field]: true }))
+    setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, form[field]) }))
+  }
+
+  const validateAll = () => {
+    const fields: RegField[] = ['name', 'email', 'password', 'companyName']
+    const errs: Partial<Record<RegField, string>> = {}
+    const t: Partial<Record<RegField, boolean>> = {}
+    for (const f of fields) {
+      errs[f] = validateField(f, form[f])
+      t[f] = true
+    }
+    setFieldErrors(errs)
+    setTouched(t)
+    return !Object.values(errs).some(Boolean)
+  }
+
+  const hasErrors =
+    !form.name.trim() ||
+    !form.email.trim() ||
+    !isValidEmail(form.email) ||
+    !form.password.trim() ||
+    form.password.length < 6 ||
+    !form.companyName.trim()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validateAll()) return
     setError('')
     setLoading(true)
     try {
@@ -30,12 +78,17 @@ export function RegisterPage() {
       navigate('/')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg || 'Registration failed')
+      const errorMsg = msg || 'Registration failed'
+      setError(errorMsg)
+      toast.error(errorMsg)
     }
     setLoading(false)
   }
 
-  const update = (field: string, value: string) => setForm({ ...form, [field]: value })
+  const update = (field: RegField, value: string) => {
+    setForm({ ...form, [field]: value })
+    if (fieldErrors[field]) setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
+  }
 
   return (
     <PageTransition>
@@ -92,9 +145,12 @@ export function RegisterPage() {
                     placeholder="Nguyen Van A"
                     value={form.name}
                     onChange={(e) => update('name', e.target.value)}
-                    required
-                    className="h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    onBlur={() => handleBlur('name')}
+                    className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.name && fieldErrors.name ? 'border-destructive' : ''}`}
                   />
+                  {touched.name && fieldErrors.name && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.name}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -104,9 +160,12 @@ export function RegisterPage() {
                     placeholder="you@company.com"
                     value={form.email}
                     onChange={(e) => update('email', e.target.value)}
-                    required
-                    className="h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    onBlur={() => handleBlur('email')}
+                    className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.email && fieldErrors.email ? 'border-destructive' : ''}`}
                   />
+                  {touched.email && fieldErrors.email && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
@@ -116,10 +175,12 @@ export function RegisterPage() {
                     placeholder="Min 6 characters"
                     value={form.password}
                     onChange={(e) => update('password', e.target.value)}
-                    required
-                    minLength={6}
-                    className="h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    onBlur={() => handleBlur('password')}
+                    className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.password && fieldErrors.password ? 'border-destructive' : ''}`}
                   />
+                  {touched.password && fieldErrors.password && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.password}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="company">Company Name</Label>
@@ -128,11 +189,14 @@ export function RegisterPage() {
                     placeholder="Your company"
                     value={form.companyName}
                     onChange={(e) => update('companyName', e.target.value)}
-                    required
-                    className="h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    onBlur={() => handleBlur('companyName')}
+                    className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.companyName && fieldErrors.companyName ? 'border-destructive' : ''}`}
                   />
+                  {touched.companyName && fieldErrors.companyName && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.companyName}</p>
+                  )}
                 </div>
-                <Button type="submit" className="h-12 w-full text-base" disabled={loading}>
+                <Button type="submit" className="h-12 w-full text-base" disabled={loading || hasErrors}>
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />

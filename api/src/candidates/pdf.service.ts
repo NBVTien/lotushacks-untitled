@@ -116,7 +116,7 @@ export class PdfService {
         ],
         response_format: { type: 'json_object' },
         temperature: 0.1,
-      })
+      }, { timeout: 60000 })
 
       const content = response.choices[0]?.message?.content
       if (!content) throw new Error('No response from OpenAI')
@@ -187,6 +187,9 @@ export class PdfService {
       )
       return result
     } catch (err) {
+      if (err instanceof Error && (err.message.includes('timeout') || err.message.includes('timed out') || err.name === 'APIConnectionTimeoutError')) {
+        this.logger.error(`OpenAI CV parsing call timed out after 60s for ${fileName}`)
+      }
       this.logger.error('OpenAI CV parsing failed', err)
       return {
         name: 'Unknown',
@@ -240,7 +243,7 @@ export class PdfService {
         ],
         response_format: { type: 'json_object' },
         temperature: 0.1,
-      })
+      }, { timeout: 30000 })
 
       const content = response.choices[0]?.message?.content
       if (!content) return allUrls.map((u) => ({ url: u, kind: 'other' as const, label: u }))
@@ -255,6 +258,9 @@ export class PdfService {
         label: item.label || item.url || '',
       }))
     } catch (err) {
+      if (err instanceof Error && (err.message.includes('timeout') || err.message.includes('timed out') || err.name === 'APIConnectionTimeoutError')) {
+        this.logger.error('OpenAI URL classification call timed out after 30s')
+      }
       this.logger.warn(
         `URL classification failed: ${err instanceof Error ? err.message : String(err)}`
       )

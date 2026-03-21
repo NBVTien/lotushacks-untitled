@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,10 +9,22 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatusBadge, RecommendationBadge } from '@/components/ui/status-badge'
-import { SkeletonCard } from '@/components/ui/skeleton'
-import { ArrowLeft, Upload, Pencil, Users, FileText, LinkIcon, Check } from 'lucide-react'
+import { JobDetailSkeleton } from '@/components/ui/skeleton'
+import {
+  ArrowLeft,
+  Upload,
+  Pencil,
+  Users,
+  FileText,
+  LinkIcon,
+  Check,
+  GitCompareArrows,
+} from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
+import { ErrorState } from '@/components/ErrorState'
+import { EmptyState } from '@/components/EmptyState'
 import ReactMarkdown from 'react-markdown'
+import { toast } from 'sonner'
 import { jobsApi, candidatesApi } from '@/lib/api'
 import type { Job, Candidate } from '@lotushack/shared'
 
@@ -32,11 +44,13 @@ function getScoreDotColor(score: number): string {
 
 export function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
+  const navigate = useNavigate()
   const [job, setJob] = useState<Job | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [uploading, setUploading] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editForm, setEditForm] = useState({
     title: '',
     description: '',
@@ -45,9 +59,11 @@ export function JobDetailPage() {
   })
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     if (!jobId || notFound) return
+    setError(null)
     try {
       const [jobData, candidatesData] = await Promise.all([
         jobsApi.get(jobId),
@@ -58,6 +74,8 @@ export function JobDetailPage() {
     } catch (err: unknown) {
       if ((err as { response?: { status?: number } })?.response?.status === 404) {
         setNotFound(true)
+      } else {
+        setError('Failed to load job details. Please try again.')
       }
     }
   }, [jobId, notFound])
@@ -75,8 +93,13 @@ export function JobDetailPage() {
     const file = e.target.files?.[0]
     if (!file || !jobId) return
     setUploading(true)
-    await candidatesApi.upload(jobId, file)
-    await loadData()
+    try {
+      await candidatesApi.upload(jobId, file)
+      await loadData()
+      toast.success('CV uploaded successfully')
+    } catch {
+      toast.error('Failed to upload CV')
+    }
     setUploading(false)
     e.target.value = ''
   }
@@ -95,13 +118,22 @@ export function JobDetailPage() {
     )
   }
 
-  if (!job) {
+  if (error) {
     return (
       <div className="space-y-6">
-        <SkeletonCard />
-        <SkeletonCard />
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
+        </Link>
+        <ErrorState message={error} onRetry={loadData} />
       </div>
     )
+  }
+
+  if (!job) {
+    return <JobDetailSkeleton />
   }
 
   // Pipeline stats
@@ -215,18 +247,23 @@ export function JobDetailPage() {
                 onSubmit={async (e) => {
                   e.preventDefault()
                   setSaving(true)
-                  const reqs = editForm.requirements
-                    .split('\n')
-                    .map((r) => r.trim())
-                    .filter(Boolean)
-                  const updated = await jobsApi.update(job.id, {
-                    title: editForm.title,
-                    description: editForm.description,
-                    requirements: reqs,
-                    screeningCriteria: editForm.screeningCriteria.trim() || undefined,
-                  })
-                  setJob(updated)
-                  setEditing(false)
+                  try {
+                    const reqs = editForm.requirements
+                      .split('\n')
+                      .map((r) => r.trim())
+                      .filter(Boolean)
+                    const updated = await jobsApi.update(job.id, {
+                      title: editForm.title,
+                      description: editForm.description,
+                      requirements: reqs,
+                      screeningCriteria: editForm.screeningCriteria.trim() || undefined,
+                    })
+                    setJob(updated)
+                    setEditing(false)
+                    toast.success('Job updated successfully')
+                  } catch {
+                    toast.error('Failed to update job')
+                  }
                   setSaving(false)
                 }}
                 className="space-y-5"
@@ -322,16 +359,24 @@ export function JobDetailPage() {
 
           <TabsContent value="candidates" className="space-y-3">
             {candidates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 py-16">
-                <Users className="h-10 w-10 text-muted-foreground/50" />
-                <p className="mt-4 text-sm font-medium text-muted-foreground">No candidates yet</p>
-                <p className="mt-1 text-xs text-muted-foreground">Upload a CV to get started</p>
-              </div>
+              <EmptyState
+                icon={Users}
+                title="No candidates yet"
+                description="Upload a CV to start evaluating candidates for this position"
+                action={{
+                  label: 'Upload CV',
+                  onClick: () => document.getElementById('cv-upload')?.click(),
+                }}
+              />
             ) : (
+              <>
               <div className="overflow-hidden rounded-xl border shadow-sm">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/40">
+                      <th className="w-10 px-3 py-3 text-center text-xs font-medium text-muted-foreground">
+                        <span className="sr-only">Select</span>
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                         Candidate
                       </th>
@@ -347,44 +392,95 @@ export function JobDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {candidates.map((c) => (
-                      <tr
-                        key={c.id}
-                        className="group border-b last:border-0 transition-colors hover:bg-muted/40"
-                      >
-                        <td className="px-4 py-3">
-                          <Link to={`/jobs/${jobId}/candidates/${c.id}`} className="block">
-                            <p className="font-medium text-sm group-hover:text-primary transition-colors">
-                              {c.name}
-                            </p>
-                            {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3">
-                          <StatusBadge status={c.status} />
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {c.matchResult && (
-                            <span
-                              className={`inline-flex items-center gap-1.5 text-sm font-semibold ${getScoreTextColor(c.matchResult.overallScore)}`}
-                            >
-                              {c.matchResult.overallScore}
+                    {candidates.map((c) => {
+                      const isSelected = selectedIds.has(c.id)
+                      const canSelect =
+                        isSelected || selectedIds.size < 3
+                      return (
+                        <tr
+                          key={c.id}
+                          className={`group border-b last:border-0 transition-colors hover:bg-muted/40 ${isSelected ? 'bg-primary/5' : ''}`}
+                        >
+                          <td className="px-3 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              disabled={!canSelect && !isSelected}
+                              title={
+                                !canSelect && !isSelected
+                                  ? 'Maximum 3 candidates can be compared'
+                                  : 'Select for comparison'
+                              }
+                              onChange={() => {
+                                setSelectedIds((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(c.id)) {
+                                    next.delete(c.id)
+                                  } else if (next.size < 3) {
+                                    next.add(c.id)
+                                  }
+                                  return next
+                                })
+                              }}
+                              className="h-4 w-4 rounded border-muted-foreground/30 text-primary focus:ring-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link to={`/jobs/${jobId}/candidates/${c.id}`} className="block">
+                              <p className="font-medium text-sm group-hover:text-primary transition-colors">
+                                {c.name}
+                              </p>
+                              {c.email && (
+                                <p className="text-xs text-muted-foreground">{c.email}</p>
+                              )}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge status={c.status} />
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {c.matchResult && (
                               <span
-                                className={`inline-block h-2 w-2 rounded-full ${getScoreDotColor(c.matchResult.overallScore)}`}
+                                className={`inline-flex items-center gap-1.5 text-sm font-semibold ${getScoreTextColor(c.matchResult.overallScore)}`}
+                              >
+                                {c.matchResult.overallScore}
+                                <span
+                                  className={`inline-block h-2 w-2 rounded-full ${getScoreDotColor(c.matchResult.overallScore)}`}
+                                />
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {c.matchResult && (
+                              <RecommendationBadge
+                                recommendation={c.matchResult.recommendation}
                               />
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {c.matchResult && (
-                            <RecommendationBadge recommendation={c.matchResult.recommendation} />
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
+
+              {/* Floating compare button */}
+              {selectedIds.size >= 2 && (
+                <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+                  <Button
+                    size="lg"
+                    className="gap-2 shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-300"
+                    onClick={() => {
+                      const ids = Array.from(selectedIds).join(',')
+                      navigate(`/jobs/${jobId}/compare?ids=${ids}`)
+                    }}
+                  >
+                    <GitCompareArrows className="h-4 w-4" />
+                    Compare ({selectedIds.size})
+                  </Button>
+                </div>
+              )}
+              </>
             )}
           </TabsContent>
 

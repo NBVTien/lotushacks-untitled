@@ -10,10 +10,12 @@ import { ApplyPage } from './pages/Apply'
 import { JobDiscoveryPage } from './pages/JobDiscovery'
 import { CompanyResearchPage } from './pages/CompanyResearch'
 import { CandidateSourcingPage } from './pages/CandidateSourcing'
+import { CandidateComparePage } from './pages/CandidateCompare'
 import { LoginPage } from './pages/Login'
 import { RegisterPage } from './pages/Register'
 import { Briefcase, LogOut, LayoutDashboard, Moon, Sun } from 'lucide-react'
 import { ThemeProvider, useTheme } from './lib/theme'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -186,6 +188,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <Toaster />
+          <ErrorBoundary>
           <Routes>
             {/* Auth — no nav */}
             <Route path="/login" element={<LoginPage />} />
@@ -208,6 +211,16 @@ export default function App() {
                 <ProtectedRoute>
                   <RecruiterLayout>
                     <JobDetailPage />
+                  </RecruiterLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs/:jobId/compare"
+              element={
+                <ProtectedRoute>
+                  <RecruiterLayout>
+                    <CandidateComparePage />
                   </RecruiterLayout>
                 </ProtectedRoute>
               }
@@ -279,6 +292,7 @@ export default function App() {
               }
             />
           </Routes>
+          </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

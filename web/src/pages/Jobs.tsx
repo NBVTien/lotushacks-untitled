@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,15 +8,109 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
-import { SkeletonCard } from '@/components/ui/skeleton'
-import { Plus, Briefcase, CheckCircle, XCircle, X, Users, LinkIcon, Check } from 'lucide-react'
+import { Skeleton, JobCardSkeleton } from '@/components/ui/skeleton'
+import { ScoreRing } from '@/components/ui/score-ring'
+import { Plus, Briefcase, CheckCircle, X, Users, LinkIcon, Check, BarChart3 } from 'lucide-react'
 import { PageTransition, StaggerContainer, StaggerItem, FadeIn } from '@/components/ui/motion'
+import { ErrorState } from '@/components/ErrorState'
+import { EmptyState } from '@/components/EmptyState'
 import ReactMarkdown from 'react-markdown'
+import { toast } from 'sonner'
 import { jobsApi } from '@/lib/api'
+import type { JobStats } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
+
+function AnimatedNumber({ value, duration = 800 }: { value: number; duration?: number }) {
+  const [display, setDisplay] = useState(0)
+  const ref = useRef<number | null>(null)
+
+  useEffect(() => {
+    const start = performance.now()
+    const from = 0
+    const animate = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3) // ease-out cubic
+      setDisplay(Math.round(from + (value - from) * eased))
+      if (progress < 1) {
+        ref.current = requestAnimationFrame(animate)
+      }
+    }
+    ref.current = requestAnimationFrame(animate)
+    return () => {
+      if (ref.current) cancelAnimationFrame(ref.current)
+    }
+  }, [value, duration])
+
+  return <>{display}</>
+}
+
+const PIPELINE_COLORS: Record<string, string> = {
+  uploaded: 'bg-gray-400',
+  parsed: 'bg-blue-400',
+  enriching: 'bg-violet-400',
+  scoring: 'bg-amber-400',
+  completed: 'bg-emerald-500',
+}
+
+const PIPELINE_LABELS: Record<string, string> = {
+  uploaded: 'Uploaded',
+  parsed: 'Parsed',
+  enriching: 'Enriching',
+  scoring: 'Scoring',
+  completed: 'Completed',
+}
+
+function PipelineBar({ breakdown }: { breakdown: JobStats['pipelineBreakdown'] }) {
+  const total = Object.values(breakdown).reduce((a, b) => a + b, 0)
+  if (total === 0) {
+    return <div className="h-3 w-full rounded-full bg-muted" />
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+        {Object.entries(breakdown).map(([stage, count]) => {
+          if (count === 0) return null
+          const pct = (count / total) * 100
+          return (
+            <div
+              key={stage}
+              className={`${PIPELINE_COLORS[stage]} transition-all duration-700`}
+              style={{ width: `${pct}%` }}
+              title={`${PIPELINE_LABELS[stage]}: ${count}`}
+            />
+          )
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {Object.entries(breakdown).map(([stage, count]) => (
+          <span key={stage} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${PIPELINE_COLORS[stage]}`} />
+            {PIPELINE_LABELS[stage]} {count}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StatsCardsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="rounded-xl border border-border/40 bg-card p-4 shadow-card space-y-3">
+          <Skeleton className="h-3.5 w-20" />
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
+  const [stats, setStats] = useState<JobStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -26,41 +120,123 @@ export function JobsPage() {
   const [screeningCriteria, setScreeningCriteria] = useState('')
   const [previewMode, setPreviewMode] = useState<string>('write')
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  type JobField = 'title' | 'description' | 'requirements'
+  const [formErrors, setFormErrors] = useState<Partial<Record<JobField, string>>>({})
+  const [formTouched, setFormTouched] = useState<Partial<Record<JobField, boolean>>>({})
+
+  const validateJobField = (field: JobField): string | undefined => {
+    if (field === 'title' && !title.trim()) return 'Job title is required'
+    if (field === 'description') {
+      if (!description.trim()) return 'Description is required'
+      if (description.trim().length < 20) return 'Description must be at least 20 characters'
+    }
+    if (field === 'requirements') {
+      const reqs = reqInput.split('\n').map((r) => r.trim()).filter(Boolean)
+      if (reqs.length === 0) return 'At least one requirement is needed'
+    }
+    return undefined
+  }
+
+  const handleJobBlur = (field: JobField) => {
+    setFormTouched((t) => ({ ...t, [field]: true }))
+    setFormErrors((prev) => ({ ...prev, [field]: validateJobField(field) }))
+  }
+
+  const validateJobAll = () => {
+    const fields: JobField[] = ['title', 'description', 'requirements']
+    const errs: Partial<Record<JobField, string>> = {}
+    const t: Partial<Record<JobField, boolean>> = {}
+    for (const f of fields) {
+      errs[f] = validateJobField(f)
+      t[f] = true
+    }
+    setFormErrors(errs)
+    setFormTouched(t)
+    return !Object.values(errs).some(Boolean)
+  }
+
+  const jobFormHasErrors =
+    !title.trim() ||
+    !description.trim() ||
+    description.trim().length < 20 ||
+    reqInput.split('\n').map((r) => r.trim()).filter(Boolean).length === 0
+
+  const loadJobs = () => {
+    setLoading(true)
+    setError(null)
+    jobsApi
+      .list()
+      .then((data) => {
+        setJobs(data)
+        setLoading(false)
+      })
+      .catch(() => {
+        setError('Failed to load jobs. Please check your connection and try again.')
+        setLoading(false)
+      })
+  }
+
+  const loadStats = () => {
+    setStatsLoading(true)
+    jobsApi
+      .stats()
+      .then((data) => {
+        setStats(data)
+        setStatsLoading(false)
+      })
+      .catch(() => {
+        setStatsLoading(false)
+      })
+  }
 
   useEffect(() => {
-    jobsApi.list().then((data) => {
-      setJobs(data)
-      setLoading(false)
-    })
+    loadJobs()
+    loadStats()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validateJobAll()) return
     setSubmitting(true)
-    const reqs = reqInput
-      .split('\n')
-      .map((r) => r.trim())
-      .filter(Boolean)
-    const job = await jobsApi.create({
-      title,
-      description,
-      requirements: reqs,
-      screeningCriteria: screeningCriteria.trim() || undefined,
-    })
-    setJobs([job, ...jobs])
-    setTitle('')
-    setDescription('')
-    setReqInput('')
-    setScreeningCriteria('')
-    setShowForm(false)
+    try {
+      const reqs = reqInput
+        .split('\n')
+        .map((r) => r.trim())
+        .filter(Boolean)
+      const job = await jobsApi.create({
+        title,
+        description,
+        requirements: reqs,
+        screeningCriteria: screeningCriteria.trim() || undefined,
+      })
+      setJobs([job, ...jobs])
+      setTitle('')
+      setDescription('')
+      setReqInput('')
+      setScreeningCriteria('')
+      setShowForm(false)
+      setFormErrors({})
+      setFormTouched({})
+      loadStats()
+      toast.success('Job created successfully')
+    } catch {
+      toast.error('Failed to create job')
+    }
     setSubmitting(false)
   }
 
   const handleToggle = async (e: React.MouseEvent, job: Job) => {
     e.preventDefault()
     e.stopPropagation()
-    const updated = await jobsApi.toggleActive(job.id, !job.isActive)
-    setJobs(jobs.map((j) => (j.id === updated.id ? { ...j, isActive: updated.isActive } : j)))
+    try {
+      const updated = await jobsApi.toggleActive(job.id, !job.isActive)
+      setJobs(jobs.map((j) => (j.id === updated.id ? { ...j, isActive: updated.isActive } : j)))
+      toast.success(`Job ${updated.isActive ? 'activated' : 'deactivated'}`)
+    } catch {
+      toast.error('Failed to update job status')
+    }
   }
 
   const handleCopyLink = (e: React.MouseEvent, jobId: string) => {
@@ -71,8 +247,6 @@ export function JobsPage() {
     setCopiedJobId(jobId)
     setTimeout(() => setCopiedJobId(null), 2000)
   }
-
-  const activeCount = jobs.filter((j) => j.isActive).length
 
   return (
     <PageTransition>
@@ -91,34 +265,68 @@ export function JobsPage() {
           </Button>
         </PageHeader>
 
-        {/* Stats */}
-        {!loading && jobs.length > 0 && (
+        {/* Stats Cards */}
+        {statsLoading ? (
+          <StatsCardsSkeleton />
+        ) : stats && stats.totalJobs > 0 ? (
           <FadeIn>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {/* Card 1: Total Jobs */}
               <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Briefcase className="h-3.5 w-3.5" />
                   Total Jobs
                 </div>
-                <p className="mt-1 text-2xl font-semibold">{jobs.length}</p>
+                <p className="mt-1 text-2xl font-semibold">
+                  <AnimatedNumber value={stats.totalJobs} />
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  <span className="text-emerald-500 font-medium">{stats.activeJobs}</span> active
+                </p>
               </div>
+
+              {/* Card 2: Total Candidates */}
+              <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  Candidates
+                </div>
+                <p className="mt-1 text-2xl font-semibold">
+                  <AnimatedNumber value={stats.totalCandidates} />
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  across all jobs
+                </p>
+              </div>
+
+              {/* Card 3: Avg Score */}
+              <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Avg Score
+                </div>
+                <div className="mt-1 flex items-center gap-3">
+                  {stats.avgScore > 0 ? (
+                    <ScoreRing score={stats.avgScore} size={56} strokeWidth={4} />
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No scores yet</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 4: Pipeline Summary */}
               <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                  Active
+                  Pipeline
                 </div>
-                <p className="mt-1 text-2xl font-semibold">{activeCount}</p>
-              </div>
-              <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <XCircle className="h-3.5 w-3.5 text-muted-foreground/60" />
-                  Inactive
+                <div className="mt-2">
+                  <PipelineBar breakdown={stats.pipelineBreakdown} />
                 </div>
-                <p className="mt-1 text-2xl font-semibold">{jobs.length - activeCount}</p>
               </div>
             </div>
           </FadeIn>
-        )}
+        ) : null}
 
         {/* Create form */}
         {showForm && (
@@ -134,10 +342,16 @@ export function JobsPage() {
                     id="title"
                     placeholder="e.g. Senior Backend Engineer (Node.js)"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                    className="h-11"
+                    onChange={(e) => {
+                      setTitle(e.target.value)
+                      if (formErrors.title) setFormErrors((prev) => ({ ...prev, title: undefined }))
+                    }}
+                    onBlur={() => handleJobBlur('title')}
+                    className={`h-11 ${formTouched.title && formErrors.title ? 'border-destructive' : ''}`}
                   />
+                  {formTouched.title && formErrors.title && (
+                    <p className="text-sm text-destructive mt-1">{formErrors.title}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -154,9 +368,12 @@ export function JobsPage() {
                         }
                         rows={12}
                         value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="font-mono text-sm"
-                        required
+                        onChange={(e) => {
+                          setDescription(e.target.value)
+                          if (formErrors.description) setFormErrors((prev) => ({ ...prev, description: undefined }))
+                        }}
+                        onBlur={() => handleJobBlur('description')}
+                        className={`font-mono text-sm ${formTouched.description && formErrors.description ? 'border-destructive' : ''}`}
                       />
                     </TabsContent>
                     <TabsContent value="preview">
@@ -169,6 +386,9 @@ export function JobsPage() {
                       </div>
                     </TabsContent>
                   </Tabs>
+                  {formTouched.description && formErrors.description && (
+                    <p className="text-sm text-destructive mt-1">{formErrors.description}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -178,8 +398,16 @@ export function JobsPage() {
                     placeholder="4+ years Node.js/TypeScript&#10;Experience with PostgreSQL&#10;Docker & Kubernetes"
                     rows={5}
                     value={reqInput}
-                    onChange={(e) => setReqInput(e.target.value)}
+                    onChange={(e) => {
+                      setReqInput(e.target.value)
+                      if (formErrors.requirements) setFormErrors((prev) => ({ ...prev, requirements: undefined }))
+                    }}
+                    onBlur={() => handleJobBlur('requirements')}
+                    className={formTouched.requirements && formErrors.requirements ? 'border-destructive' : ''}
                   />
+                  {formTouched.requirements && formErrors.requirements && (
+                    <p className="text-sm text-destructive mt-1">{formErrors.requirements}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -201,7 +429,7 @@ export function JobsPage() {
                   />
                 </div>
 
-                <Button type="submit" disabled={submitting} className="h-10">
+                <Button type="submit" disabled={submitting || jobFormHasErrors} className="h-10">
                   {submitting ? 'Creating...' : 'Create Job'}
                 </Button>
               </form>
@@ -210,24 +438,21 @@ export function JobsPage() {
         )}
 
         {/* Job list */}
-        {loading ? (
+        {error ? (
+          <ErrorState message={error} onRetry={loadJobs} />
+        ) : loading ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <JobCardSkeleton key={i} />
+            ))}
           </div>
         ) : jobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 py-20">
-            <Briefcase className="h-10 w-10 text-muted-foreground/40" />
-            <p className="mt-5 text-lg font-semibold">No jobs yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create your first job description to start recruiting
-            </p>
-            <Button onClick={() => setShowForm(true)} className="mt-6 gap-2">
-              <Plus className="h-4 w-4" /> Create First Job
-            </Button>
-          </div>
+          <EmptyState
+            icon={Briefcase}
+            title="No jobs yet"
+            description="Create your first job posting to start finding candidates"
+            action={{ label: 'Create Job', onClick: () => setShowForm(true) }}
+          />
         ) : (
           <StaggerContainer className="grid gap-4 md:grid-cols-2">
             {jobs.map((job) => (

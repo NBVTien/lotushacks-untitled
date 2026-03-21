@@ -81,6 +81,7 @@ export interface Candidate {
   extendedEnrichment: ExtendedEnrichment | null
   enrichmentProgress: EnrichmentProgress
   matchResult: MatchResult | null
+  interviewQuestions: InterviewQuestionsResult | null
   status: CandidateStatus
   errorMessage: string | null
   progressLogs: string[]
@@ -215,12 +216,39 @@ export interface StackOverflowProfile {
   summary: string
 }
 
+export interface SkillScore {
+  name: string
+  candidateScore: number // 0-100
+  requiredScore: number  // 0-100
+}
+
+export interface ScoringBasis {
+  dataSources: string[]        // e.g. ["CV text", "Parsed CV structure", "GitHub profile (@user)", "LinkedIn profile"]
+  scoringCriteria: string[]    // e.g. ["Skills alignment with job requirements", "Relevant work experience"]
+  confidence: 'high' | 'medium' | 'low'  // how confident the AI is based on available data
+  limitations: string[]        // e.g. ["LinkedIn profile could not be retrieved", "No GitHub repos found"]
+}
+
 export interface MatchResult {
   overallScore: number
   explanation: string
   strengths: string[]
   gaps: string[]
   recommendation: 'strong_match' | 'good_match' | 'partial_match' | 'weak_match'
+  improvementTips?: string[]
+  skillScores?: SkillScore[]
+  scoringBasis?: ScoringBasis
+}
+
+// Interview Questions
+export interface InterviewQuestion {
+  question: string
+  category: 'technical' | 'behavioral' | 'experience' | 'gap-exploration'
+  rationale: string
+}
+
+export interface InterviewQuestionsResult {
+  questions: InterviewQuestion[]
 }
 
 // Job Discovery (for candidates)

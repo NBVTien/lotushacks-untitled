@@ -7,6 +7,7 @@ import { v4 as uuid } from 'uuid'
 import { CandidateEntity } from '../database'
 import { MinioService } from './minio.service'
 import { JobsService } from '../jobs/jobs.service'
+import { MatchingService } from '../matching/matching.service'
 import type { CandidateStatus } from '@lotushack/shared'
 import type { CandidateJobData } from './candidate.processor'
 
@@ -20,7 +21,8 @@ export class CandidatesService {
     @InjectQueue('candidate-processing')
     private readonly queue: Queue<CandidateJobData>,
     private readonly minio: MinioService,
-    private readonly jobs: JobsService
+    private readonly jobs: JobsService,
+    private readonly matching: MatchingService
   ) {}
 
   async upload(
@@ -206,6 +208,33 @@ export class CandidatesService {
     const fileName = candidate.cvUrl.replace('cvs/', '')
     const url = await this.minio.getUrl(fileName)
     return { url }
+  }
+
+  async generateInterviewQuestions(jobId: string, candidateId: string) {
+    const candidate = await this.findOne(candidateId)
+
+    // Return cached result if available
+    if (candidate.interviewQuestions) {
+      this.logger.log(`Returning cached interview questions for candidate ${candidateId}`)
+      return candidate.interviewQuestions
+    }
+
+    if (!candidate.matchResult) {
+      throw new NotFoundException('Candidate has not been scored yet')
+    }
+
+    const job = await this.jobs.findOne(jobId)
+
+    const result = await this.matching.generateInterviewQuestions(
+      { cvText: candidate.cvText, matchResult: candidate.matchResult },
+      { description: job.description, requirements: job.requirements }
+    )
+
+    // Cache the result
+    await this.repo.update(candidateId, { interviewQuestions: result })
+    this.logger.log(`Cached interview questions for candidate ${candidateId}`)
+
+    return result
   }
 
   async delete(id: string) {

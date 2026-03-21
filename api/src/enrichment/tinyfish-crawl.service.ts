@@ -36,6 +36,9 @@ export class TinyFishCrawlService {
     this.logger.log(`SSE crawl: ${url} (profile: ${options?.browserProfile || 'lite'})`)
     options?.onProgress?.(`${prefix} Starting crawl: ${url}`)
 
+    const abortController = new AbortController()
+    const timeoutId = setTimeout(() => abortController.abort(), 120000)
+
     try {
       const body: Record<string, unknown> = { url, goal }
       if (options?.browserProfile) body.browser_profile = options.browserProfile
@@ -49,9 +52,11 @@ export class TinyFishCrawlService {
           Accept: 'text/event-stream',
         },
         body: JSON.stringify(body),
+        signal: abortController.signal,
       })
 
       if (!response.ok) {
+        clearTimeout(timeoutId)
         const errBody = await response.text().catch(() => '')
         this.logger.error(`TinyFish SSE error: ${response.status} — ${errBody}`)
         options?.onProgress?.(`${prefix} Error: ${response.status}`)
@@ -59,6 +64,7 @@ export class TinyFishCrawlService {
       }
 
       if (!response.body) {
+        clearTimeout(timeoutId)
         this.logger.error('TinyFish SSE returned no body')
         return null
       }
@@ -113,6 +119,8 @@ export class TinyFishCrawlService {
       this.logger.log(`SSE ended for ${url} in ${elapsed}s, status=${status}`)
       options?.onProgress?.(`${prefix} Completed in ${elapsed}s`)
 
+      clearTimeout(timeoutId)
+
       if (status === 'FAILED' || status === 'CANCELLED') {
         options?.onProgress?.(`${prefix} Failed: ${status}`)
         return null
@@ -120,9 +128,15 @@ export class TinyFishCrawlService {
 
       return lastResult
     } catch (err) {
+      clearTimeout(timeoutId)
       const elapsed = Math.round((Date.now() - startTime) / 1000)
-      this.logger.error(`SSE crawl error for ${url} after ${elapsed}s:`, err)
-      options?.onProgress?.(`${prefix} Connection lost after ${elapsed}s`)
+      if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('abort'))) {
+        this.logger.error(`TinyFish SSE call timed out after 120s for ${url}`)
+        options?.onProgress?.(`${prefix} Timed out after 120s`)
+      } else {
+        this.logger.error(`SSE crawl error for ${url} after ${elapsed}s:`, err)
+        options?.onProgress?.(`${prefix} Connection lost after ${elapsed}s`)
+      }
       return null
     }
   }

@@ -181,7 +181,7 @@ export class DiscoveryService {
         ],
         response_format: { type: 'json_object' },
         temperature: 0.2,
-      })
+      }, { timeout: 30000 })
 
       const content = response.choices[0]?.message?.content
       if (!content) {
@@ -212,6 +212,9 @@ export class DiscoveryService {
       )
       return jobs
     } catch (err) {
+      if (err instanceof Error && (err.message.includes('timeout') || err.message.includes('timed out') || err.name === 'APIConnectionTimeoutError')) {
+        this.logger.error('OpenAI job ranking call timed out after 30s')
+      }
       this.logger.error('AI job ranking failed:', err)
       onProgress?.(`AI ranking failed: ${err instanceof Error ? err.message : String(err)}`)
       return jobs
@@ -571,7 +574,7 @@ export class DiscoveryService {
         ],
         response_format: { type: 'json_object' },
         temperature: 0.1,
-      })
+      }, { timeout: 30000 })
 
       const content = response.choices[0]?.message?.content
       if (!content) return null
@@ -585,6 +588,9 @@ export class DiscoveryService {
         detailedProfile: content,
       }
     } catch (err) {
+      if (err instanceof Error && (err.message.includes('timeout') || err.message.includes('timed out') || err.name === 'APIConnectionTimeoutError')) {
+        this.logger.error(`OpenAI profile extraction call timed out after 30s for ${candidateName}`)
+      }
       this.logger.error(`OpenAI profile extraction failed for ${candidateName}:`, err)
       return null
     }
@@ -638,7 +644,7 @@ export class DiscoveryService {
         ],
         response_format: { type: 'json_object' },
         temperature: 0.2,
-      })
+      }, { timeout: 60000 })
 
       const content = response.choices[0]?.message?.content
       if (!content) {
@@ -669,6 +675,9 @@ export class DiscoveryService {
       )
       return candidates
     } catch (err) {
+      if (err instanceof Error && (err.message.includes('timeout') || err.message.includes('timed out') || err.name === 'APIConnectionTimeoutError')) {
+        this.logger.error('OpenAI candidate evaluation call timed out after 60s')
+      }
       this.logger.error('AI candidate evaluation failed:', err)
       onProgress?.(`AI evaluation failed: ${err instanceof Error ? err.message : String(err)}`)
       return candidates

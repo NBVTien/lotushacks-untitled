@@ -231,7 +231,7 @@ export class GitHubApiService {
         response_format: { type: 'json_object' },
         temperature: 0.3,
         max_tokens: 1000,
-      })
+      }, { timeout: 30000 })
       const content = response.choices[0]?.message?.content
       if (!content) return { summary: 'Analysis unavailable', projects: {} }
       const parsed = JSON.parse(content)
@@ -239,7 +239,10 @@ export class GitHubApiService {
         summary: parsed.summary || 'Analysis unavailable',
         projects: parsed.projects || {},
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && (err.message.includes('timeout') || err.message.includes('timed out') || err.name === 'APIConnectionTimeoutError')) {
+        this.logger.error(`OpenAI GitHub project analysis call timed out after 30s for @${username}`)
+      }
       return { summary: 'AI analysis failed', projects: {} }
     }
   }
@@ -252,13 +255,17 @@ export class GitHubApiService {
           Accept: 'application/vnd.github.v3+json',
           'User-Agent': 'recruitment-copilot',
         },
+        signal: AbortSignal.timeout(15000),
       })
       if (!response.ok) {
         if (response.status === 403) this.logger.warn(`GitHub API rate limited: ${url}`)
         return null
       }
       return await response.json()
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'TimeoutError') {
+        this.logger.error(`GitHub API call timed out after 15s: ${url}`)
+      }
       return null
     }
   }

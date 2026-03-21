@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import OpenAI from 'openai'
-import type { EnrichedProfile, MatchResult } from '@lotushack/shared'
+import type { EnrichedProfile, InterviewQuestionsResult, MatchResult, ScoringBasis } from '@lotushack/shared'
 
 interface CandidateData {
   cvText: string
@@ -48,14 +48,24 @@ export class MatchingService {
               'Analyze the candidate profile against job requirements and return a JSON object with: ' +
               'overallScore (0-100), explanation (2-3 paragraphs), ' +
               'strengths (array of strings), gaps (array of strings), ' +
-              'recommendation (one of: strong_match, good_match, partial_match, weak_match). ' +
+              'recommendation (one of: strong_match, good_match, partial_match, weak_match), ' +
+              'improvementTips (array of 3-5 specific, actionable tips for the candidate to improve their profile for this role — ' +
+              'each tip should reference concrete actions, e.g. "Add a portfolio project demonstrating React + TypeScript to address the frontend gap" ' +
+              'rather than vague advice like "Learn more frontend"), ' +
+              'skillScores (array of 6-8 objects, each with: name (skill name), candidateScore (0-100 how well the candidate demonstrates this skill), ' +
+              'requiredScore (0-100 how important this skill is for the job). ' +
+              'Pick the most relevant skills from the job requirements and candidate profile. Score based on evidence from CV, GitHub, and LinkedIn.), ' +
+              'scoringCriteria (array of strings explaining what specific criteria you used to evaluate, e.g. "Technical skills alignment with 5/7 required technologies", ' +
+              '"3+ years relevant experience at similar companies"), ' +
+              'limitations (array of strings noting any missing data that limited your assessment, e.g. "No LinkedIn profile available to verify work history", ' +
+              '"GitHub profile has no public repositories"). ' +
               'Be fair, evidence-based, and consider both CV content and real-world signals from GitHub/LinkedIn.',
           },
           { role: 'user', content: prompt },
         ],
         response_format: { type: 'json_object' },
         temperature: 0.3,
-      })
+      }, { timeout: 30000 })
 
       const content = response.choices[0]?.message?.content
       if (!content) throw new Error('No response from OpenAI')
@@ -63,18 +73,53 @@ export class MatchingService {
         `OpenAI response: ${content.length} chars, usage: ${JSON.stringify(response.usage)}`
       )
 
-      const result = JSON.parse(content) as MatchResult
+      const result = JSON.parse(content) as MatchResult & { scoringCriteria?: string[]; limitations?: string[] }
       this.logger.log(
         `Score result: ${result.overallScore}/100, recommendation=${result.recommendation}`
       )
+
+      // Build scoringBasis from server-known data sources + AI-returned criteria
+      const dataSources: string[] = ['CV text']
+      if (candidate.parsedCV) dataSources.push('AI-parsed CV structure (skills, experience, education)')
+      if (candidate.enrichment?.github) {
+        const gh = candidate.enrichment.github
+        dataSources.push(`GitHub profile (@${gh.username}) — ${gh.repositories.length} repos, ${gh.topLanguages.join(', ')}`)
+      }
+      if (candidate.enrichment?.linkedin) {
+        dataSources.push('LinkedIn profile (experience, skills, headline)')
+      }
+      if (job.screeningCriteria) dataSources.push('Custom screening criteria from recruiter')
+
+      const aiLimitations = result.limitations || []
+      if (!candidate.enrichment?.github && !candidate.enrichment?.linkedin) {
+        aiLimitations.push('No external profiles (GitHub/LinkedIn) available — score based on CV only')
+      }
+
+      let confidence: ScoringBasis['confidence'] = 'high'
+      if (!candidate.enrichment?.github && !candidate.enrichment?.linkedin) confidence = 'low'
+      else if (!candidate.enrichment?.github || !candidate.enrichment?.linkedin) confidence = 'medium'
+
+      const scoringBasis: ScoringBasis = {
+        dataSources,
+        scoringCriteria: result.scoringCriteria || [],
+        confidence,
+        limitations: aiLimitations,
+      }
+
       return {
         overallScore: Math.min(100, Math.max(0, result.overallScore)),
         explanation: result.explanation,
         strengths: result.strengths || [],
         gaps: result.gaps || [],
         recommendation: result.recommendation || this.getRecommendation(result.overallScore),
+        improvementTips: result.improvementTips || [],
+        skillScores: result.skillScores || [],
+        scoringBasis,
       }
     } catch (err) {
+      if (err instanceof Error && (err.message.includes('timeout') || err.message.includes('timed out') || err.name === 'APIConnectionTimeoutError')) {
+        this.logger.error('OpenAI scoring call timed out after 30s')
+      }
       this.logger.error('Matching failed', err)
       return {
         overallScore: 0,
@@ -83,6 +128,60 @@ export class MatchingService {
         gaps: ['Analysis failed'],
         recommendation: 'weak_match',
       }
+    }
+  }
+
+  async generateInterviewQuestions(
+    candidate: { cvText: string; matchResult: MatchResult },
+    job: { description: string; requirements: string[] }
+  ): Promise<InterviewQuestionsResult> {
+    this.logger.log('Generating interview questions')
+
+    let prompt = `## Job Description\n${job.description}\n\n`
+    prompt += `## Requirements\n${job.requirements.map((r) => `- ${r}`).join('\n')}\n\n`
+    prompt += `## Candidate CV (excerpt)\n${candidate.cvText.slice(0, 3000)}\n\n`
+    prompt += `## Match Analysis\n`
+    prompt += `Score: ${candidate.matchResult.overallScore}/100\n`
+    prompt += `Strengths: ${candidate.matchResult.strengths.join(', ')}\n`
+    prompt += `Gaps: ${candidate.matchResult.gaps.join(', ')}\n`
+    prompt += `Recommendation: ${candidate.matchResult.recommendation}\n\n`
+    prompt += 'Generate 6-8 personalized interview questions for this candidate. Return JSON.'
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a recruitment AI that generates personalized interview questions. ' +
+              'Based on the candidate CV, match analysis (strengths and gaps), and job requirements, ' +
+              'generate 6-8 targeted interview questions. Return a JSON object with a "questions" array. ' +
+              'Each question object must have: ' +
+              '"question" (the interview question string), ' +
+              '"category" (one of: "technical", "behavioral", "experience", "gap-exploration"), ' +
+              '"rationale" (a brief explanation of why this question is relevant for this specific candidate). ' +
+              'Questions should probe the candidate\'s specific gaps and validate their claimed strengths. ' +
+              'Include a mix of categories.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.4,
+      }, { timeout: 30000 })
+
+      const content = response.choices[0]?.message?.content
+      if (!content) throw new Error('No response from OpenAI')
+
+      const result = JSON.parse(content) as InterviewQuestionsResult
+      this.logger.log(`Generated ${result.questions?.length ?? 0} interview questions`)
+      return { questions: result.questions || [] }
+    } catch (err) {
+      if (err instanceof Error && (err.message.includes('timeout') || err.message.includes('timed out') || err.name === 'APIConnectionTimeoutError')) {
+        this.logger.error('OpenAI interview questions call timed out after 30s')
+      }
+      this.logger.error('Interview question generation failed', err)
+      throw err
     }
   }
 

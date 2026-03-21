@@ -7,6 +7,9 @@ import { authApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { LayoutDashboard, Loader2 } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
+import { toast } from 'sonner'
+
+const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -15,9 +18,42 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
+  const [touched, setTouched] = useState<{ email?: boolean; password?: boolean }>({})
+
+  const validateField = (field: 'email' | 'password', value: string) => {
+    if (field === 'email') {
+      if (!value.trim()) return 'Email is required'
+      if (!isValidEmail(value)) return 'Please enter a valid email'
+    }
+    if (field === 'password') {
+      if (!value.trim()) return 'Password is required'
+      if (value.length < 6) return 'Password must be at least 6 characters'
+    }
+    return undefined
+  }
+
+  const handleBlur = (field: 'email' | 'password') => {
+    setTouched((t) => ({ ...t, [field]: true }))
+    const value = field === 'email' ? email : password
+    setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, value) }))
+  }
+
+  const validateAll = () => {
+    const errs = {
+      email: validateField('email', email),
+      password: validateField('password', password),
+    }
+    setFieldErrors(errs)
+    setTouched({ email: true, password: true })
+    return !errs.email && !errs.password
+  }
+
+  const hasErrors = !email.trim() || !isValidEmail(email) || !password.trim() || password.length < 6
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validateAll()) return
     setError('')
     setLoading(true)
     try {
@@ -26,6 +62,7 @@ export function LoginPage() {
       navigate('/')
     } catch {
       setError('Invalid email or password')
+      toast.error('Invalid email or password')
     }
     setLoading(false)
   }
@@ -83,10 +120,16 @@ export function LoginPage() {
                     type="email"
                     placeholder="hr@company.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }))
+                    }}
+                    onBlur={() => handleBlur('email')}
+                    className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.email && fieldErrors.email ? 'border-destructive' : ''}`}
                   />
+                  {touched.email && fieldErrors.email && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
@@ -94,12 +137,18 @@ export function LoginPage() {
                     id="password"
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }))
+                    }}
+                    onBlur={() => handleBlur('password')}
+                    className={`h-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${touched.password && fieldErrors.password ? 'border-destructive' : ''}`}
                   />
+                  {touched.password && fieldErrors.password && (
+                    <p className="text-sm text-destructive mt-1">{fieldErrors.password}</p>
+                  )}
                 </div>
-                <Button type="submit" className="h-12 w-full text-base" disabled={loading}>
+                <Button type="submit" className="h-12 w-full text-base" disabled={loading || hasErrors}>
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />

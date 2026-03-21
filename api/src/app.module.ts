@@ -19,6 +19,7 @@ import { EnrichmentModule } from './enrichment/enrichment.module'
 import { MatchingModule } from './matching/matching.module'
 import { SeedModule } from './seed/seed.module'
 import { DiscoveryModule } from './discovery/discovery.module'
+import { HealthModule } from './health/health.module'
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { DiscoveryModule } from './discovery/discovery.module'
     MatchingModule,
     SeedModule,
     DiscoveryModule,
+    HealthModule,
   ],
 })
 export class AppModule {}

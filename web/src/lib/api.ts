@@ -3,6 +3,7 @@ import type {
   Job,
   CreateJobDto,
   Candidate,
+  InterviewQuestionsResult,
   RegisterDto,
   LoginDto,
   AuthResponse,
@@ -38,7 +39,28 @@ export const authApi = {
   login: (dto: LoginDto) => api.post<AuthResponse>('/auth/login', dto).then((r) => r.data),
 }
 
+export interface JobStats {
+  totalJobs: number
+  activeJobs: number
+  totalCandidates: number
+  avgScore: number
+  pipelineBreakdown: {
+    uploaded: number
+    parsed: number
+    enriching: number
+    scoring: number
+    completed: number
+  }
+  recommendationBreakdown: {
+    strong_match: number
+    good_match: number
+    partial_match: number
+    weak_match: number
+  }
+}
+
 export const jobsApi = {
+  stats: () => api.get<JobStats>('/jobs/stats').then((r) => r.data),
   list: () => api.get<Job[]>('/jobs').then((r) => r.data),
   listPublic: (page = 1, limit = 10) =>
     api.get<PaginatedResponse<Job>>(`/jobs/public?page=${page}&limit=${limit}`).then((r) => r.data),
@@ -99,6 +121,10 @@ export const candidatesApi = {
   getCvUrl: (jobId: string, id: string) =>
     api.get<{ url: string }>(`/jobs/${jobId}/candidates/${id}/cv-url`).then((r) => r.data),
   delete: (jobId: string, id: string) => api.delete(`/jobs/${jobId}/candidates/${id}`),
+  generateInterviewQuestions: (jobId: string, candidateId: string) =>
+    api
+      .post<InterviewQuestionsResult>(`/jobs/${jobId}/candidates/${candidateId}/interview-questions`)
+      .then((r) => r.data),
   enrichmentStreamUrl: (jobId: string, id: string) =>
     `http://localhost:4005/jobs/${jobId}/candidates/${id}/enrichment-stream`,
 }

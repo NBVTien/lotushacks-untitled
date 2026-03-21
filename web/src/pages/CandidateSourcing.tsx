@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { jobsApi, discoveryApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
 import { PageTransition } from '@/components/ui/motion'
+import { ErrorState } from '@/components/ErrorState'
 
 interface SourcedCandidate {
   name: string
@@ -289,13 +290,7 @@ export function CandidateSourcingPage() {
         </Tabs>
 
         {/* Error */}
-        {error && (
-          <Card className="border-destructive">
-            <CardContent className="py-4">
-              <p className="text-destructive text-sm">{error}</p>
-            </CardContent>
-          </Card>
-        )}
+        {error && <ErrorState message={error} />}
 
         {/* Log viewer */}
         {(sourcing || logs.length > 0) && (

@@ -41,6 +41,13 @@ export class JobsController {
     )
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('stats')
+  getStats(@Req() req: Request) {
+    const user = req.user as { companyId: string }
+    return this.jobsService.getStats(user.companyId)
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.jobsService.findOne(id)

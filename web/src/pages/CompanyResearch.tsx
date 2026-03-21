@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { discoveryApi } from '@/lib/api'
 import { PageTransition } from '@/components/ui/motion'
+import { ErrorState } from '@/components/ErrorState'
 
 interface CompanyData {
   name: string
@@ -121,13 +122,7 @@ export function CompanyResearchPage() {
           </Button>
         </div>
 
-        {error && (
-          <Card className="border-destructive">
-            <CardContent className="py-4">
-              <p className="text-destructive text-sm">{error}</p>
-            </CardContent>
-          </Card>
-        )}
+        {error && <ErrorState message={error} />}
 
         {/* Log viewer */}
         {(loading || logs.length > 0) && (

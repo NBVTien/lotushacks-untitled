@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft, Upload, CheckCircle, FileText, X, User, File } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
+import { toast } from 'sonner'
 import { jobsApi, candidatesApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
 
@@ -14,6 +15,10 @@ const STEPS = [
   { label: 'Upload CV', icon: File },
   { label: 'Review & Submit', icon: CheckCircle },
 ]
+
+const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+
+type ApplyField = 'name' | 'email' | 'file'
 
 export function ApplyPage() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -24,6 +29,39 @@ export function ApplyPage() {
   const [uploading, setUploading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ApplyField, string>>>({})
+  const [touched, setTouched] = useState<Partial<Record<ApplyField, boolean>>>({})
+
+  const validateField = (field: ApplyField): string | undefined => {
+    if (field === 'name' && !candidateName.trim()) return 'Name is required'
+    if (field === 'email') {
+      if (!candidateEmail.trim()) return 'Email is required'
+      if (!isValidEmail(candidateEmail)) return 'Please enter a valid email'
+    }
+    if (field === 'file' && !file) return 'Please upload your CV'
+    return undefined
+  }
+
+  const handleFieldBlur = (field: ApplyField) => {
+    setTouched((t) => ({ ...t, [field]: true }))
+    setFieldErrors((prev) => ({ ...prev, [field]: validateField(field) }))
+  }
+
+  const validateAll = () => {
+    const fields: ApplyField[] = ['name', 'email', 'file']
+    const errs: Partial<Record<ApplyField, string>> = {}
+    const t: Partial<Record<ApplyField, boolean>> = {}
+    for (const f of fields) {
+      errs[f] = validateField(f)
+      t[f] = true
+    }
+    setFieldErrors(errs)
+    setTouched(t)
+    return !Object.values(errs).some(Boolean)
+  }
+
+  const hasErrors =
+    !candidateName.trim() || !candidateEmail.trim() || !isValidEmail(candidateEmail) || !file
 
   // Derive current step: 0 = info, 1 = upload, 2 = review
   const currentStep = !candidateName || !candidateEmail ? 0 : !file ? 1 : 2
@@ -34,10 +72,16 @@ export function ApplyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validateAll()) return
     if (!file || !jobId) return
     setUploading(true)
-    await candidatesApi.upload(jobId, file, candidateName, candidateEmail)
-    setSubmitted(true)
+    try {
+      await candidatesApi.upload(jobId, file, candidateName, candidateEmail)
+      setSubmitted(true)
+      toast.success('Application submitted successfully!')
+    } catch {
+      toast.error('Failed to submit application. Please try again.')
+    }
     setUploading(false)
   }
 
@@ -47,6 +91,7 @@ export function ApplyPage() {
     const droppedFile = e.dataTransfer.files[0]
     if (droppedFile?.type === 'application/pdf') {
       setFile(droppedFile)
+      setFieldErrors((prev) => ({ ...prev, file: undefined }))
     }
   }
 
@@ -136,10 +181,16 @@ export function ApplyPage() {
                   id="name"
                   placeholder="Your full name"
                   value={candidateName}
-                  onChange={(e) => setCandidateName(e.target.value)}
-                  required
-                  className="h-12 text-base"
+                  onChange={(e) => {
+                    setCandidateName(e.target.value)
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }))
+                  }}
+                  onBlur={() => handleFieldBlur('name')}
+                  className={`h-12 text-base ${touched.name && fieldErrors.name ? 'border-destructive' : ''}`}
                 />
+                {touched.name && fieldErrors.name && (
+                  <p className="text-sm text-destructive mt-1">{fieldErrors.name}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -148,10 +199,16 @@ export function ApplyPage() {
                   type="email"
                   placeholder="you@email.com"
                   value={candidateEmail}
-                  onChange={(e) => setCandidateEmail(e.target.value)}
-                  required
-                  className="h-12 text-base"
+                  onChange={(e) => {
+                    setCandidateEmail(e.target.value)
+                    if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }))
+                  }}
+                  onBlur={() => handleFieldBlur('email')}
+                  className={`h-12 text-base ${touched.email && fieldErrors.email ? 'border-destructive' : ''}`}
                 />
+                {touched.email && fieldErrors.email && (
+                  <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Upload your CV (PDF)</Label>
@@ -164,11 +221,13 @@ export function ApplyPage() {
                   onDrop={handleDrop}
                   onClick={() => document.getElementById('cv-file')?.click()}
                   className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-colors duration-200 ${
-                    dragOver
-                      ? 'border-primary/50 bg-primary/5'
-                      : file
-                        ? 'border-border bg-muted/30'
-                        : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                    touched.file && fieldErrors.file
+                      ? 'border-destructive'
+                      : dragOver
+                        ? 'border-primary/50 bg-primary/5'
+                        : file
+                          ? 'border-border bg-muted/30'
+                          : 'border-border hover:border-primary/50 hover:bg-muted/30'
                   }`}
                 >
                   {file ? (
@@ -211,11 +270,18 @@ export function ApplyPage() {
                   id="cv-file"
                   type="file"
                   accept=".pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null
+                    setFile(f)
+                    if (f) setFieldErrors((prev) => ({ ...prev, file: undefined }))
+                  }}
                   className="hidden"
                 />
+                {touched.file && fieldErrors.file && (
+                  <p className="text-sm text-destructive mt-1">{fieldErrors.file}</p>
+                )}
               </div>
-              <Button type="submit" disabled={uploading || !file} className="h-12 w-full text-base">
+              <Button type="submit" disabled={uploading || hasErrors} className="h-12 w-full text-base">
                 {uploading ? (
                   <span className="flex items-center gap-2">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />

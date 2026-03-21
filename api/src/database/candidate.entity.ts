@@ -10,6 +10,7 @@ import type {
   ExtractedLinks,
   EnrichedProfile,
   EnrichmentProgress,
+  InterviewQuestionsResult,
   MatchResult,
   CandidateStatus,
 } from '@lotushack/shared'
@@ -59,6 +60,9 @@ export class CandidateEntity {
 
   @Column('jsonb', { nullable: true })
   matchResult!: MatchResult | null
+
+  @Column('jsonb', { nullable: true })
+  interviewQuestions!: InterviewQuestionsResult | null
 
   @Column({ default: 'uploaded' })
   status!: CandidateStatus
