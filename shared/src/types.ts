@@ -281,6 +281,9 @@ export interface SourcedCandidate {
   skills: string[]
   experience: string | null
   summary: string
+  matchScore?: number
+  matchReason?: string
+  detailedProfile?: string
 }
 
 export interface SourcingResult {

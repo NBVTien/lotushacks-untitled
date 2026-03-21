@@ -6,7 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { jobsApi } from '@/lib/api'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { jobsApi, discoveryApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
 
 interface SourcedCandidate {
@@ -18,12 +23,27 @@ interface SourcedCandidate {
   location?: string
   experience?: string
   matchReason?: string
+  matchScore?: number
+  detailedProfile?: string
+}
+
+interface SourcingHistoryEntry {
+  id: string
+  date: string
+  query: string
+  candidateCount: number
+  candidates: SourcedCandidate[]
 }
 
 const sourceColors: Record<string, string> = {
-  LinkedIn: 'bg-blue-100 text-blue-800',
-  Upwork: 'bg-green-100 text-green-800',
   Toptal: 'bg-indigo-100 text-indigo-800',
+}
+
+function getScoreBadgeColor(score: number): string {
+  if (score >= 80) return 'bg-green-100 text-green-800'
+  if (score >= 60) return 'bg-blue-100 text-blue-800'
+  if (score >= 40) return 'bg-yellow-100 text-yellow-800'
+  return 'bg-red-100 text-red-800'
 }
 
 export function CandidateSourcingPage() {
@@ -34,6 +54,8 @@ export function CandidateSourcingPage() {
   const [logs, setLogs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState('auto')
+  const [history, setHistory] = useState<SourcingHistoryEntry[]>([])
+  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({})
 
   // Manual form
   const [manualSkills, setManualSkills] = useState('')
@@ -60,7 +82,20 @@ export function CandidateSourcingPage() {
     } catch { /* ignore */ }
   }, [jobId])
 
+  const loadHistory = useCallback(async () => {
+    if (!jobId) return
+    try {
+      const data = await discoveryApi.sourcingHistory(jobId)
+      setHistory(Array.isArray(data) ? data : [])
+    } catch { /* ignore - endpoint may not exist yet */ }
+  }, [jobId])
+
   useEffect(() => { loadJob() }, [loadJob])
+  useEffect(() => { loadHistory() }, [loadHistory])
+
+  const toggleExpanded = (index: number) => {
+    setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }))
+  }
 
   /** Stream SSE from a POST endpoint */
   const streamSourcing = async (url: string, body: Record<string, unknown>) => {
@@ -68,6 +103,7 @@ export function CandidateSourcingPage() {
     setError(null)
     setLogs([])
     setCandidates([])
+    setExpandedCards({})
 
     abortRef.current?.abort()
     const abort = new AbortController()
@@ -118,11 +154,13 @@ export function CandidateSourcingPage() {
             }
             if (event.done) {
               setSourcing(false)
+              loadHistory()
             }
           } catch { /* skip malformed */ }
         }
       }
       setSourcing(false)
+      loadHistory()
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
         setError((err as Error)?.message || 'Failed to source candidates')
@@ -145,6 +183,13 @@ export function CandidateSourcingPage() {
       location: manualLocation.trim() || null,
       experience: manualExperience.trim() || null,
     })
+  }
+
+  const handleLoadFromHistory = (entry: SourcingHistoryEntry) => {
+    setCandidates(entry.candidates || [])
+    setExpandedCards({})
+    setError(null)
+    setLogs([])
   }
 
   return (
@@ -274,7 +319,7 @@ export function CandidateSourcingPage() {
           <h2 className="text-lg font-semibold">Found {candidates.length} candidates</h2>
           {candidates.map((c, i) => (
             <Card key={i}>
-              <CardContent className="py-4 space-y-2">
+              <CardContent className="py-4 space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <a
@@ -293,6 +338,11 @@ export function CandidateSourcingPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {c.matchScore != null && (
+                      <Badge className={getScoreBadgeColor(c.matchScore)}>
+                        {c.matchScore}% match
+                      </Badge>
+                    )}
                     <Badge className={sourceColors[c.source] || 'bg-gray-100 text-gray-800'}>
                       {c.source}
                     </Badge>
@@ -302,6 +352,13 @@ export function CandidateSourcingPage() {
                   </div>
                 </div>
 
+                {c.matchReason && (
+                  <div className="rounded border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-xs font-medium text-blue-700 mb-1">AI Analysis</p>
+                    <p className="text-sm text-blue-900">{c.matchReason}</p>
+                  </div>
+                )}
+
                 {c.skills.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {c.skills.map((s, j) => (
@@ -310,15 +367,29 @@ export function CandidateSourcingPage() {
                   </div>
                 )}
 
-                {c.matchReason && (
-                  <div className="rounded border border-blue-200 bg-blue-50 p-2">
-                    <p className="text-sm text-blue-900">{c.matchReason}</p>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <a href={c.profileUrl} target="_blank" rel="noreferrer">
+                    <Button size="sm" variant="outline">View Profile</Button>
+                  </a>
+                </div>
 
-                <a href={c.profileUrl} target="_blank" rel="noreferrer">
-                  <Button size="sm" variant="outline">View Profile</Button>
-                </a>
+                {c.detailedProfile && (
+                  <Collapsible
+                    open={expandedCards[i] || false}
+                    onOpenChange={() => toggleExpanded(i)}
+                  >
+                    <CollapsibleTrigger
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground px-3 py-1.5 cursor-pointer"
+                    >
+                      {expandedCards[i] ? 'Hide details' : 'Show detailed profile'}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="mt-2 rounded border bg-muted/50 p-3">
+                        <p className="text-sm whitespace-pre-wrap">{c.detailedProfile}</p>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -330,6 +401,40 @@ export function CandidateSourcingPage() {
           <p className="text-muted-foreground">
             Click "Source Candidates" to find matching candidates from multiple platforms.
           </p>
+        </div>
+      )}
+
+      {/* Sourcing History */}
+      {history.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Past Sourcing Runs</h2>
+          {history.map((entry) => (
+            <Card
+              key={entry.id}
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => handleLoadFromHistory(entry)}
+            >
+              <CardContent className="py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{entry.query}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(entry.date).toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  <Badge variant="secondary">
+                    {entry.candidateCount} candidate{entry.candidateCount !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>

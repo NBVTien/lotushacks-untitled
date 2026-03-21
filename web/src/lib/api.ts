@@ -54,6 +54,8 @@ export const discoveryApi = {
     api.post('/discovery/source-candidates', data).then(r => r.data),
   sourceFromJob: (jobId: string) =>
     api.post('/discovery/source-from-job', { jobId }).then(r => r.data),
+  sourcingHistory: (jobId: string) =>
+    api.get(`/discovery/sourcing-history/${jobId}`).then(r => r.data),
   streamUrl: (type: string, id: string) =>
     `http://localhost:4005/discovery/${type}/stream?id=${id}`,
 }

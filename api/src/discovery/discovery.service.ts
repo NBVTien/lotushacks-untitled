@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
 import OpenAI from 'openai'
 import { TinyFishCrawlService, type ProgressCallback } from '../enrichment/tinyfish-crawl.service'
+import { SourcingResultEntity } from '../database/sourcing-result.entity'
 import type {
   JobDiscoveryRequest,
   JobDiscoveryResult,
@@ -20,6 +23,8 @@ export class DiscoveryService {
   constructor(
     private readonly tinyfish: TinyFishCrawlService,
     private readonly config: ConfigService,
+    @InjectRepository(SourcingResultEntity)
+    private readonly sourcingResultRepo: Repository<SourcingResultEntity>,
   ) {
     this.openai = new OpenAI({
       apiKey: this.config.get('OPENAI_API_KEY', ''),
@@ -322,6 +327,9 @@ export class DiscoveryService {
   async sourceCandidates(
     request: SourcingRequest,
     onProgress?: ProgressCallback,
+    jobId?: string,
+    jobDescription?: string,
+    requirements?: string[],
   ): Promise<SourcingResult> {
     const skillsQuery = request.skills.slice(0, 5).join(', ')
     const titleQuery = request.jobTitle
@@ -340,20 +348,8 @@ export class DiscoveryService {
       '- summary (string): brief summary — what they do, rating, hourly rate if visible\n' +
       'Return a JSON array of up to 10 profiles. If no profiles found, return empty array [].'
 
+    // Only Toptal source
     const sources = [
-      // LinkedIn People search (stealth required)
-      {
-        name: 'LinkedIn',
-        url: `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`${titleQuery} ${skillsQuery}`)}&origin=GLOBAL_SEARCH_HEADER`,
-        profile: 'stealth' as const,
-      },
-      // Upwork — global freelance platform
-      {
-        name: 'Upwork',
-        url: `https://www.upwork.com/nx/search/talent/?q=${encodeURIComponent(skillsQuery)}&nbs=1`,
-        profile: 'stealth' as const,
-      },
-      // Toptal — top 3% developers
       {
         name: 'Toptal',
         url: `https://www.toptal.com/developers?skill=${encodeURIComponent(request.skills[0] || 'javascript')}`,
@@ -377,20 +373,342 @@ export class DiscoveryService {
     )
 
     const results = await Promise.all(crawlTasks)
-    const allCandidates = results.flat()
+    let allCandidates = results.flat()
     const activeSources = sources
       .filter((_, i) => results[i].length > 0)
       .map((s) => s.name)
 
     onProgress?.(`Sourcing complete: found ${allCandidates.length} candidates from ${activeSources.length} sources`)
 
-    return {
+    // Step 2: Fetch profile details for each candidate
+    if (allCandidates.length > 0) {
+      allCandidates = await this.fetchCandidateDetails(allCandidates, onProgress)
+    }
+
+    // Step 3: AI evaluate against job requirements
+    if (allCandidates.length > 0 && requirements && requirements.length > 0) {
+      allCandidates = await this.evaluateCandidatesAgainstJob(
+        allCandidates,
+        titleQuery,
+        requirements,
+        jobDescription,
+        onProgress,
+      )
+    }
+
+    const sourcingResult: SourcingResult = {
       query: searchQuery,
       candidates: allCandidates,
       sources: activeSources,
       searchedAt: new Date().toISOString(),
     }
+
+    // Step 4: Save to DB with dedup
+    if (jobId) {
+      await this.saveSourcingResult(jobId, searchQuery, allCandidates, activeSources)
+    }
+
+    return sourcingResult
   }
+
+  // ─── Profile Detail Fetching ──────────────────────────────────────
+
+  private async fetchCandidateDetails(
+    candidates: SourcedCandidate[],
+    onProgress?: ProgressCallback,
+  ): Promise<SourcedCandidate[]> {
+    onProgress?.(`Fetching detailed profiles for ${candidates.length} candidates...`)
+
+    const detailedCandidates = await Promise.all(
+      candidates.map(async (candidate, index) => {
+        if (!candidate.profileUrl) return candidate
+
+        try {
+          onProgress?.(`[${index + 1}/${candidates.length}] Fetching profile: ${candidate.name}`)
+
+          // Try direct fetch first
+          let html: string | null = null
+          let useDirectFetch = false
+
+          try {
+            const response = await fetch(candidate.profileUrl, {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+              },
+              signal: AbortSignal.timeout(10000),
+            })
+
+            if (response.ok) {
+              html = await response.text()
+              // Check if the page is Cloudflare blocked or too short
+              if (
+                html.length > 1000 &&
+                !html.includes('Attention Required') &&
+                !html.includes('Cloudflare')
+              ) {
+                useDirectFetch = true
+              } else {
+                html = null
+              }
+            }
+          } catch {
+            // Direct fetch failed, will fall back to TinyFish
+            this.logger.debug(`Direct fetch failed for ${candidate.profileUrl}, using TinyFish fallback`)
+          }
+
+          if (useDirectFetch && html) {
+            // Use OpenAI to extract structured data from HTML
+            const extracted = await this.extractProfileFromHtml(html, candidate.name)
+            if (extracted) {
+              candidate.summary = extracted.summary || candidate.summary
+              candidate.skills = extracted.skills.length > 0 ? extracted.skills : candidate.skills
+              candidate.experience = extracted.experience || candidate.experience
+              candidate.detailedProfile = extracted.detailedProfile
+            }
+          } else {
+            // Fall back to TinyFish stealth crawl
+            onProgress?.(`[${index + 1}/${candidates.length}] Using TinyFish for ${candidate.name}...`)
+            const crawlResult = await this.tinyfish.crawl(
+              candidate.profileUrl,
+              'Extract the full profile details of this developer/freelancer. Return JSON with:\n' +
+                '- name (string): full name\n' +
+                '- title (string|null): job title or headline\n' +
+                '- bio (string): full bio or about section\n' +
+                '- skills (array of {name: string, years: number|null}): skills with years of experience\n' +
+                '- experience (string): years of experience summary\n' +
+                '- portfolio (string[]): portfolio project names or URLs\n' +
+                '- availability (string|null): availability status\n' +
+                '- hourlyRate (string|null): hourly rate if visible\n' +
+                '- expertise (string|null): areas of expertise\n' +
+                'Return as JSON.',
+              { browserProfile: 'stealth', label: `Profile:${candidate.name}`, onProgress },
+            )
+
+            if (crawlResult) {
+              try {
+                const parsed = JSON.parse(crawlResult)
+                candidate.summary =
+                  [parsed.bio, parsed.expertise, parsed.hourlyRate && `Rate: ${parsed.hourlyRate}`]
+                    .filter(Boolean)
+                    .join(' | ') || candidate.summary
+                candidate.skills =
+                  Array.isArray(parsed.skills)
+                    ? parsed.skills.map((s: { name: string } | string) =>
+                        typeof s === 'string' ? s : s.name,
+                      )
+                    : candidate.skills
+                candidate.experience = parsed.experience || candidate.experience
+                candidate.detailedProfile = crawlResult
+              } catch {
+                this.logger.warn(`Failed to parse TinyFish profile result for ${candidate.name}`)
+                candidate.detailedProfile = crawlResult
+              }
+            }
+          }
+        } catch (err) {
+          this.logger.error(`Failed to fetch details for ${candidate.name}:`, err)
+        }
+
+        return candidate
+      }),
+    )
+
+    onProgress?.(`Profile details fetched for ${detailedCandidates.length} candidates`)
+    return detailedCandidates
+  }
+
+  private async extractProfileFromHtml(
+    html: string,
+    candidateName: string,
+  ): Promise<{
+    summary: string
+    skills: string[]
+    experience: string | null
+    detailedProfile: string
+  } | null> {
+    try {
+      // Truncate HTML to fit in context
+      const truncatedHtml = html.slice(0, 15000)
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are extracting structured profile data from HTML. Return JSON with:\n' +
+              '- name (string): full name\n' +
+              '- title (string|null): job title or headline\n' +
+              '- bio (string): bio or about text\n' +
+              '- skills (string[]): list of skills/technologies\n' +
+              '- experience (string|null): years of experience or experience summary\n' +
+              '- portfolio (string[]): portfolio projects if any\n' +
+              '- expertiseYears (number|null): total years of expertise\n' +
+              '- summary (string): 2-3 sentence professional summary\n' +
+              'Return ONLY valid JSON.',
+          },
+          {
+            role: 'user',
+            content: `Extract profile data for "${candidateName}" from this HTML:\n\n${truncatedHtml}`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+      })
+
+      const content = response.choices[0]?.message?.content
+      if (!content) return null
+
+      const parsed = JSON.parse(content)
+      return {
+        summary: parsed.summary || parsed.bio || '',
+        skills: Array.isArray(parsed.skills) ? parsed.skills.map(String) : [],
+        experience: parsed.experience || (parsed.expertiseYears ? `${parsed.expertiseYears} years` : null),
+        detailedProfile: content,
+      }
+    } catch (err) {
+      this.logger.error(`OpenAI profile extraction failed for ${candidateName}:`, err)
+      return null
+    }
+  }
+
+  // ─── AI Evaluation Against Job ────────────────────────────────────
+
+  async evaluateCandidatesAgainstJob(
+    candidates: SourcedCandidate[],
+    jobTitle: string,
+    requirements: string[],
+    jobDescription?: string,
+    onProgress?: ProgressCallback,
+  ): Promise<SourcedCandidate[]> {
+    if (candidates.length === 0) return candidates
+
+    onProgress?.(`Evaluating ${candidates.length} candidates against job requirements using AI...`)
+
+    const candidateSummaries = candidates.map((c, i) => ({
+      index: i,
+      name: c.name,
+      title: c.title,
+      skills: c.skills.join(', '),
+      experience: c.experience,
+      summary: c.summary,
+      detailedProfile: c.detailedProfile?.slice(0, 500) || null,
+    }))
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a recruitment AI. Score each candidate (0-100) against the job requirements.\n' +
+              'For each candidate, return a JSON object with a "rankings" array containing:\n' +
+              '- index (number): candidate index from input\n' +
+              '- matchScore (number): 0-100 fit score\n' +
+              '- matchReason (string): 2-3 sentence explanation of fit/gaps\n' +
+              'Sort by matchScore descending. Return ONLY valid JSON with a "rankings" key.',
+          },
+          {
+            role: 'user',
+            content:
+              `JOB TITLE: ${jobTitle}\n` +
+              `REQUIREMENTS: ${requirements.join(', ')}\n` +
+              (jobDescription ? `JOB DESCRIPTION:\n${jobDescription.slice(0, 2000)}\n\n` : '\n') +
+              `CANDIDATES:\n${JSON.stringify(candidateSummaries, null, 2)}`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+      })
+
+      const content = response.choices[0]?.message?.content
+      if (!content) {
+        this.logger.warn('No response from OpenAI for candidate evaluation')
+        return candidates
+      }
+
+      const parsed = JSON.parse(content)
+      const rankings: { index: number; matchScore: number; matchReason: string }[] =
+        Array.isArray(parsed) ? parsed : parsed.rankings || parsed.candidates || parsed.results || []
+
+      // Apply scores to candidates
+      for (const rank of rankings) {
+        if (rank.index >= 0 && rank.index < candidates.length) {
+          candidates[rank.index].matchScore = rank.matchScore
+          candidates[rank.index].matchReason = rank.matchReason
+        }
+      }
+
+      // Sort by matchScore descending
+      candidates.sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
+
+      onProgress?.(
+        `AI evaluation complete — top candidate: "${candidates[0]?.name}" (${candidates[0]?.matchScore}/100)`,
+      )
+      return candidates
+    } catch (err) {
+      this.logger.error('AI candidate evaluation failed:', err)
+      onProgress?.(`AI evaluation failed: ${err instanceof Error ? err.message : String(err)}`)
+      return candidates
+    }
+  }
+
+  // ─── Save to DB with Dedup ────────────────────────────────────────
+
+  private async saveSourcingResult(
+    jobId: string,
+    query: string,
+    candidates: SourcedCandidate[],
+    sources: string[],
+  ): Promise<void> {
+    try {
+      // Check for existing result for this jobId
+      const existing = await this.sourcingResultRepo.findOne({ where: { jobId } })
+
+      if (existing) {
+        // Dedup by profileUrl: merge new candidates with existing ones
+        const existingUrls = new Map(
+          existing.candidates.map((c) => [c.profileUrl, c]),
+        )
+
+        for (const candidate of candidates) {
+          existingUrls.set(candidate.profileUrl, candidate)
+        }
+
+        existing.candidates = Array.from(existingUrls.values())
+        existing.sources = [...new Set([...existing.sources, ...sources])]
+        existing.query = query
+
+        await this.sourcingResultRepo.save(existing)
+        this.logger.log(`Updated existing sourcing result for job ${jobId} with ${existing.candidates.length} candidates`)
+      } else {
+        const result = this.sourcingResultRepo.create({
+          jobId,
+          query,
+          candidates,
+          sources,
+        })
+
+        await this.sourcingResultRepo.save(result)
+        this.logger.log(`Saved new sourcing result for job ${jobId} with ${candidates.length} candidates`)
+      }
+    } catch (err) {
+      this.logger.error('Failed to save sourcing result:', err)
+    }
+  }
+
+  async getSourcingHistory(jobId: string): Promise<SourcingResultEntity[]> {
+    return this.sourcingResultRepo.find({
+      where: { jobId },
+      order: { searchedAt: 'DESC' },
+    })
+  }
+
+  // ─── Parse Sourced Candidates ─────────────────────────────────────
 
   private parseSourcedCandidates(raw: string | null, source: string): SourcedCandidate[] {
     if (!raw) return []

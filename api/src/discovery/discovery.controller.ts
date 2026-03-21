@@ -208,7 +208,7 @@ export class DiscoveryController {
     res.end()
   }
 
-  /** SSE endpoint — source from job requirements */
+  /** SSE endpoint — source from job requirements (with AI evaluation + DB save) */
   @Post('source-from-job')
   async sourceFromJobStream(@Body() body: { jobId: string }, @Res() res: Response) {
     const job = await this.jobsService.findOne(body.jobId)
@@ -234,7 +234,13 @@ export class DiscoveryController {
     }
 
     try {
-      const result = await this.discoveryService.sourceCandidates(request, onProgress)
+      const result = await this.discoveryService.sourceCandidates(
+        request,
+        onProgress,
+        job.id,
+        job.description,
+        job.requirements,
+      )
       res.write(`data: ${JSON.stringify({ type: 'complete', result })}\n\n`)
     } catch (err) {
       res.write(`data: ${JSON.stringify({ type: 'error', message: String(err) })}\n\n`)
@@ -242,5 +248,12 @@ export class DiscoveryController {
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
     res.end()
+  }
+
+  // ─── Sourcing History ─────────────────────────────────────────────
+
+  @Get('sourcing-history/:jobId')
+  async getSourcingHistory(@Param('jobId') jobId: string) {
+    return this.discoveryService.getSourcingHistory(jobId)
   }
 }
