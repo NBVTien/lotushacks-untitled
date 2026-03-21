@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { SkeletonCard } from '@/components/ui/skeleton'
-import { Plus, Briefcase, CheckCircle, XCircle, X, Users } from 'lucide-react'
+import { Plus, Briefcase, CheckCircle, XCircle, X, Users, LinkIcon, Check } from 'lucide-react'
 import { PageTransition, StaggerContainer, StaggerItem, FadeIn } from '@/components/ui/motion'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi } from '@/lib/api'
@@ -25,6 +25,7 @@ export function JobsPage() {
   const [reqInput, setReqInput] = useState('')
   const [screeningCriteria, setScreeningCriteria] = useState('')
   const [previewMode, setPreviewMode] = useState<string>('write')
+  const [copiedJobId, setCopiedJobId] = useState<string | null>(null)
 
   useEffect(() => {
     jobsApi.list().then((data) => {
@@ -60,6 +61,15 @@ export function JobsPage() {
     e.stopPropagation()
     const updated = await jobsApi.toggleActive(job.id, !job.isActive)
     setJobs(jobs.map((j) => (j.id === updated.id ? { ...j, isActive: updated.isActive } : j)))
+  }
+
+  const handleCopyLink = (e: React.MouseEvent, jobId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const link = `${window.location.origin}/careers/${jobId}/apply`
+    navigator.clipboard.writeText(link)
+    setCopiedJobId(jobId)
+    setTimeout(() => setCopiedJobId(null), 2000)
   }
 
   const activeCount = jobs.filter((j) => j.isActive).length
@@ -234,14 +244,35 @@ export function JobsPage() {
                           />
                           <CardTitle className="text-base">{job.title}</CardTitle>
                         </div>
-                        <Button
-                          variant={job.isActive ? 'outline' : 'secondary'}
-                          size="xs"
-                          onClick={(e) => handleToggle(e, job)}
-                          className="shrink-0"
-                        >
-                          {job.isActive ? 'Active' : 'Inactive'}
-                        </Button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={(e) => handleCopyLink(e, job.id)}
+                            className="gap-1 text-muted-foreground hover:text-foreground"
+                            title="Copy apply link"
+                          >
+                            {copiedJobId === job.id ? (
+                              <>
+                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                <span className="text-emerald-600">Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <LinkIcon className="h-3.5 w-3.5" />
+                                <span>Copy Link</span>
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant={job.isActive ? 'outline' : 'secondary'}
+                            size="xs"
+                            onClick={(e) => handleToggle(e, job)}
+                            className="shrink-0"
+                          >
+                            {job.isActive ? 'Active' : 'Inactive'}
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
