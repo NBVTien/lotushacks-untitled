@@ -1,6 +1,205 @@
-// Shared types between web and api
-
 export interface ApiResponse<T> {
   data: T
   message: string
+}
+
+// Auth
+export interface RegisterDto {
+  email: string
+  password: string
+  name: string
+  companyName: string
+}
+
+export interface LoginDto {
+  email: string
+  password: string
+}
+
+export interface AuthResponse {
+  accessToken: string
+  user: User
+}
+
+// Company
+export interface Company {
+  id: string
+  name: string
+  description: string | null
+  logo: string | null
+  createdAt: string
+}
+
+// User
+export interface User {
+  id: string
+  email: string
+  name: string
+  companyId: string
+  company?: Company
+  createdAt: string
+}
+
+// Job
+export interface Job {
+  id: string
+  companyId: string
+  company?: Company
+  title: string
+  description: string
+  requirements: string[]
+  screeningCriteria: string | null
+  isActive: boolean
+  createdAt: string
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  total: number
+  hasMore: boolean
+}
+
+export interface CreateJobDto {
+  title: string
+  description: string
+  requirements: string[]
+  screeningCriteria?: string
+}
+
+// Candidate
+export interface Candidate {
+  id: string
+  jobId: string
+  name: string
+  email: string | null
+  phone: string | null
+  cvUrl: string
+  cvText: string
+  links: ExtractedLinks
+  parsedCV: ParsedCVData | null
+  enrichment: EnrichedProfile | null
+  extendedEnrichment: ExtendedEnrichment | null
+  matchResult: MatchResult | null
+  status: CandidateStatus
+  errorMessage: string | null
+  progressLogs: string[]
+  retryCount: number
+  createdAt: string
+}
+
+export interface ParsedCVData {
+  summary: string | null
+  skills: string[]
+  experience: { title: string; company: string; duration: string; description: string }[]
+  education: { degree: string; school: string; year: string }[]
+}
+
+export type CandidateStatus =
+  | 'uploaded'
+  | 'parsed'
+  | 'enriching'
+  | 'enriched'
+  | 'scoring'
+  | 'completed'
+  | 'error'
+
+export interface ExtractedLinks {
+  github: string | null
+  linkedin: string | null
+  portfolio: string[]
+}
+
+export interface EnrichedProfile {
+  github: GitHubProfile | null
+  linkedin: LinkedInProfile | null
+}
+
+export interface GitHubProfile {
+  username: string
+  bio: string | null
+  topLanguages: string[]
+  repositories: RepoSummary[]
+  totalStars: number
+  totalContributions: number | null
+  raw: string
+}
+
+export interface RepoSummary {
+  name: string
+  description: string | null
+  language: string | null
+  stars: number
+}
+
+export interface LinkedInProfile {
+  headline: string | null
+  summary: string | null
+  experience: string[]
+  skills: string[]
+  raw: string
+}
+
+// Extended Enrichment (on-demand, via TinyFish)
+export interface ExtendedEnrichment {
+  portfolio: PortfolioAnalysis | null
+  liveProjects: LiveProjectCheck[]
+  blog: BlogAnalysis | null
+  stackoverflow: StackOverflowProfile | null
+  verification: WorkVerification[]
+}
+
+export type ExtendedEnrichmentType = 'portfolio' | 'liveProjects' | 'blog' | 'stackoverflow' | 'verification'
+
+export interface PortfolioAnalysis {
+  url: string
+  isOnline: boolean
+  techStack: string[]
+  designQuality: string
+  hasResponsive: boolean
+  summary: string
+}
+
+export interface LiveProjectCheck {
+  url: string
+  name: string
+  isOnline: boolean
+  techDetected: string[]
+  uiQuality: string
+  features: string[]
+  summary: string
+}
+
+export interface BlogAnalysis {
+  platform: string
+  url: string
+  totalPosts: number
+  recentPosts: { title: string; date: string; tags: string[] }[]
+  topicFocus: string[]
+  writingQuality: string
+  summary: string
+}
+
+export interface StackOverflowProfile {
+  url: string
+  reputation: number
+  badges: { gold: number; silver: number; bronze: number }
+  topTags: { name: string; score: number }[]
+  answerCount: number
+  summary: string
+}
+
+export interface WorkVerification {
+  company: string
+  claimed: string
+  verified: boolean | null
+  evidence: string
+  companyUrl: string | null
+}
+
+export interface MatchResult {
+  overallScore: number
+  explanation: string
+  strengths: string[]
+  gaps: string[]
+  recommendation: 'strong_match' | 'good_match' | 'partial_match' | 'weak_match'
 }
