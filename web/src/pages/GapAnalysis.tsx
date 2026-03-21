@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -60,14 +61,37 @@ export function GapAnalysisPage() {
   useEffect(() => { document.title = 'Gap Analysis — TalentLens' }, [])
 
   // Browse jobs state
-  const [publicJobs, setPublicJobs] = useState<Job[]>([])
-  const [jobsPage, setJobsPage] = useState(1)
-  const [jobsHasMore, setJobsHasMore] = useState(true)
-  const [jobsLoading, setJobsLoading] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [search, setSearch] = useState('')
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set())
   const [browseView, setBrowseView] = useState<'card' | 'table'>('card')
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  const {
+    data: jobPages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: jobsLoading,
+  } = useInfiniteQuery({
+    queryKey: ['public-jobs'],
+    queryFn: ({ pageParam }) => jobsApi.listPublic(pageParam as number, 10),
+    getNextPageParam: (lastPage, allPages) => lastPage.hasMore ? allPages.length + 1 : undefined,
+    initialPageParam: 1,
+  })
+
+  const publicJobs: Job[] = jobPages?.pages.flatMap((p) => p.data) ?? []
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage() },
+      { threshold: 0.1 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   // Paste JD state
   const [jdTitle, setJdTitle] = useState('')
@@ -81,20 +105,6 @@ export function GapAnalysisPage() {
   const [expandedSaved, setExpandedSaved] = useState<string | null>(null)
 
   const resultsRef = useRef<HTMLDivElement>(null)
-
-  const loadPublicJobs = useCallback(async () => {
-    if (jobsLoading || !jobsHasMore) return
-    setJobsLoading(true)
-    try {
-      const res = await jobsApi.listPublic(jobsPage, 10)
-      setPublicJobs((prev) => [...prev, ...res.data])
-      setJobsHasMore(res.hasMore)
-      setJobsPage((p) => p + 1)
-    } catch {
-      toast.error('Failed to load jobs')
-    }
-    setJobsLoading(false)
-  }, [jobsPage, jobsLoading, jobsHasMore])
 
   const loadSavedJds = async () => {
     try {
@@ -114,7 +124,6 @@ export function GapAnalysisPage() {
   }
 
   useEffect(() => {
-    loadPublicJobs()
     loadSavedJds()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -511,13 +520,12 @@ export function GapAnalysisPage() {
               )
             })()}
 
-            {jobsHasMore && (
-              <div className="flex justify-center">
-                <Button variant="outline" onClick={loadPublicJobs} disabled={jobsLoading}>
-                  {jobsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Load More Jobs'}
-                </Button>
-              </div>
-            )}
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="flex justify-center py-4">
+              {(isFetchingNextPage || jobsLoading) && (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              )}
+            </div>
           </TabsContent>
 
           {/* Paste JD Tab */}
