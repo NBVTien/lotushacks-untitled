@@ -10,11 +10,13 @@ export class JobsService {
 
   constructor(
     @InjectRepository(JobEntity)
-    private readonly repo: Repository<JobEntity>,
+    private readonly repo: Repository<JobEntity>
   ) {}
 
   async create(dto: CreateJobDto, companyId: string) {
-    this.logger.log(`Creating job: title="${dto.title}", companyId=${companyId}, requirements=${dto.requirements.length}`)
+    this.logger.log(
+      `Creating job: title="${dto.title}", companyId=${companyId}, requirements=${dto.requirements.length}`
+    )
     const job = this.repo.create({ ...dto, companyId })
     const saved = await this.repo.save(job)
     this.logger.log(`Job created: id=${saved.id}`)

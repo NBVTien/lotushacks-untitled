@@ -38,12 +38,7 @@ export function Progress({
           <span className="text-muted-foreground">{Math.round(clamped)}%</span>
         </div>
       )}
-      <div
-        className={cn(
-          'w-full overflow-hidden rounded-full bg-muted',
-          sizeClasses[size]
-        )}
-      >
+      <div className={cn('w-full overflow-hidden rounded-full bg-muted', sizeClasses[size])}>
         <div
           className={cn(
             'h-full rounded-full transition-all duration-500 ease-out',

@@ -23,7 +23,7 @@ export class CandidatesController {
     @Param('jobId') jobId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('name') name?: string,
-    @Body('email') email?: string,
+    @Body('email') email?: string
   ) {
     return this.candidatesService.upload(jobId, file, { name, email })
   }
@@ -45,10 +45,7 @@ export class CandidatesController {
 
   /** SSE endpoint — streams enrichmentProgress changes in real-time */
   @Get(':id/enrichment-stream')
-  async enrichmentStream(
-    @Param('id') id: string,
-    @Res() res: Response,
-  ) {
+  async enrichmentStream(@Param('id') id: string, @Res() res: Response) {
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
@@ -112,7 +109,7 @@ export class CandidatesController {
   extendedEnrich(
     @Param('jobId') jobId: string,
     @Param('id') id: string,
-    @Body('types') types: string[],
+    @Body('types') types: string[]
   ) {
     return this.candidatesService.extendedEnrich(jobId, id, types)
   }

@@ -13,7 +13,15 @@ export function PageTransition({ children }: { children: ReactNode }) {
   )
 }
 
-export function FadeIn({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
+export function FadeIn({
+  children,
+  delay = 0,
+  className = '',
+}: {
+  children: ReactNode
+  delay?: number
+  className?: string
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -26,7 +34,13 @@ export function FadeIn({ children, delay = 0, className = '' }: { children: Reac
   )
 }
 
-export function StaggerContainer({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function StaggerContainer({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
     <motion.div
       initial="hidden"
@@ -42,7 +56,13 @@ export function StaggerContainer({ children, className = '' }: { children: React
   )
 }
 
-export function StaggerItem({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function StaggerItem({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
     <motion.div
       variants={{
@@ -56,7 +76,15 @@ export function StaggerItem({ children, className = '' }: { children: ReactNode;
   )
 }
 
-export function ScaleIn({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
+export function ScaleIn({
+  children,
+  delay = 0,
+  className = '',
+}: {
+  children: ReactNode
+  delay?: number
+  className?: string
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}

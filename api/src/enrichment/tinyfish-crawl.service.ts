@@ -93,7 +93,8 @@ export class TinyFishCrawlService {
               } else if (event.type === 'COMPLETE') {
                 status = event.status || 'COMPLETED'
                 if (event.result) {
-                  lastResult = typeof event.result === 'string' ? event.result : JSON.stringify(event.result)
+                  lastResult =
+                    typeof event.result === 'string' ? event.result : JSON.stringify(event.result)
                 }
               } else if (event.type === 'STARTED') {
                 this.logger.log(`SSE started: run_id=${event.run_id}`)

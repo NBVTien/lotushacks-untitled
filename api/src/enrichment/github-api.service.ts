@@ -55,9 +55,10 @@ export class GitHubApiService {
       onProgress?.(`[GitHub] Profile: ${profile.name || username}, ${profile.public_repos} repos`)
 
       // 2. Fetch repos (sorted by recently updated, exclude forks)
-      const allRepos: GitHubRepoAPI[] = await this.fetchJSON(
-        `https://api.github.com/users/${username}/repos?sort=updated&per_page=30`,
-      ) || []
+      const allRepos: GitHubRepoAPI[] =
+        (await this.fetchJSON(
+          `https://api.github.com/users/${username}/repos?sort=updated&per_page=30`
+        )) || []
       const ownRepos = allRepos.filter((r) => !r.fork)
       onProgress?.(`[GitHub] Found ${ownRepos.length} non-fork repos`)
 
@@ -98,7 +99,9 @@ export class GitHubApiService {
       for (const a of analyses) {
         a.analysis = aiResult.projects[a.name] || null
       }
-      onProgress?.(`[GitHub] Done: ${topLanguages.join(', ')}, ${totalStars} stars, ${analyses.length} projects analyzed`)
+      onProgress?.(
+        `[GitHub] Done: ${topLanguages.join(', ')}, ${totalStars} stars, ${analyses.length} projects analyzed`
+      )
 
       // 7. Build raw as detailed JSON for scoring
       const detailedRaw = JSON.stringify({
@@ -144,31 +147,36 @@ export class GitHubApiService {
 
   private async analyzeRepo(username: string, repo: GitHubRepoAPI): Promise<RepoAnalysis> {
     // Fetch languages
-    const languages: Record<string, number> = await this.fetchJSON(
-      `https://api.github.com/repos/${username}/${repo.name}/languages`,
-    ) || {}
+    const languages: Record<string, number> =
+      (await this.fetchJSON(`https://api.github.com/repos/${username}/${repo.name}/languages`)) ||
+      {}
 
     // Fetch README
     let readmeSnippet: string | null = null
     try {
       const readmeData = await this.fetchJSON(
-        `https://api.github.com/repos/${username}/${repo.name}/readme`,
+        `https://api.github.com/repos/${username}/${repo.name}/readme`
       )
       if (readmeData?.content) {
         const decoded = Buffer.from(readmeData.content, 'base64').toString('utf-8')
         readmeSnippet = decoded.slice(0, 2000)
       }
-    } catch { /* no readme */ }
+    } catch {
+      /* no readme */
+    }
 
     // Fetch recent commit count (last 30 days)
     let recentCommits = 0
     try {
       const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
-      const commits: unknown[] = await this.fetchJSON(
-        `https://api.github.com/repos/${username}/${repo.name}/commits?since=${since}&per_page=100`,
-      ) || []
+      const commits: unknown[] =
+        (await this.fetchJSON(
+          `https://api.github.com/repos/${username}/${repo.name}/commits?since=${since}&per_page=100`
+        )) || []
       recentCommits = commits.length
-    } catch { /* ok */ }
+    } catch {
+      /* ok */
+    }
 
     return {
       name: repo.name,
@@ -186,7 +194,7 @@ export class GitHubApiService {
   private async aiAnalyzeProjects(
     username: string,
     profile: Record<string, unknown>,
-    repos: RepoAnalysis[],
+    repos: RepoAnalysis[]
   ): Promise<{ summary: string; projects: Record<string, string> }> {
     if (repos.length === 0) return { summary: 'No repos to analyze', projects: {} }
 
@@ -213,7 +221,11 @@ export class GitHubApiService {
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a technical recruiter analyzing a developer\'s GitHub projects. Be concise, specific, and evidence-based. Return JSON.' },
+          {
+            role: 'system',
+            content:
+              "You are a technical recruiter analyzing a developer's GitHub projects. Be concise, specific, and evidence-based. Return JSON.",
+          },
           { role: 'user', content: prompt },
         ],
         response_format: { type: 'json_object' },

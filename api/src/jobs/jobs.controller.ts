@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common'
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common'
 import { JobsService } from './jobs.service'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import type { CreateJobDto } from '@lotushack/shared'
@@ -23,13 +34,10 @@ export class JobsController {
   }
 
   @Get('public')
-  findAllPublic(
-    @Query('page') page = '1',
-    @Query('limit') limit = '10',
-  ) {
+  findAllPublic(@Query('page') page = '1', @Query('limit') limit = '10') {
     return this.jobsService.findAllPublic(
       Math.max(1, parseInt(page, 10) || 1),
-      Math.min(50, Math.max(1, parseInt(limit, 10) || 10)),
+      Math.min(50, Math.max(1, parseInt(limit, 10) || 10))
     )
   }
 

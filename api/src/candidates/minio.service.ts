@@ -35,7 +35,9 @@ export class MinioService implements OnModuleInit {
   }
 
   async upload(fileName: string, buffer: Buffer, contentType: string): Promise<string> {
-    this.logger.debug(`Uploading ${fileName} (${(buffer.length / 1024).toFixed(1)}KB, ${contentType})`)
+    this.logger.debug(
+      `Uploading ${fileName} (${(buffer.length / 1024).toFixed(1)}KB, ${contentType})`
+    )
     await this.client.putObject(this.bucket, fileName, buffer, buffer.length, {
       'Content-Type': contentType,
     })

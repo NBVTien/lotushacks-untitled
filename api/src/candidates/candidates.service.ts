@@ -20,11 +20,17 @@ export class CandidatesService {
     @InjectQueue('candidate-processing')
     private readonly queue: Queue<CandidateJobData>,
     private readonly minio: MinioService,
-    private readonly jobs: JobsService,
+    private readonly jobs: JobsService
   ) {}
 
-  async upload(jobId: string, file: Express.Multer.File, overrides?: { name?: string; email?: string }) {
-    this.logger.log(`Upload started: jobId=${jobId}, file=${file.originalname}, size=${(file.size / 1024).toFixed(1)}KB`)
+  async upload(
+    jobId: string,
+    file: Express.Multer.File,
+    overrides?: { name?: string; email?: string }
+  ) {
+    this.logger.log(
+      `Upload started: jobId=${jobId}, file=${file.originalname}, size=${(file.size / 1024).toFixed(1)}KB`
+    )
 
     const job = await this.jobs.findOne(jobId)
 
@@ -62,7 +68,7 @@ export class CandidatesService {
         backoff: { type: 'exponential', delay: 5000 },
         removeOnComplete: { count: 200 },
         removeOnFail: { count: 100 },
-      },
+      }
     )
     this.logger.log(`Queued: candidateId=${saved.id}, bullmqJobId=${bullJob.id}`)
 
@@ -84,7 +90,9 @@ export class CandidatesService {
     const job = await this.jobs.findOne(jobId)
 
     if (candidate.retryCount >= 3) {
-      this.logger.warn(`Retry limit reached for candidate ${candidateId} (${candidate.retryCount}/3)`)
+      this.logger.warn(
+        `Retry limit reached for candidate ${candidateId} (${candidate.retryCount}/3)`
+      )
       return { error: 'Maximum retry limit (3) reached' }
     }
 
@@ -112,7 +120,7 @@ export class CandidatesService {
         attempts: 1,
         removeOnComplete: { count: 200 },
         removeOnFail: { count: 100 },
-      },
+      }
     )
     this.logger.log(`Retry queued: candidateId=${candidateId}, bullmqJobId=${bullJob.id}`)
 
@@ -127,7 +135,9 @@ export class CandidatesService {
       return { error: 'No GitHub or LinkedIn links found in CV' }
     }
 
-    this.logger.log(`Re-enriching candidate ${candidateId} (GitHub: ${candidate.links.github || 'none'}, LinkedIn: ${candidate.links.linkedin || 'none'})`)
+    this.logger.log(
+      `Re-enriching candidate ${candidateId} (GitHub: ${candidate.links.github || 'none'}, LinkedIn: ${candidate.links.linkedin || 'none'})`
+    )
 
     const bullJob = await this.queue.add(
       'process',
@@ -144,7 +154,7 @@ export class CandidatesService {
         backoff: { type: 'exponential', delay: 3000 },
         removeOnComplete: { count: 200 },
         removeOnFail: { count: 100 },
-      },
+      }
     )
     this.logger.log(`Re-enrich queued: candidateId=${candidateId}, bullmqJobId=${bullJob.id}`)
 
@@ -181,9 +191,11 @@ export class CandidatesService {
           backoff: { type: 'exponential', delay: 3000 },
           removeOnComplete: { count: 200 },
           removeOnFail: { count: 100 },
-        },
+        }
       )
-      this.logger.log(`Extended enrich [${type}] queued: candidateId=${candidateId}, bullmqJobId=${bullJob.id}`)
+      this.logger.log(
+        `Extended enrich [${type}] queued: candidateId=${candidateId}, bullmqJobId=${bullJob.id}`
+      )
     }
 
     return this.findOne(candidateId)

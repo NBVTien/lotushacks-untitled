@@ -24,7 +24,7 @@ export class DiscoveryService {
     private readonly tinyfish: TinyFishCrawlService,
     private readonly config: ConfigService,
     @InjectRepository(SourcingResultEntity)
-    private readonly sourcingResultRepo: Repository<SourcingResultEntity>,
+    private readonly sourcingResultRepo: Repository<SourcingResultEntity>
   ) {
     this.openai = new OpenAI({
       apiKey: this.config.get('OPENAI_API_KEY', ''),
@@ -35,7 +35,7 @@ export class DiscoveryService {
 
   async discoverJobs(
     request: JobDiscoveryRequest,
-    onProgress?: ProgressCallback,
+    onProgress?: ProgressCallback
   ): Promise<JobDiscoveryResult> {
     const skillsQuery = request.skills.slice(0, 5).join(', ')
     const titleQuery = request.title || skillsQuery
@@ -84,16 +84,16 @@ export class DiscoveryService {
           this.logger.error(`${source.name} crawl failed:`, err)
           onProgress?.(`[${source.name}] Failed: ${err.message}`)
           return [] as DiscoveredJob[]
-        }),
+        })
     )
 
     const results = await Promise.all(crawlTasks)
     const allJobs = results.flat()
-    const activeSources = sources
-      .filter((_, i) => results[i].length > 0)
-      .map((s) => s.name)
+    const activeSources = sources.filter((_, i) => results[i].length > 0).map((s) => s.name)
 
-    onProgress?.(`Job discovery complete: found ${allJobs.length} jobs from ${activeSources.length} sources`)
+    onProgress?.(
+      `Job discovery complete: found ${allJobs.length} jobs from ${activeSources.length} sources`
+    )
 
     return {
       query: searchQuery,
@@ -103,7 +103,11 @@ export class DiscoveryService {
     }
   }
 
-  private parseDiscoveredJobs(raw: string | null, source: string, skillsQuery: string): DiscoveredJob[] {
+  private parseDiscoveredJobs(
+    raw: string | null,
+    source: string,
+    skillsQuery: string
+  ): DiscoveredJob[] {
     if (!raw) return []
 
     try {
@@ -138,7 +142,7 @@ export class DiscoveryService {
     jobs: DiscoveredJob[],
     cvText: string,
     skills: string[],
-    onProgress?: ProgressCallback,
+    onProgress?: ProgressCallback
   ): Promise<DiscoveredJob[]> {
     if (jobs.length === 0) return jobs
 
@@ -160,7 +164,7 @@ export class DiscoveryService {
           {
             role: 'system',
             content:
-              'You are a job-matching AI. Score each job against the candidate\'s CV.\n' +
+              "You are a job-matching AI. Score each job against the candidate's CV.\n" +
               'For each job, return a JSON array of objects with:\n' +
               '- index (number): the job index from the input\n' +
               '- matchScore (number): 0-100 score of how well the job matches the CV\n' +
@@ -186,8 +190,11 @@ export class DiscoveryService {
       }
 
       const parsed = JSON.parse(content)
-      const rankings: { index: number; matchScore: number; matchReason: string }[] =
-        Array.isArray(parsed) ? parsed : parsed.rankings || parsed.jobs || parsed.results || []
+      const rankings: { index: number; matchScore: number; matchReason: string }[] = Array.isArray(
+        parsed
+      )
+        ? parsed
+        : parsed.rankings || parsed.jobs || parsed.results || []
 
       // Apply scores to jobs
       for (const rank of rankings) {
@@ -200,7 +207,9 @@ export class DiscoveryService {
       // Sort by matchScore descending
       jobs.sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
 
-      onProgress?.(`AI ranking complete — top match: "${jobs[0]?.title}" (${jobs[0]?.matchScore}/100)`)
+      onProgress?.(
+        `AI ranking complete — top match: "${jobs[0]?.title}" (${jobs[0]?.matchScore}/100)`
+      )
       return jobs
     } catch (err) {
       this.logger.error('AI job ranking failed:', err)
@@ -214,7 +223,7 @@ export class DiscoveryService {
   async researchCompany(
     companyName: string,
     companyUrl?: string | null,
-    onProgress?: ProgressCallback,
+    onProgress?: ProgressCallback
   ): Promise<CompanyResearch> {
     this.logger.log(`Company research: ${companyName}`)
     onProgress?.(`Starting research on ${companyName}...`)
@@ -233,9 +242,9 @@ export class DiscoveryService {
             '- culture (string|null): summary of company culture from reviews\n' +
             '- benefits (string[]): commonly mentioned benefits\n' +
             'Return as JSON.',
-          { browserProfile: 'lite', label: 'Glassdoor', onProgress },
+          { browserProfile: 'lite', label: 'Glassdoor', onProgress }
         )
-        .then((data) => ({ type: 'glassdoor', data })),
+        .then((data) => ({ type: 'glassdoor', data }))
     )
 
     // 2. Tech blog / engineering
@@ -243,14 +252,14 @@ export class DiscoveryService {
       this.tinyfish
         .crawl(
           `https://www.google.com/search?q=${encodeURIComponent(`"${companyName}" tech blog engineering`)}`,
-          'Find this company\'s tech blog or engineering blog. Extract:\n' +
+          "Find this company's tech blog or engineering blog. Extract:\n" +
             '- techBlog (string|null): URL of the tech blog\n' +
             '- recentNews (string[]): up to 5 recent headlines or articles about the company\n' +
-            '- summary (string): 2-3 sentence overview of the company\'s tech presence\n' +
+            "- summary (string): 2-3 sentence overview of the company's tech presence\n" +
             'Return as JSON.',
-          { browserProfile: 'lite', label: 'TechBlog', onProgress },
+          { browserProfile: 'lite', label: 'TechBlog', onProgress }
         )
-        .then((data) => ({ type: 'techblog', data })),
+        .then((data) => ({ type: 'techblog', data }))
     )
 
     // 3. Company website (if URL known)
@@ -265,9 +274,9 @@ export class DiscoveryService {
               '- benefits (string[]): any listed employee benefits or perks\n' +
               '- culture (string|null): any info about company culture\n' +
               'Return as JSON.',
-            { browserProfile: 'lite', label: 'CompanyWebsite', onProgress },
+            { browserProfile: 'lite', label: 'CompanyWebsite', onProgress }
           )
-          .then((data) => ({ type: 'website', data })),
+          .then((data) => ({ type: 'website', data }))
       )
     }
 
@@ -329,7 +338,7 @@ export class DiscoveryService {
     onProgress?: ProgressCallback,
     jobId?: string,
     jobDescription?: string,
-    requirements?: string[],
+    requirements?: string[]
   ): Promise<SourcingResult> {
     const skillsQuery = request.skills.slice(0, 5).join(', ')
     const titleQuery = request.jobTitle
@@ -367,18 +376,20 @@ export class DiscoveryService {
         .then((raw) => this.parseSourcedCandidates(raw, source.name))
         .catch((err) => {
           this.logger.error(`${source.name} sourcing crawl failed:`, err)
-          onProgress?.(`[${source.name}] Failed: ${err instanceof Error ? err.message : String(err)}`)
+          onProgress?.(
+            `[${source.name}] Failed: ${err instanceof Error ? err.message : String(err)}`
+          )
           return [] as SourcedCandidate[]
-        }),
+        })
     )
 
     const results = await Promise.all(crawlTasks)
     let allCandidates = results.flat()
-    const activeSources = sources
-      .filter((_, i) => results[i].length > 0)
-      .map((s) => s.name)
+    const activeSources = sources.filter((_, i) => results[i].length > 0).map((s) => s.name)
 
-    onProgress?.(`Sourcing complete: found ${allCandidates.length} candidates from ${activeSources.length} sources`)
+    onProgress?.(
+      `Sourcing complete: found ${allCandidates.length} candidates from ${activeSources.length} sources`
+    )
 
     // Step 2: Fetch profile details for each candidate
     if (allCandidates.length > 0) {
@@ -392,7 +403,7 @@ export class DiscoveryService {
         titleQuery,
         requirements,
         jobDescription,
-        onProgress,
+        onProgress
       )
     }
 
@@ -415,7 +426,7 @@ export class DiscoveryService {
 
   private async fetchCandidateDetails(
     candidates: SourcedCandidate[],
-    onProgress?: ProgressCallback,
+    onProgress?: ProgressCallback
   ): Promise<SourcedCandidate[]> {
     onProgress?.(`Fetching detailed profiles for ${candidates.length} candidates...`)
 
@@ -456,7 +467,9 @@ export class DiscoveryService {
             }
           } catch {
             // Direct fetch failed, will fall back to TinyFish
-            this.logger.debug(`Direct fetch failed for ${candidate.profileUrl}, using TinyFish fallback`)
+            this.logger.debug(
+              `Direct fetch failed for ${candidate.profileUrl}, using TinyFish fallback`
+            )
           }
 
           if (useDirectFetch && html) {
@@ -470,7 +483,9 @@ export class DiscoveryService {
             }
           } else {
             // Fall back to TinyFish stealth crawl
-            onProgress?.(`[${index + 1}/${candidates.length}] Using TinyFish for ${candidate.name}...`)
+            onProgress?.(
+              `[${index + 1}/${candidates.length}] Using TinyFish for ${candidate.name}...`
+            )
             const crawlResult = await this.tinyfish.crawl(
               candidate.profileUrl,
               'Extract the full profile details of this developer/freelancer. Return JSON with:\n' +
@@ -484,7 +499,7 @@ export class DiscoveryService {
                 '- hourlyRate (string|null): hourly rate if visible\n' +
                 '- expertise (string|null): areas of expertise\n' +
                 'Return as JSON.',
-              { browserProfile: 'stealth', label: `Profile:${candidate.name}`, onProgress },
+              { browserProfile: 'stealth', label: `Profile:${candidate.name}`, onProgress }
             )
 
             if (crawlResult) {
@@ -494,12 +509,11 @@ export class DiscoveryService {
                   [parsed.bio, parsed.expertise, parsed.hourlyRate && `Rate: ${parsed.hourlyRate}`]
                     .filter(Boolean)
                     .join(' | ') || candidate.summary
-                candidate.skills =
-                  Array.isArray(parsed.skills)
-                    ? parsed.skills.map((s: { name: string } | string) =>
-                        typeof s === 'string' ? s : s.name,
-                      )
-                    : candidate.skills
+                candidate.skills = Array.isArray(parsed.skills)
+                  ? parsed.skills.map((s: { name: string } | string) =>
+                      typeof s === 'string' ? s : s.name
+                    )
+                  : candidate.skills
                 candidate.experience = parsed.experience || candidate.experience
                 candidate.detailedProfile = crawlResult
               } catch {
@@ -513,7 +527,7 @@ export class DiscoveryService {
         }
 
         return candidate
-      }),
+      })
     )
 
     onProgress?.(`Profile details fetched for ${detailedCandidates.length} candidates`)
@@ -522,7 +536,7 @@ export class DiscoveryService {
 
   private async extractProfileFromHtml(
     html: string,
-    candidateName: string,
+    candidateName: string
   ): Promise<{
     summary: string
     skills: string[]
@@ -566,7 +580,8 @@ export class DiscoveryService {
       return {
         summary: parsed.summary || parsed.bio || '',
         skills: Array.isArray(parsed.skills) ? parsed.skills.map(String) : [],
-        experience: parsed.experience || (parsed.expertiseYears ? `${parsed.expertiseYears} years` : null),
+        experience:
+          parsed.experience || (parsed.expertiseYears ? `${parsed.expertiseYears} years` : null),
         detailedProfile: content,
       }
     } catch (err) {
@@ -582,7 +597,7 @@ export class DiscoveryService {
     jobTitle: string,
     requirements: string[],
     jobDescription?: string,
-    onProgress?: ProgressCallback,
+    onProgress?: ProgressCallback
   ): Promise<SourcedCandidate[]> {
     if (candidates.length === 0) return candidates
 
@@ -632,8 +647,11 @@ export class DiscoveryService {
       }
 
       const parsed = JSON.parse(content)
-      const rankings: { index: number; matchScore: number; matchReason: string }[] =
-        Array.isArray(parsed) ? parsed : parsed.rankings || parsed.candidates || parsed.results || []
+      const rankings: { index: number; matchScore: number; matchReason: string }[] = Array.isArray(
+        parsed
+      )
+        ? parsed
+        : parsed.rankings || parsed.candidates || parsed.results || []
 
       // Apply scores to candidates
       for (const rank of rankings) {
@@ -647,7 +665,7 @@ export class DiscoveryService {
       candidates.sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
 
       onProgress?.(
-        `AI evaluation complete — top candidate: "${candidates[0]?.name}" (${candidates[0]?.matchScore}/100)`,
+        `AI evaluation complete — top candidate: "${candidates[0]?.name}" (${candidates[0]?.matchScore}/100)`
       )
       return candidates
     } catch (err) {
@@ -663,7 +681,7 @@ export class DiscoveryService {
     jobId: string,
     query: string,
     candidates: SourcedCandidate[],
-    sources: string[],
+    sources: string[]
   ): Promise<void> {
     try {
       // Check for existing result for this jobId
@@ -671,9 +689,7 @@ export class DiscoveryService {
 
       if (existing) {
         // Dedup by profileUrl: merge new candidates with existing ones
-        const existingUrls = new Map(
-          existing.candidates.map((c) => [c.profileUrl, c]),
-        )
+        const existingUrls = new Map(existing.candidates.map((c) => [c.profileUrl, c]))
 
         for (const candidate of candidates) {
           existingUrls.set(candidate.profileUrl, candidate)
@@ -684,7 +700,9 @@ export class DiscoveryService {
         existing.query = query
 
         await this.sourcingResultRepo.save(existing)
-        this.logger.log(`Updated existing sourcing result for job ${jobId} with ${existing.candidates.length} candidates`)
+        this.logger.log(
+          `Updated existing sourcing result for job ${jobId} with ${existing.candidates.length} candidates`
+        )
       } else {
         const result = this.sourcingResultRepo.create({
           jobId,
@@ -694,7 +712,9 @@ export class DiscoveryService {
         })
 
         await this.sourcingResultRepo.save(result)
-        this.logger.log(`Saved new sourcing result for job ${jobId} with ${candidates.length} candidates`)
+        this.logger.log(
+          `Saved new sourcing result for job ${jobId} with ${candidates.length} candidates`
+        )
       }
     } catch (err) {
       this.logger.error('Failed to save sourcing result:', err)

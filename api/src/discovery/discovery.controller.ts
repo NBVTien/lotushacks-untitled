@@ -15,11 +15,7 @@ import { DiscoveryService } from './discovery.service'
 import { CandidatesService } from '../candidates/candidates.service'
 import { JobsService } from '../jobs/jobs.service'
 import { PdfService } from '../candidates/pdf.service'
-import type {
-  JobDiscoveryRequest,
-  SourcingRequest,
-  ParsedCVData,
-} from '@lotushack/shared'
+import type { JobDiscoveryRequest, SourcingRequest, ParsedCVData } from '@lotushack/shared'
 
 @Controller('discovery')
 export class DiscoveryController {
@@ -27,7 +23,7 @@ export class DiscoveryController {
     private readonly discoveryService: DiscoveryService,
     private readonly candidatesService: CandidatesService,
     private readonly jobsService: JobsService,
-    private readonly pdfService: PdfService,
+    private readonly pdfService: PdfService
   ) {}
 
   // ─── Feature C: Job Discovery ───────────────────────────────────────
@@ -77,10 +73,7 @@ export class DiscoveryController {
   /** SSE endpoint — upload CV, discover jobs, rank them with AI */
   @Post('jobs-from-upload')
   @UseInterceptors(FileInterceptor('cv'))
-  async discoverJobsFromUpload(
-    @UploadedFile() file: Express.Multer.File,
-    @Res() res: Response,
-  ) {
+  async discoverJobsFromUpload(@UploadedFile() file: Express.Multer.File, @Res() res: Response) {
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
@@ -102,7 +95,9 @@ export class DiscoveryController {
       // Step 1: Parse the CV
       onProgress('Parsing your CV...')
       const parsedCV = await this.pdfService.parseCV(file.buffer, file.originalname)
-      onProgress(`CV parsed: found ${parsedCV.skills.length} skills, ${parsedCV.experience.length} experiences`)
+      onProgress(
+        `CV parsed: found ${parsedCV.skills.length} skills, ${parsedCV.experience.length} experiences`
+      )
 
       // Step 2: Build discovery request from parsed CV
       const request: JobDiscoveryRequest = {
@@ -120,7 +115,7 @@ export class DiscoveryController {
         result.jobs,
         parsedCV.rawText,
         parsedCV.skills,
-        onProgress,
+        onProgress
       )
       result.jobs = rankedJobs
 
@@ -135,10 +130,7 @@ export class DiscoveryController {
 
   /** SSE endpoint — streams job discovery progress in real-time */
   @Get('jobs/:candidateId/stream')
-  async jobDiscoveryStream(
-    @Param('candidateId') candidateId: string,
-    @Res() res: Response,
-  ) {
+  async jobDiscoveryStream(@Param('candidateId') candidateId: string, @Res() res: Response) {
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
@@ -239,7 +231,7 @@ export class DiscoveryController {
         onProgress,
         job.id,
         job.description,
-        job.requirements,
+        job.requirements
       )
       res.write(`data: ${JSON.stringify({ type: 'complete', result })}\n\n`)
     } catch (err) {

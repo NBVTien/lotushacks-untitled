@@ -47,7 +47,9 @@ export function ScoreRing({ score, size = 100, strokeWidth = 8, className }: Sco
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className={cn('text-2xl font-bold', getScoreColor(score))}>{score}</span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Score</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Score
+        </span>
       </div>
     </div>
   )

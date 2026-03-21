@@ -8,10 +8,7 @@ function Tooltip({ children, ...props }: React.ComponentProps<typeof BaseTooltip
   return <BaseTooltip.Root {...props}>{children}</BaseTooltip.Root>
 }
 
-function TooltipTrigger({
-  className,
-  ...props
-}: React.ComponentProps<typeof BaseTooltip.Trigger>) {
+function TooltipTrigger({ className, ...props }: React.ComponentProps<typeof BaseTooltip.Trigger>) {
   return <BaseTooltip.Trigger className={cn(className)} {...props} />
 }
 

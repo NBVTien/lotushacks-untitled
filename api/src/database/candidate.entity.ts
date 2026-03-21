@@ -1,5 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
-import type { ExtractedLinks, EnrichedProfile, EnrichmentProgress, MatchResult, CandidateStatus } from '@lotushack/shared'
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm'
+import type {
+  ExtractedLinks,
+  EnrichedProfile,
+  EnrichmentProgress,
+  MatchResult,
+  CandidateStatus,
+} from '@lotushack/shared'
 import { JobEntity } from './job.entity'
 
 @Entity('candidates')

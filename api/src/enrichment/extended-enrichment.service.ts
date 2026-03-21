@@ -29,7 +29,7 @@ export class ExtendedEnrichmentService {
       parsedCV: ParsedCVData | null
     },
     existing: ExtendedEnrichment | null,
-    onProgress?: ProgressCallback,
+    onProgress?: ProgressCallback
   ): Promise<ExtendedEnrichment & { _linkedin?: LinkedInProfile | null }> {
     const result: ExtendedEnrichment & { _linkedin?: LinkedInProfile | null } = existing || {
       portfolio: null,
@@ -42,37 +42,49 @@ export class ExtendedEnrichmentService {
 
     if (types.includes('linkedin') && context.linkedinUrl) {
       tasks.push(
-        this.enrichLinkedIn(context.linkedinUrl, onProgress).then((r) => { result._linkedin = r }),
+        this.enrichLinkedIn(context.linkedinUrl, onProgress).then((r) => {
+          result._linkedin = r
+        })
       )
     }
 
     if (types.includes('portfolio') && context.portfolioUrls.length > 0) {
       tasks.push(
-        this.enrichPortfolio(context.portfolioUrls[0], onProgress).then((r) => { result.portfolio = r }),
+        this.enrichPortfolio(context.portfolioUrls[0], onProgress).then((r) => {
+          result.portfolio = r
+        })
       )
     }
 
     if (types.includes('liveProjects') && context.projectUrls.length > 0) {
       tasks.push(
-        this.enrichLiveProjects(context.projectUrls.slice(0, 3), onProgress).then((r) => { result.liveProjects = r }),
+        this.enrichLiveProjects(context.projectUrls.slice(0, 3), onProgress).then((r) => {
+          result.liveProjects = r
+        })
       )
     }
 
     if (types.includes('blog') && context.blogUrls.length > 0) {
       tasks.push(
-        this.enrichBlog(context.blogUrls[0], onProgress).then((r) => { result.blog = r }),
+        this.enrichBlog(context.blogUrls[0], onProgress).then((r) => {
+          result.blog = r
+        })
       )
     }
 
     if (types.includes('stackoverflow') && context.stackoverflowUrl) {
       tasks.push(
-        this.enrichStackOverflow(context.stackoverflowUrl, onProgress).then((r) => { result.stackoverflow = r }),
+        this.enrichStackOverflow(context.stackoverflowUrl, onProgress).then((r) => {
+          result.stackoverflow = r
+        })
       )
     }
 
     if (types.includes('companyIntel') && context.parsedCV?.experience?.length) {
       tasks.push(
-        this.enrichCompanyIntel(context.parsedCV.experience, onProgress).then((r) => { result.companyIntel = r }),
+        this.enrichCompanyIntel(context.parsedCV.experience, onProgress).then((r) => {
+          result.companyIntel = r
+        })
       )
     }
 
@@ -80,7 +92,10 @@ export class ExtendedEnrichmentService {
     return result
   }
 
-  private async enrichLinkedIn(url: string, onProgress?: ProgressCallback): Promise<LinkedInProfile | null> {
+  private async enrichLinkedIn(
+    url: string,
+    onProgress?: ProgressCallback
+  ): Promise<LinkedInProfile | null> {
     const publicUrl = url.includes('?') ? url : `${url}?trk=people_guest_people_search-card`
     this.logger.log(`Enriching LinkedIn: ${publicUrl}`)
 
@@ -120,7 +135,9 @@ export class ExtendedEnrichmentService {
     }
 
     const result = this.parseLinkedInResponse(raw)
-    onProgress?.(`[LinkedIn] Done: ${result.experience.length} experiences, ${result.skills.length} skills`)
+    onProgress?.(
+      `[LinkedIn] Done: ${result.experience.length} experiences, ${result.skills.length} skills`
+    )
     return result
   }
 
@@ -157,17 +174,21 @@ export class ExtendedEnrichmentService {
     }
   }
 
-  private async enrichPortfolio(url: string, onProgress?: ProgressCallback): Promise<PortfolioAnalysis | null> {
+  private async enrichPortfolio(
+    url: string,
+    onProgress?: ProgressCallback
+  ): Promise<PortfolioAnalysis | null> {
     this.logger.log(`Portfolio analysis: ${url}`)
-    const raw = await this.tinyfish.crawl(url,
+    const raw = await this.tinyfish.crawl(
+      url,
       'Visit this personal portfolio/website. Analyze it and return JSON:\n' +
-      '- isOnline (boolean): does the page load successfully?\n' +
-      '- techStack (string[]): detected technologies (React, WordPress, Next.js, etc.)\n' +
-      '- designQuality (string): "professional", "good", "basic", or "template"\n' +
-      '- hasResponsive (boolean): does it look good on mobile? (check viewport)\n' +
-      '- summary (string): 2-3 sentence description of the website, what it showcases\n' +
-      '- sections (string[]): list main sections/pages visible',
-      { label: 'Portfolio', onProgress },
+        '- isOnline (boolean): does the page load successfully?\n' +
+        '- techStack (string[]): detected technologies (React, WordPress, Next.js, etc.)\n' +
+        '- designQuality (string): "professional", "good", "basic", or "template"\n' +
+        '- hasResponsive (boolean): does it look good on mobile? (check viewport)\n' +
+        '- summary (string): 2-3 sentence description of the website, what it showcases\n' +
+        '- sections (string[]): list main sections/pages visible',
+      { label: 'Portfolio', onProgress }
     )
 
     if (!raw) return null
@@ -183,27 +204,46 @@ export class ExtendedEnrichmentService {
         summary: data.summary || '',
       }
     } catch {
-      return { url, isOnline: true, techStack: [], designQuality: 'unknown', hasResponsive: false, summary: raw.slice(0, 500) }
+      return {
+        url,
+        isOnline: true,
+        techStack: [],
+        designQuality: 'unknown',
+        hasResponsive: false,
+        summary: raw.slice(0, 500),
+      }
     }
   }
 
-  private async enrichLiveProjects(urls: string[], onProgress?: ProgressCallback): Promise<LiveProjectCheck[]> {
+  private async enrichLiveProjects(
+    urls: string[],
+    onProgress?: ProgressCallback
+  ): Promise<LiveProjectCheck[]> {
     const results: LiveProjectCheck[] = []
 
     for (const url of urls) {
       this.logger.log(`Live project check: ${url}`)
-      const raw = await this.tinyfish.crawl(url,
+      const raw = await this.tinyfish.crawl(
+        url,
         'Visit this web application/project. Check if it works and analyze it. Return JSON:\n' +
-        '- isOnline (boolean): does the app load?\n' +
-        '- techDetected (string[]): technologies visible (React, Vue, Angular, etc.)\n' +
-        '- uiQuality (string): "polished", "functional", "basic", or "broken"\n' +
-        '- features (string[]): list main features/pages you can see\n' +
-        '- summary (string): 2-3 sentence description of what this app does and its quality',
-        { label: `Project: ${url}`, onProgress },
+          '- isOnline (boolean): does the app load?\n' +
+          '- techDetected (string[]): technologies visible (React, Vue, Angular, etc.)\n' +
+          '- uiQuality (string): "polished", "functional", "basic", or "broken"\n' +
+          '- features (string[]): list main features/pages you can see\n' +
+          '- summary (string): 2-3 sentence description of what this app does and its quality',
+        { label: `Project: ${url}`, onProgress }
       )
 
       if (!raw) {
-        results.push({ url, name: url, isOnline: false, techDetected: [], uiQuality: 'unknown', features: [], summary: 'Could not access' })
+        results.push({
+          url,
+          name: url,
+          isOnline: false,
+          techDetected: [],
+          uiQuality: 'unknown',
+          features: [],
+          summary: 'Could not access',
+        })
         continue
       }
 
@@ -219,25 +259,37 @@ export class ExtendedEnrichmentService {
           summary: data.summary || '',
         })
       } catch {
-        results.push({ url, name: url, isOnline: true, techDetected: [], uiQuality: 'unknown', features: [], summary: raw.slice(0, 300) })
+        results.push({
+          url,
+          name: url,
+          isOnline: true,
+          techDetected: [],
+          uiQuality: 'unknown',
+          features: [],
+          summary: raw.slice(0, 300),
+        })
       }
     }
 
     return results
   }
 
-  private async enrichBlog(url: string, onProgress?: ProgressCallback): Promise<BlogAnalysis | null> {
+  private async enrichBlog(
+    url: string,
+    onProgress?: ProgressCallback
+  ): Promise<BlogAnalysis | null> {
     this.logger.log(`Blog analysis: ${url}`)
-    const raw = await this.tinyfish.crawl(url,
+    const raw = await this.tinyfish.crawl(
+      url,
       'Visit this developer blog/profile page. Extract:\n' +
-      '- platform (string): "dev.to", "medium", "hashnode", "personal", etc.\n' +
-      '- totalPosts (number): how many posts visible or stated\n' +
-      '- recentPosts (array of {title, date, tags}): last 5 posts\n' +
-      '- topicFocus (string[]): main topics the author writes about\n' +
-      '- writingQuality (string): "excellent", "good", "basic"\n' +
-      '- summary (string): 2-3 sentence assessment of their technical writing\n' +
-      'Return as JSON.',
-      { label: 'Blog', onProgress },
+        '- platform (string): "dev.to", "medium", "hashnode", "personal", etc.\n' +
+        '- totalPosts (number): how many posts visible or stated\n' +
+        '- recentPosts (array of {title, date, tags}): last 5 posts\n' +
+        '- topicFocus (string[]): main topics the author writes about\n' +
+        '- writingQuality (string): "excellent", "good", "basic"\n' +
+        '- summary (string): 2-3 sentence assessment of their technical writing\n' +
+        'Return as JSON.',
+      { label: 'Blog', onProgress }
     )
 
     if (!raw) return null
@@ -249,20 +301,30 @@ export class ExtendedEnrichmentService {
         url,
         totalPosts: data.totalPosts || 0,
         recentPosts: (data.recentPosts || []).map((p: Record<string, unknown>) => ({
-          title: String(p.title || ''), date: String(p.date || ''), tags: (p.tags as string[]) || [],
+          title: String(p.title || ''),
+          date: String(p.date || ''),
+          tags: (p.tags as string[]) || [],
         })),
         topicFocus: data.topicFocus || [],
         writingQuality: data.writingQuality || 'unknown',
         summary: data.summary || '',
       }
     } catch {
-      return { platform: 'unknown', url, totalPosts: 0, recentPosts: [], topicFocus: [], writingQuality: 'unknown', summary: raw.slice(0, 300) }
+      return {
+        platform: 'unknown',
+        url,
+        totalPosts: 0,
+        recentPosts: [],
+        topicFocus: [],
+        writingQuality: 'unknown',
+        summary: raw.slice(0, 300),
+      }
     }
   }
 
   private async enrichCompanyIntel(
     experience: { title: string; company: string; duration: string; description: string }[],
-    onProgress?: ProgressCallback,
+    onProgress?: ProgressCallback
   ): Promise<CompanyIntel[]> {
     const companies = [...new Set(experience.map((e) => e.company).filter(Boolean))]
     this.logger.log(`Company intel: checking ${companies.length} companies`)
@@ -273,20 +335,29 @@ export class ExtendedEnrichmentService {
     for (const company of companies.slice(0, 5)) {
       this.logger.log(`Company intel: ${company}`)
       const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(`"${company}" company website`)}`
-      const raw = await this.tinyfish.crawl(searchUrl,
+      const raw = await this.tinyfish.crawl(
+        searchUrl,
         `Search for the company "${company}". Find their official website. Then visit it and extract:\n` +
-        '- url (string|null): the company official website URL\n' +
-        '- exists (boolean): does the company appear to be a real, active company?\n' +
-        '- industry (string|null): what industry are they in?\n' +
-        '- techStack (string[]): any technologies mentioned on their site (programming languages, frameworks, cloud providers, etc.)\n' +
-        '- size (string|null): company size if mentioned (e.g. "50-200", "startup", "enterprise")\n' +
-        '- summary (string): 2-3 sentence description of the company\n' +
-        'Return as JSON.',
-        { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress },
+          '- url (string|null): the company official website URL\n' +
+          '- exists (boolean): does the company appear to be a real, active company?\n' +
+          '- industry (string|null): what industry are they in?\n' +
+          '- techStack (string[]): any technologies mentioned on their site (programming languages, frameworks, cloud providers, etc.)\n' +
+          '- size (string|null): company size if mentioned (e.g. "50-200", "startup", "enterprise")\n' +
+          '- summary (string): 2-3 sentence description of the company\n' +
+          'Return as JSON.',
+        { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress }
       )
 
       if (!raw) {
-        results.push({ company, url: null, exists: false, industry: null, techStack: [], size: null, summary: 'Could not verify' })
+        results.push({
+          company,
+          url: null,
+          exists: false,
+          industry: null,
+          techStack: [],
+          size: null,
+          summary: 'Could not verify',
+        })
         continue
       }
 
@@ -302,7 +373,15 @@ export class ExtendedEnrichmentService {
           summary: data.summary || '',
         })
       } catch {
-        results.push({ company, url: null, exists: true, industry: null, techStack: [], size: null, summary: raw.slice(0, 300) })
+        results.push({
+          company,
+          url: null,
+          exists: true,
+          industry: null,
+          techStack: [],
+          size: null,
+          summary: raw.slice(0, 300),
+        })
       }
     }
 
@@ -310,17 +389,21 @@ export class ExtendedEnrichmentService {
     return results
   }
 
-  private async enrichStackOverflow(url: string, onProgress?: ProgressCallback): Promise<StackOverflowProfile | null> {
+  private async enrichStackOverflow(
+    url: string,
+    onProgress?: ProgressCallback
+  ): Promise<StackOverflowProfile | null> {
     this.logger.log(`Stack Overflow analysis: ${url}`)
-    const raw = await this.tinyfish.crawl(url,
+    const raw = await this.tinyfish.crawl(
+      url,
       'Visit this Stack Overflow profile page. Extract:\n' +
-      '- reputation (number)\n' +
-      '- badges: {gold: number, silver: number, bronze: number}\n' +
-      '- topTags (array of {name, score}): top 5 tags by score\n' +
-      '- answerCount (number): total answers\n' +
-      '- summary (string): 2-3 sentence assessment of their SO activity\n' +
-      'Return as JSON.',
-      { label: 'StackOverflow', onProgress },
+        '- reputation (number)\n' +
+        '- badges: {gold: number, silver: number, bronze: number}\n' +
+        '- topTags (array of {name, score}): top 5 tags by score\n' +
+        '- answerCount (number): total answers\n' +
+        '- summary (string): 2-3 sentence assessment of their SO activity\n' +
+        'Return as JSON.',
+      { label: 'StackOverflow', onProgress }
     )
 
     if (!raw) return null
@@ -332,14 +415,21 @@ export class ExtendedEnrichmentService {
         reputation: data.reputation || 0,
         badges: data.badges || { gold: 0, silver: 0, bronze: 0 },
         topTags: (data.topTags || []).map((t: Record<string, unknown>) => ({
-          name: String(t.name || ''), score: Number(t.score || 0),
+          name: String(t.name || ''),
+          score: Number(t.score || 0),
         })),
         answerCount: data.answerCount || 0,
         summary: data.summary || '',
       }
     } catch {
-      return { url, reputation: 0, badges: { gold: 0, silver: 0, bronze: 0 }, topTags: [], answerCount: 0, summary: raw.slice(0, 300) }
+      return {
+        url,
+        reputation: 0,
+        badges: { gold: 0, silver: 0, bronze: 0 },
+        topTags: [],
+        answerCount: 0,
+        summary: raw.slice(0, 300),
+      }
     }
   }
-
 }

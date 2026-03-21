@@ -14,7 +14,7 @@ export class SeedService implements OnModuleInit {
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(JobEntity)
-    private readonly jobRepo: Repository<JobEntity>,
+    private readonly jobRepo: Repository<JobEntity>
   ) {}
 
   async onModuleInit() {
@@ -33,30 +33,46 @@ export class SeedService implements OnModuleInit {
     const techCorp = await this.companyRepo.save(
       this.companyRepo.create({
         name: 'Acme Corp',
-        description: 'Leading software company specializing in fintech and e-commerce solutions across Southeast Asia.',
-      }),
+        description:
+          'Leading software company specializing in fintech and e-commerce solutions across Southeast Asia.',
+      })
     )
 
     const startupAI = await this.companyRepo.save(
       this.companyRepo.create({
         name: 'Moonlight Labs',
         description: 'AI-first startup building intelligent automation tools for enterprises.',
-      }),
+      })
     )
 
     const globalSoft = await this.companyRepo.save(
       this.companyRepo.create({
         name: 'Nova Systems',
         description: 'International software consulting firm with offices in 12 countries.',
-      }),
+      })
     )
 
     const hashedPassword = await bcrypt.hash('123456', 10)
 
     await this.userRepo.save([
-      this.userRepo.create({ email: 'hr@acme.example', password: hashedPassword, name: 'Alice Recruiter', companyId: techCorp.id }),
-      this.userRepo.create({ email: 'hr@moonlight.example', password: hashedPassword, name: 'Bob Recruiter', companyId: startupAI.id }),
-      this.userRepo.create({ email: 'hr@nova.example', password: hashedPassword, name: 'Charlie Recruiter', companyId: globalSoft.id }),
+      this.userRepo.create({
+        email: 'hr@acme.example',
+        password: hashedPassword,
+        name: 'Alice Recruiter',
+        companyId: techCorp.id,
+      }),
+      this.userRepo.create({
+        email: 'hr@moonlight.example',
+        password: hashedPassword,
+        name: 'Bob Recruiter',
+        companyId: startupAI.id,
+      }),
+      this.userRepo.create({
+        email: 'hr@nova.example',
+        password: hashedPassword,
+        name: 'Charlie Recruiter',
+        companyId: globalSoft.id,
+      }),
     ])
 
     // === TechCorp Jobs ===
@@ -110,7 +126,7 @@ Red flags:
 - Job hopping with less than 1 year per role
 - Only frontend experience claiming fullstack
 - Resume lists too many technologies without depth`,
-      }),
+      })
     )
 
     await this.jobRepo.save(
@@ -163,7 +179,7 @@ Nice to have:
 Disqualify if:
 - Only jQuery or vanilla JS experience
 - No understanding of TypeScript`,
-      }),
+      })
     )
 
     await this.jobRepo.save(
@@ -194,7 +210,7 @@ Strong hands-on experience with AWS, Kubernetes, and Terraform. Comfortable with
           'Monitoring with Prometheus and Grafana',
         ],
         screeningCriteria: null,
-      }),
+      })
     )
 
     // === Moonlight Labs Jobs ===
@@ -253,7 +269,7 @@ Screening questions to consider:
 Avoid:
 - Pure data analysts without engineering skills
 - Candidates who only list "ChatGPT" as AI experience`,
-      }),
+      })
     )
 
     await this.jobRepo.save(
@@ -293,7 +309,7 @@ Culture fit:
 - Self-starter who doesn't need hand-holding
 - Comfortable with ambiguity and changing requirements
 - Good written communication (we're async-first)`,
-      }),
+      })
     )
 
     // === GlobalSoft Jobs ===
@@ -340,7 +356,7 @@ Do NOT accept:
 - Junior candidates positioned as senior
 - Only Android/mobile Java experience
 - No experience with enterprise-scale systems`,
-      }),
+      })
     )
 
     await this.jobRepo.save(
@@ -371,7 +387,7 @@ Strong programming skills in TypeScript or Python. Experience with modern testin
           'CI/CD integration for automated tests',
         ],
         screeningCriteria: null,
-      }),
+      })
     )
 
     await this.jobRepo.save(
@@ -409,7 +425,7 @@ Preferred:
 - Experience with CodePush or OTA updates
 - Knowledge of native build pipelines (Fastlane, Xcode, Gradle)
 - Performance optimization experience (FPS, memory)`,
-      }),
+      })
     )
 
     // === Bulk jobs for infinite scroll demo ===
@@ -418,48 +434,321 @@ Preferred:
 
   private async seedBulkJobs(companyIds: string[]) {
     const bulkJobs = [
-      { title: 'iOS Developer (Swift)', desc: 'native iOS apps with SwiftUI', reqs: ['3+ years Swift', 'SwiftUI/UIKit', 'Core Data', 'Published App Store apps'] },
-      { title: 'Android Developer (Kotlin)', desc: 'native Android apps with Jetpack Compose', reqs: ['3+ years Kotlin', 'Jetpack Compose', 'MVVM architecture', 'Published Play Store apps'] },
-      { title: 'Site Reliability Engineer', desc: 'maintain 99.99% uptime for production systems', reqs: ['3+ years SRE', 'Kubernetes', 'Prometheus/Grafana', 'Incident management'] },
-      { title: 'Data Engineer', desc: 'build and maintain data pipelines at scale', reqs: ['3+ years data engineering', 'Apache Spark or Flink', 'Airflow/Dagster', 'SQL and Python'] },
-      { title: 'Product Manager', desc: 'drive product strategy for B2B SaaS platform', reqs: ['3+ years PM experience', 'B2B SaaS background', 'Data-driven decision making', 'Technical literacy'] },
-      { title: 'UX/UI Designer', desc: 'design intuitive user experiences for web and mobile', reqs: ['3+ years UX design', 'Figma proficiency', 'User research skills', 'Design systems experience'] },
-      { title: 'Technical Writer', desc: 'create developer documentation and API guides', reqs: ['2+ years technical writing', 'API documentation', 'Markdown/MDX', 'Developer audience experience'] },
-      { title: 'Security Engineer', desc: 'implement security best practices and conduct audits', reqs: ['3+ years security', 'OWASP Top 10', 'Penetration testing', 'SOC 2 compliance'] },
-      { title: 'Blockchain Developer (Solidity)', desc: 'build smart contracts and DeFi protocols', reqs: ['2+ years Solidity', 'EVM chains', 'DeFi protocols', 'Hardhat/Foundry'] },
-      { title: 'Go Backend Developer', desc: 'build high-performance microservices in Go', reqs: ['3+ years Go', 'gRPC/REST APIs', 'PostgreSQL', 'Docker/Kubernetes'] },
-      { title: 'Rust Systems Engineer', desc: 'develop low-latency systems and infrastructure tools', reqs: ['2+ years Rust', 'Systems programming', 'Async runtime (Tokio)', 'Performance optimization'] },
-      { title: 'Platform Engineer', desc: 'build internal developer platform and tooling', reqs: ['3+ years platform eng', 'Kubernetes operators', 'CI/CD pipelines', 'Developer experience'] },
-      { title: 'Engineering Manager', desc: 'lead a team of 6-8 engineers building payment systems', reqs: ['5+ years engineering', '2+ years people management', 'Agile/Scrum', 'Technical architecture'] },
-      { title: 'Solutions Architect', desc: 'design technical solutions for enterprise clients', reqs: ['5+ years architecture', 'Cloud platforms (AWS/GCP)', 'Enterprise integration', 'Client-facing skills'] },
-      { title: 'Database Administrator', desc: 'manage and optimize PostgreSQL and MongoDB clusters', reqs: ['3+ years DBA', 'PostgreSQL tuning', 'Replication/HA', 'Backup and recovery'] },
-      { title: 'AI/ML Ops Engineer', desc: 'build ML infrastructure and model serving pipelines', reqs: ['2+ years MLOps', 'Kubeflow/MLflow', 'Model serving (TensorRT, Triton)', 'CI/CD for ML'] },
-      { title: 'Embedded Systems Engineer', desc: 'develop firmware for IoT devices', reqs: ['3+ years embedded C/C++', 'RTOS experience', 'BLE/WiFi protocols', 'Hardware debugging'] },
-      { title: 'Network Engineer', desc: 'design and manage enterprise network infrastructure', reqs: ['3+ years networking', 'CCNA/CCNP', 'SD-WAN', 'Network security'] },
-      { title: 'Salesforce Developer', desc: 'customize Salesforce platform with Apex and LWC', reqs: ['2+ years Salesforce', 'Apex programming', 'Lightning Web Components', 'Salesforce certification'] },
-      { title: 'SAP Consultant (FICO)', desc: 'implement and configure SAP Finance modules', reqs: ['3+ years SAP FICO', 'S/4HANA migration', 'ABAP basics', 'SAP certification'] },
-      { title: 'Cloud Architect (AWS)', desc: 'design scalable cloud architecture on AWS', reqs: ['5+ years AWS', 'Well-Architected Framework', 'Multi-account strategy', 'Cost optimization'] },
-      { title: 'Vue.js Frontend Developer', desc: 'build SPAs with Vue 3 and Nuxt', reqs: ['2+ years Vue.js', 'Composition API', 'Pinia/Vuex', 'Nuxt 3'] },
-      { title: 'Angular Developer', desc: 'develop enterprise web applications with Angular', reqs: ['3+ years Angular', 'RxJS', 'NgRx', 'Angular Material'] },
-      { title: 'PHP Developer (Laravel)', desc: 'build web applications with Laravel', reqs: ['3+ years PHP/Laravel', 'MySQL/PostgreSQL', 'Redis', 'REST API design'] },
-      { title: 'Ruby on Rails Developer', desc: 'maintain and scale Ruby on Rails applications', reqs: ['3+ years Rails', 'PostgreSQL', 'Sidekiq/Redis', 'RSpec testing'] },
-      { title: '.NET Developer (C#)', desc: 'build enterprise applications with .NET 8', reqs: ['3+ years C#/.NET', 'ASP.NET Core', 'Entity Framework', 'Azure DevOps'] },
-      { title: 'Elixir/Phoenix Developer', desc: 'build real-time applications with Elixir', reqs: ['2+ years Elixir', 'Phoenix Framework', 'OTP/GenServer', 'PostgreSQL'] },
-      { title: 'Scala Developer', desc: 'build data processing systems with Scala and Spark', reqs: ['3+ years Scala', 'Apache Spark', 'Akka', 'Functional programming'] },
-      { title: 'Flutter Developer', desc: 'build cross-platform mobile apps with Flutter', reqs: ['2+ years Flutter/Dart', 'State management (Riverpod/Bloc)', 'Published apps', 'Platform channels'] },
-      { title: 'Technical Support Engineer', desc: 'provide L2/L3 support for SaaS platform', reqs: ['2+ years tech support', 'SQL debugging', 'API troubleshooting', 'Customer communication'] },
-      { title: 'Growth Engineer', desc: 'build experimentation infrastructure and growth features', reqs: ['2+ years growth/fullstack', 'A/B testing frameworks', 'Analytics (Amplitude/Mixpanel)', 'SQL'] },
-      { title: 'Computer Vision Engineer', desc: 'develop image recognition and video analytics systems', reqs: ['3+ years CV', 'PyTorch/TensorFlow', 'OpenCV', 'Object detection/segmentation'] },
-      { title: 'NLP Engineer', desc: 'build text processing and language understanding systems', reqs: ['3+ years NLP', 'Transformers/BERT', 'spaCy/Hugging Face', 'Text classification/NER'] },
-      { title: 'Game Developer (Unity)', desc: 'develop mobile and PC games with Unity', reqs: ['2+ years Unity/C#', 'Shader programming', 'Physics systems', 'Published games'] },
-      { title: 'Unreal Engine Developer', desc: 'build AAA-quality game experiences', reqs: ['3+ years UE5', 'C++ and Blueprints', '3D rendering', 'Multiplayer networking'] },
-      { title: 'ETL Developer', desc: 'build data integration pipelines with modern tools', reqs: ['2+ years ETL', 'dbt', 'Snowflake/BigQuery', 'Python/SQL'] },
-      { title: 'Scrum Master', desc: 'facilitate agile processes for engineering teams', reqs: ['2+ years Scrum Master', 'CSM/PSM certification', 'Jira administration', 'Conflict resolution'] },
-      { title: 'Business Analyst', desc: 'bridge business needs and technical implementation', reqs: ['2+ years BA', 'Requirements gathering', 'Process modeling (BPMN)', 'Stakeholder management'] },
-      { title: 'Content Strategist', desc: 'develop content strategy for developer platform', reqs: ['3+ years content', 'SEO knowledge', 'Developer marketing', 'Analytics-driven approach'] },
-      { title: 'Customer Success Manager', desc: 'drive adoption and retention for enterprise clients', reqs: ['3+ years CSM', 'SaaS experience', 'Churn prevention', 'Executive communication'] },
-      { title: 'Infrastructure Engineer', desc: 'manage bare-metal and cloud hybrid infrastructure', reqs: ['3+ years infrastructure', 'Linux administration', 'Networking', 'Ansible/Puppet'] },
-      { title: 'Release Engineer', desc: 'manage release processes and deployment automation', reqs: ['2+ years release eng', 'CI/CD (Jenkins/GitHub Actions)', 'Docker', 'Release coordination'] },
+      {
+        title: 'iOS Developer (Swift)',
+        desc: 'native iOS apps with SwiftUI',
+        reqs: ['3+ years Swift', 'SwiftUI/UIKit', 'Core Data', 'Published App Store apps'],
+      },
+      {
+        title: 'Android Developer (Kotlin)',
+        desc: 'native Android apps with Jetpack Compose',
+        reqs: [
+          '3+ years Kotlin',
+          'Jetpack Compose',
+          'MVVM architecture',
+          'Published Play Store apps',
+        ],
+      },
+      {
+        title: 'Site Reliability Engineer',
+        desc: 'maintain 99.99% uptime for production systems',
+        reqs: ['3+ years SRE', 'Kubernetes', 'Prometheus/Grafana', 'Incident management'],
+      },
+      {
+        title: 'Data Engineer',
+        desc: 'build and maintain data pipelines at scale',
+        reqs: [
+          '3+ years data engineering',
+          'Apache Spark or Flink',
+          'Airflow/Dagster',
+          'SQL and Python',
+        ],
+      },
+      {
+        title: 'Product Manager',
+        desc: 'drive product strategy for B2B SaaS platform',
+        reqs: [
+          '3+ years PM experience',
+          'B2B SaaS background',
+          'Data-driven decision making',
+          'Technical literacy',
+        ],
+      },
+      {
+        title: 'UX/UI Designer',
+        desc: 'design intuitive user experiences for web and mobile',
+        reqs: [
+          '3+ years UX design',
+          'Figma proficiency',
+          'User research skills',
+          'Design systems experience',
+        ],
+      },
+      {
+        title: 'Technical Writer',
+        desc: 'create developer documentation and API guides',
+        reqs: [
+          '2+ years technical writing',
+          'API documentation',
+          'Markdown/MDX',
+          'Developer audience experience',
+        ],
+      },
+      {
+        title: 'Security Engineer',
+        desc: 'implement security best practices and conduct audits',
+        reqs: ['3+ years security', 'OWASP Top 10', 'Penetration testing', 'SOC 2 compliance'],
+      },
+      {
+        title: 'Blockchain Developer (Solidity)',
+        desc: 'build smart contracts and DeFi protocols',
+        reqs: ['2+ years Solidity', 'EVM chains', 'DeFi protocols', 'Hardhat/Foundry'],
+      },
+      {
+        title: 'Go Backend Developer',
+        desc: 'build high-performance microservices in Go',
+        reqs: ['3+ years Go', 'gRPC/REST APIs', 'PostgreSQL', 'Docker/Kubernetes'],
+      },
+      {
+        title: 'Rust Systems Engineer',
+        desc: 'develop low-latency systems and infrastructure tools',
+        reqs: [
+          '2+ years Rust',
+          'Systems programming',
+          'Async runtime (Tokio)',
+          'Performance optimization',
+        ],
+      },
+      {
+        title: 'Platform Engineer',
+        desc: 'build internal developer platform and tooling',
+        reqs: [
+          '3+ years platform eng',
+          'Kubernetes operators',
+          'CI/CD pipelines',
+          'Developer experience',
+        ],
+      },
+      {
+        title: 'Engineering Manager',
+        desc: 'lead a team of 6-8 engineers building payment systems',
+        reqs: [
+          '5+ years engineering',
+          '2+ years people management',
+          'Agile/Scrum',
+          'Technical architecture',
+        ],
+      },
+      {
+        title: 'Solutions Architect',
+        desc: 'design technical solutions for enterprise clients',
+        reqs: [
+          '5+ years architecture',
+          'Cloud platforms (AWS/GCP)',
+          'Enterprise integration',
+          'Client-facing skills',
+        ],
+      },
+      {
+        title: 'Database Administrator',
+        desc: 'manage and optimize PostgreSQL and MongoDB clusters',
+        reqs: ['3+ years DBA', 'PostgreSQL tuning', 'Replication/HA', 'Backup and recovery'],
+      },
+      {
+        title: 'AI/ML Ops Engineer',
+        desc: 'build ML infrastructure and model serving pipelines',
+        reqs: [
+          '2+ years MLOps',
+          'Kubeflow/MLflow',
+          'Model serving (TensorRT, Triton)',
+          'CI/CD for ML',
+        ],
+      },
+      {
+        title: 'Embedded Systems Engineer',
+        desc: 'develop firmware for IoT devices',
+        reqs: [
+          '3+ years embedded C/C++',
+          'RTOS experience',
+          'BLE/WiFi protocols',
+          'Hardware debugging',
+        ],
+      },
+      {
+        title: 'Network Engineer',
+        desc: 'design and manage enterprise network infrastructure',
+        reqs: ['3+ years networking', 'CCNA/CCNP', 'SD-WAN', 'Network security'],
+      },
+      {
+        title: 'Salesforce Developer',
+        desc: 'customize Salesforce platform with Apex and LWC',
+        reqs: [
+          '2+ years Salesforce',
+          'Apex programming',
+          'Lightning Web Components',
+          'Salesforce certification',
+        ],
+      },
+      {
+        title: 'SAP Consultant (FICO)',
+        desc: 'implement and configure SAP Finance modules',
+        reqs: ['3+ years SAP FICO', 'S/4HANA migration', 'ABAP basics', 'SAP certification'],
+      },
+      {
+        title: 'Cloud Architect (AWS)',
+        desc: 'design scalable cloud architecture on AWS',
+        reqs: [
+          '5+ years AWS',
+          'Well-Architected Framework',
+          'Multi-account strategy',
+          'Cost optimization',
+        ],
+      },
+      {
+        title: 'Vue.js Frontend Developer',
+        desc: 'build SPAs with Vue 3 and Nuxt',
+        reqs: ['2+ years Vue.js', 'Composition API', 'Pinia/Vuex', 'Nuxt 3'],
+      },
+      {
+        title: 'Angular Developer',
+        desc: 'develop enterprise web applications with Angular',
+        reqs: ['3+ years Angular', 'RxJS', 'NgRx', 'Angular Material'],
+      },
+      {
+        title: 'PHP Developer (Laravel)',
+        desc: 'build web applications with Laravel',
+        reqs: ['3+ years PHP/Laravel', 'MySQL/PostgreSQL', 'Redis', 'REST API design'],
+      },
+      {
+        title: 'Ruby on Rails Developer',
+        desc: 'maintain and scale Ruby on Rails applications',
+        reqs: ['3+ years Rails', 'PostgreSQL', 'Sidekiq/Redis', 'RSpec testing'],
+      },
+      {
+        title: '.NET Developer (C#)',
+        desc: 'build enterprise applications with .NET 8',
+        reqs: ['3+ years C#/.NET', 'ASP.NET Core', 'Entity Framework', 'Azure DevOps'],
+      },
+      {
+        title: 'Elixir/Phoenix Developer',
+        desc: 'build real-time applications with Elixir',
+        reqs: ['2+ years Elixir', 'Phoenix Framework', 'OTP/GenServer', 'PostgreSQL'],
+      },
+      {
+        title: 'Scala Developer',
+        desc: 'build data processing systems with Scala and Spark',
+        reqs: ['3+ years Scala', 'Apache Spark', 'Akka', 'Functional programming'],
+      },
+      {
+        title: 'Flutter Developer',
+        desc: 'build cross-platform mobile apps with Flutter',
+        reqs: [
+          '2+ years Flutter/Dart',
+          'State management (Riverpod/Bloc)',
+          'Published apps',
+          'Platform channels',
+        ],
+      },
+      {
+        title: 'Technical Support Engineer',
+        desc: 'provide L2/L3 support for SaaS platform',
+        reqs: [
+          '2+ years tech support',
+          'SQL debugging',
+          'API troubleshooting',
+          'Customer communication',
+        ],
+      },
+      {
+        title: 'Growth Engineer',
+        desc: 'build experimentation infrastructure and growth features',
+        reqs: [
+          '2+ years growth/fullstack',
+          'A/B testing frameworks',
+          'Analytics (Amplitude/Mixpanel)',
+          'SQL',
+        ],
+      },
+      {
+        title: 'Computer Vision Engineer',
+        desc: 'develop image recognition and video analytics systems',
+        reqs: ['3+ years CV', 'PyTorch/TensorFlow', 'OpenCV', 'Object detection/segmentation'],
+      },
+      {
+        title: 'NLP Engineer',
+        desc: 'build text processing and language understanding systems',
+        reqs: [
+          '3+ years NLP',
+          'Transformers/BERT',
+          'spaCy/Hugging Face',
+          'Text classification/NER',
+        ],
+      },
+      {
+        title: 'Game Developer (Unity)',
+        desc: 'develop mobile and PC games with Unity',
+        reqs: ['2+ years Unity/C#', 'Shader programming', 'Physics systems', 'Published games'],
+      },
+      {
+        title: 'Unreal Engine Developer',
+        desc: 'build AAA-quality game experiences',
+        reqs: ['3+ years UE5', 'C++ and Blueprints', '3D rendering', 'Multiplayer networking'],
+      },
+      {
+        title: 'ETL Developer',
+        desc: 'build data integration pipelines with modern tools',
+        reqs: ['2+ years ETL', 'dbt', 'Snowflake/BigQuery', 'Python/SQL'],
+      },
+      {
+        title: 'Scrum Master',
+        desc: 'facilitate agile processes for engineering teams',
+        reqs: [
+          '2+ years Scrum Master',
+          'CSM/PSM certification',
+          'Jira administration',
+          'Conflict resolution',
+        ],
+      },
+      {
+        title: 'Business Analyst',
+        desc: 'bridge business needs and technical implementation',
+        reqs: [
+          '2+ years BA',
+          'Requirements gathering',
+          'Process modeling (BPMN)',
+          'Stakeholder management',
+        ],
+      },
+      {
+        title: 'Content Strategist',
+        desc: 'develop content strategy for developer platform',
+        reqs: [
+          '3+ years content',
+          'SEO knowledge',
+          'Developer marketing',
+          'Analytics-driven approach',
+        ],
+      },
+      {
+        title: 'Customer Success Manager',
+        desc: 'drive adoption and retention for enterprise clients',
+        reqs: ['3+ years CSM', 'SaaS experience', 'Churn prevention', 'Executive communication'],
+      },
+      {
+        title: 'Infrastructure Engineer',
+        desc: 'manage bare-metal and cloud hybrid infrastructure',
+        reqs: ['3+ years infrastructure', 'Linux administration', 'Networking', 'Ansible/Puppet'],
+      },
+      {
+        title: 'Release Engineer',
+        desc: 'manage release processes and deployment automation',
+        reqs: [
+          '2+ years release eng',
+          'CI/CD (Jenkins/GitHub Actions)',
+          'Docker',
+          'Release coordination',
+        ],
+      },
     ]
 
     const jobs: Partial<JobEntity>[] = []
@@ -474,7 +763,10 @@ Preferred:
         title: b.title,
         description: `## About the Role\n\nWe are hiring a **${b.title}** to ${b.desc}.\n\n## What You'll Do\n\n- Lead technical initiatives in your domain\n- Collaborate with cross-functional teams\n- Write clean, tested, production-ready code\n- Participate in design reviews and architecture discussions\n- Mentor junior team members\n\n## Requirements\n\n${b.reqs.map((r) => `- ${r}`).join('\n')}\n\n## Benefits\n\n- Competitive salary + annual bonus\n- Flexible working hours\n- Health insurance for you and family\n- Learning & development budget`,
         requirements: b.reqs,
-        screeningCriteria: i % 3 === 0 ? `Prefer candidates with ${yearsReq}+ years of hands-on experience.\nMust have GitHub or portfolio demonstrating relevant work.\nBonus: open source contributions or technical blog posts.` : null,
+        screeningCriteria:
+          i % 3 === 0
+            ? `Prefer candidates with ${yearsReq}+ years of hands-on experience.\nMust have GitHub or portfolio demonstrating relevant work.\nBonus: open source contributions or technical blog posts.`
+            : null,
         isActive: i % 7 !== 0, // ~15% inactive to demo filtering
       })
     }

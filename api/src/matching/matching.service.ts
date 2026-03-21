@@ -27,8 +27,12 @@ export class MatchingService {
   }
 
   async score(candidate: CandidateData, job: JobData): Promise<MatchResult> {
-    this.logger.log(`Scoring: cvText=${candidate.cvText.length} chars, parsedCV=${!!candidate.parsedCV}, enrichment.github=${!!candidate.enrichment?.github}, enrichment.linkedin=${!!candidate.enrichment?.linkedin}`)
-    this.logger.debug(`Job: requirements=${job.requirements.length}, hasScreening=${!!job.screeningCriteria}`)
+    this.logger.log(
+      `Scoring: cvText=${candidate.cvText.length} chars, parsedCV=${!!candidate.parsedCV}, enrichment.github=${!!candidate.enrichment?.github}, enrichment.linkedin=${!!candidate.enrichment?.linkedin}`
+    )
+    this.logger.debug(
+      `Job: requirements=${job.requirements.length}, hasScreening=${!!job.screeningCriteria}`
+    )
 
     const prompt = this.buildPrompt(candidate, job)
     this.logger.debug(`Prompt length: ${prompt.length} chars`)
@@ -55,10 +59,14 @@ export class MatchingService {
 
       const content = response.choices[0]?.message?.content
       if (!content) throw new Error('No response from OpenAI')
-      this.logger.debug(`OpenAI response: ${content.length} chars, usage: ${JSON.stringify(response.usage)}`)
+      this.logger.debug(
+        `OpenAI response: ${content.length} chars, usage: ${JSON.stringify(response.usage)}`
+      )
 
       const result = JSON.parse(content) as MatchResult
-      this.logger.log(`Score result: ${result.overallScore}/100, recommendation=${result.recommendation}`)
+      this.logger.log(
+        `Score result: ${result.overallScore}/100, recommendation=${result.recommendation}`
+      )
       return {
         overallScore: Math.min(100, Math.max(0, result.overallScore)),
         explanation: result.explanation,
@@ -96,7 +104,12 @@ export class MatchingService {
       }
       if (Array.isArray(cv.experience) && cv.experience.length > 0) {
         prompt += `Work Experience:\n`
-        for (const exp of cv.experience as { title: string; company: string; duration: string; description: string }[]) {
+        for (const exp of cv.experience as {
+          title: string
+          company: string
+          duration: string
+          description: string
+        }[]) {
           prompt += `- **${exp.title}** at ${exp.company} (${exp.duration}): ${exp.description}\n`
         }
         prompt += '\n'

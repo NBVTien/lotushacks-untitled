@@ -10,12 +10,18 @@ export class StartupService implements OnModuleInit {
 
   constructor(
     @InjectRepository(CandidateEntity)
-    private readonly repo: Repository<CandidateEntity>,
+    private readonly repo: Repository<CandidateEntity>
   ) {}
 
   async onModuleInit() {
     // Reset candidates stuck in processing states (from server crash/restart)
-    const stuckStatuses: CandidateStatus[] = ['uploaded', 'parsed', 'enriching', 'enriched', 'scoring']
+    const stuckStatuses: CandidateStatus[] = [
+      'uploaded',
+      'parsed',
+      'enriching',
+      'enriched',
+      'scoring',
+    ]
     const stuck = await this.repo.find({
       where: { status: In(stuckStatuses) },
     })

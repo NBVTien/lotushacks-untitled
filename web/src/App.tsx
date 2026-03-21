@@ -38,9 +38,7 @@ function Sidebar() {
   const location = useLocation()
   const { user, logout } = useAuth()
 
-  const navItems = [
-    { to: '/', label: 'Jobs', icon: Briefcase },
-  ]
+  const navItems = [{ to: '/', label: 'Jobs', icon: Briefcase }]
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border/50 bg-background lg:flex">
@@ -55,7 +53,9 @@ function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to))
+          const isActive =
+            location.pathname === item.to ||
+            (item.to !== '/' && location.pathname.startsWith(item.to))
           return (
             <Link
               key={item.to}
@@ -174,9 +174,7 @@ function RecruiterLayout({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <MobileHeader />
       <main className="min-h-screen lg:pl-64">
-        <div className="mx-auto max-w-6xl px-6 py-8">
-          {children}
-        </div>
+        <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
       </main>
     </>
   )
@@ -185,72 +183,104 @@ function RecruiterLayout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <ThemeProvider>
-    <BrowserRouter>
-      <AuthProvider>
-        <Toaster />
-        <Routes>
-          {/* Auth — no nav */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+      <BrowserRouter>
+        <AuthProvider>
+          <Toaster />
+          <Routes>
+            {/* Auth — no nav */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
-          {/* Recruiter (protected) — sidebar layout */}
-          <Route path="/" element={
-            <ProtectedRoute>
-              <RecruiterLayout><JobsPage /></RecruiterLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/jobs/:jobId" element={
-            <ProtectedRoute>
-              <RecruiterLayout><JobDetailPage /></RecruiterLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/jobs/:jobId/source" element={
-            <ProtectedRoute>
-              <RecruiterLayout><CandidateSourcingPage /></RecruiterLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/jobs/:jobId/candidates/:candidateId" element={
-            <ProtectedRoute>
-              <RecruiterLayout><CandidateDetailPage /></RecruiterLayout>
-            </ProtectedRoute>
-          } />
+            {/* Recruiter (protected) — sidebar layout */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <RecruiterLayout>
+                    <JobsPage />
+                  </RecruiterLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs/:jobId"
+              element={
+                <ProtectedRoute>
+                  <RecruiterLayout>
+                    <JobDetailPage />
+                  </RecruiterLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs/:jobId/source"
+              element={
+                <ProtectedRoute>
+                  <RecruiterLayout>
+                    <CandidateSourcingPage />
+                  </RecruiterLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs/:jobId/candidates/:candidateId"
+              element={
+                <ProtectedRoute>
+                  <RecruiterLayout>
+                    <CandidateDetailPage />
+                  </RecruiterLayout>
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Candidate (public) — careers nav */}
-          <Route path="/careers" element={
-            <>
-              <CareersNav />
-              <main className="mx-auto max-w-5xl px-6 py-8">
-                <CareersPage />
-              </main>
-            </>
-          } />
-          <Route path="/careers/discover" element={
-            <>
-              <CareersNav />
-              <main className="mx-auto max-w-5xl px-6 py-8">
-                <JobDiscoveryPage />
-              </main>
-            </>
-          } />
-          <Route path="/careers/company/:name" element={
-            <>
-              <CareersNav />
-              <main className="mx-auto max-w-5xl px-6 py-8">
-                <CompanyResearchPage />
-              </main>
-            </>
-          } />
-          <Route path="/careers/:jobId/apply" element={
-            <>
-              <CareersNav />
-              <main className="mx-auto max-w-5xl px-6 py-8">
-                <ApplyPage />
-              </main>
-            </>
-          } />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+            {/* Candidate (public) — careers nav */}
+            <Route
+              path="/careers"
+              element={
+                <>
+                  <CareersNav />
+                  <main className="mx-auto max-w-5xl px-6 py-8">
+                    <CareersPage />
+                  </main>
+                </>
+              }
+            />
+            <Route
+              path="/careers/discover"
+              element={
+                <>
+                  <CareersNav />
+                  <main className="mx-auto max-w-5xl px-6 py-8">
+                    <JobDiscoveryPage />
+                  </main>
+                </>
+              }
+            />
+            <Route
+              path="/careers/company/:name"
+              element={
+                <>
+                  <CareersNav />
+                  <main className="mx-auto max-w-5xl px-6 py-8">
+                    <CompanyResearchPage />
+                  </main>
+                </>
+              }
+            />
+            <Route
+              path="/careers/:jobId/apply"
+              element={
+                <>
+                  <CareersNav />
+                  <main className="mx-auto max-w-5xl px-6 py-8">
+                    <ApplyPage />
+                  </main>
+                </>
+              }
+            />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
     </ThemeProvider>
   )
 }

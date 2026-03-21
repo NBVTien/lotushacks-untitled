@@ -11,7 +11,7 @@ export class EnrichmentService {
 
   constructor(
     private readonly githubApi: GitHubApiService,
-    private readonly tinyfish: TinyFishCrawlService,
+    private readonly tinyfish: TinyFishCrawlService
   ) {}
 
   async enrich(links: ExtractedLinks, onProgress?: ProgressCallback): Promise<EnrichedProfile> {
@@ -28,15 +28,20 @@ export class EnrichmentService {
           this.logger.warn('LinkedIn crawl returned GitHub data — rescuing')
           onProgress?.('[LinkedIn] Received GitHub data instead — using as GitHub profile')
           if (!github) {
-            const username = links.github?.replace(/\/$/, '').split('/').pop() || rawData.username || ''
+            const username =
+              links.github?.replace(/\/$/, '').split('/').pop() || rawData.username || ''
             github = {
               username,
               bio: rawData.bio || null,
               topLanguages: rawData.top_languages || [],
-              repositories: (rawData.repositories || []).slice(0, 10).map((r: Record<string, unknown>) => ({
-                name: String(r.name || ''), description: r.description ? String(r.description) : null,
-                language: r.language ? String(r.language) : null, stars: Number(r.stars || 0),
-              })),
+              repositories: (rawData.repositories || [])
+                .slice(0, 10)
+                .map((r: Record<string, unknown>) => ({
+                  name: String(r.name || ''),
+                  description: r.description ? String(r.description) : null,
+                  language: r.language ? String(r.language) : null,
+                  stars: Number(r.stars || 0),
+                })),
               totalStars: Number(rawData.total_stars || 0),
               totalContributions: rawData.total_contributions ?? null,
               raw: linkedin.raw,
@@ -44,13 +49,18 @@ export class EnrichmentService {
           }
           linkedin = null
         }
-      } catch { /* not JSON */ }
+      } catch {
+        /* not JSON */
+      }
     }
 
     return { github, linkedin }
   }
 
-  private async enrichLinkedIn(url: string, onProgress?: ProgressCallback): Promise<LinkedInProfile | null> {
+  private async enrichLinkedIn(
+    url: string,
+    onProgress?: ProgressCallback
+  ): Promise<LinkedInProfile | null> {
     const publicUrl = url.includes('?') ? url : `${url}?trk=people_guest_people_search-card`
     this.logger.log(`Enriching LinkedIn: ${publicUrl}`)
 
@@ -90,7 +100,9 @@ export class EnrichmentService {
     }
 
     const result = this.parseLinkedInResponse(raw)
-    onProgress?.(`[LinkedIn] Done: ${result.experience.length} experiences, ${result.skills.length} skills`)
+    onProgress?.(
+      `[LinkedIn] Done: ${result.experience.length} experiences, ${result.skills.length} skills`
+    )
     return result
   }
 

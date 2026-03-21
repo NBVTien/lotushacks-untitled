@@ -15,7 +15,7 @@ export class AuthService {
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(CompanyEntity)
     private readonly companyRepo: Repository<CompanyEntity>,
-    private readonly jwt: JwtService,
+    private readonly jwt: JwtService
   ) {}
 
   async register(dto: RegisterDto) {
@@ -42,7 +42,7 @@ export class AuthService {
         password: hashed,
         name: dto.name,
         companyId: company.id,
-      }),
+      })
     )
 
     this.logger.log(`User registered: id=${user.id}, email=${user.email}, companyId=${company.id}`)
@@ -67,7 +67,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials')
     }
 
-    this.logger.log(`Login success: id=${user.id}, email=${user.email}, company="${user.company.name}"`)
+    this.logger.log(
+      `Login success: id=${user.id}, email=${user.email}, company="${user.company.name}"`
+    )
     return this.buildResponse(user, user.company)
   }
 
