@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatusBadge, RecommendationBadge } from '@/components/ui/status-badge'
 import { SkeletonCard } from '@/components/ui/skeleton'
-import { ArrowLeft, Upload, Pencil, Users, FileText } from 'lucide-react'
+import { ArrowLeft, Upload, Pencil, Users, FileText, LinkIcon, Check } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi, candidatesApi } from '@/lib/api'
@@ -44,6 +44,7 @@ export function JobDetailPage() {
     screeningCriteria: '',
   })
   const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const loadData = useCallback(async () => {
     if (!jobId || notFound) return
@@ -122,6 +123,27 @@ export function JobDetailPage() {
         </Link>
 
         <PageHeader title={job.title}>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              const link = `${window.location.origin}/careers/${jobId}/apply`
+              navigator.clipboard.writeText(link)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 2000)
+            }}
+          >
+            {copied ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-emerald-600">Copied!</span>
+              </>
+            ) : (
+              <>
+                <LinkIcon className="h-3.5 w-3.5" /> Copy Link
+              </>
+            )}
+          </Button>
           <Link to={`/jobs/${jobId}/source`}>
             <Button variant="outline" className="gap-2">
               <Users className="h-3.5 w-3.5" /> Source Candidates
