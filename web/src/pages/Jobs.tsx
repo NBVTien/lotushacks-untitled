@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { SkeletonCard } from '@/components/ui/skeleton'
-import { Plus, Briefcase, CheckCircle, X } from 'lucide-react'
+import { Plus, Briefcase, CheckCircle, XCircle, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
@@ -64,7 +64,7 @@ export function JobsPage() {
   const activeCount = jobs.filter((j) => j.isActive).length
 
   return (
-    <div className="space-y-8 animate-fade-up">
+    <div className="space-y-8">
       <PageHeader title="Jobs" description="Manage your job descriptions and candidates">
         <Button onClick={() => setShowForm(!showForm)} className="gap-2">
           {showForm ? <><X className="h-4 w-4" /> Cancel</> : <><Plus className="h-4 w-4" /> New Job</>}
@@ -74,19 +74,25 @@ export function JobsPage() {
       {/* Stats */}
       {!loading && jobs.length > 0 && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          <div className="rounded-xl border bg-card p-4 shadow-card">
-            <p className="text-sm text-muted-foreground">Total Jobs</p>
+          <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Briefcase className="h-3.5 w-3.5" />
+              Total Jobs
+            </div>
             <p className="mt-1 text-2xl font-semibold">{jobs.length}</p>
           </div>
-          <div className="rounded-xl border bg-card p-4 shadow-card">
+          <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
               Active
             </div>
             <p className="mt-1 text-2xl font-semibold">{activeCount}</p>
           </div>
-          <div className="rounded-xl border bg-card p-4 shadow-card">
-            <p className="text-sm text-muted-foreground">Inactive</p>
+          <div className="rounded-xl border border-border/40 bg-card p-4 shadow-card">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <XCircle className="h-3.5 w-3.5 text-muted-foreground/60" />
+              Inactive
+            </div>
             <p className="mt-1 text-2xl font-semibold">{jobs.length - activeCount}</p>
           </div>
         </div>
@@ -94,7 +100,7 @@ export function JobsPage() {
 
       {/* Create form */}
       {showForm && (
-        <Card className="shadow-card animate-fade-up">
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Create Job Description</CardTitle>
           </CardHeader>
@@ -188,20 +194,27 @@ export function JobsPage() {
           <SkeletonCard />
         </div>
       ) : jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 py-16">
-          <Briefcase className="h-10 w-10 text-muted-foreground/50" />
-          <p className="mt-4 text-sm font-medium text-muted-foreground">No jobs yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">Create a job description to get started</p>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 py-20">
+          <Briefcase className="h-10 w-10 text-muted-foreground/40" />
+          <p className="mt-5 text-lg font-semibold">No jobs yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">Create your first job description to start recruiting</p>
+          <Button onClick={() => setShowForm(true)} className="mt-6 gap-2">
+            <Plus className="h-4 w-4" /> Create First Job
+          </Button>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {jobs.map((job) => (
             <Link key={job.id} to={`/jobs/${job.id}`}>
-              <Card className={`group relative overflow-hidden shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5 ${!job.isActive ? 'opacity-60' : ''}`}>
-                <div className="absolute inset-y-0 left-0 w-1 bg-gradient-brand opacity-0 transition-opacity group-hover:opacity-100" />
+              <Card
+                className={`group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-md ${!job.isActive ? 'opacity-60' : ''}`}
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <CardTitle className="text-base">{job.title}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${job.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                      <CardTitle className="text-base">{job.title}</CardTitle>
+                    </div>
                     <Button
                       variant={job.isActive ? 'outline' : 'secondary'}
                       size="xs"
@@ -216,10 +229,16 @@ export function JobsPage() {
                   <p className="line-clamp-2 text-sm text-muted-foreground">
                     {job.description.replace(/[#*_`\[\]]/g, '').slice(0, 150)}...
                   </p>
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className="mt-3 flex items-center gap-3">
                     <span className="text-xs text-muted-foreground">
                       {job.requirements.length} requirements
                     </span>
+                    {(job as Job & { candidateCount?: number }).candidateCount != null && (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="h-3 w-3" />
+                        {(job as Job & { candidateCount?: number }).candidateCount} candidates
+                      </span>
+                    )}
                     {job.screeningCriteria && (
                       <Badge variant="outline" className="text-xs">
                         Has screening criteria

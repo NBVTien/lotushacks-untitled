@@ -15,6 +15,20 @@ import ReactMarkdown from 'react-markdown'
 import { jobsApi, candidatesApi } from '@/lib/api'
 import type { Job, Candidate } from '@lotushack/shared'
 
+function getScoreTextColor(score: number): string {
+  if (score >= 80) return 'text-foreground'
+  if (score >= 60) return 'text-foreground'
+  if (score >= 40) return 'text-muted-foreground'
+  return 'text-muted-foreground'
+}
+
+function getScoreDotColor(score: number): string {
+  if (score >= 80) return 'bg-emerald-500'
+  if (score >= 60) return 'bg-blue-500'
+  if (score >= 40) return 'bg-amber-500'
+  return 'bg-red-500'
+}
+
 export function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
   const [job, setJob] = useState<Job | null>(null)
@@ -62,7 +76,7 @@ export function JobDetailPage() {
 
   if (notFound) {
     return (
-      <div className="space-y-4 animate-fade-up">
+      <div className="space-y-4">
         <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
         </Link>
@@ -80,8 +94,14 @@ export function JobDetailPage() {
     )
   }
 
+  // Pipeline stats
+  const totalCandidates = candidates.length
+  const completedCount = candidates.filter((c) => c.status === 'completed').length
+  const processingCount = candidates.filter((c) => !['completed', 'error'].includes(c.status)).length
+  const errorCount = candidates.filter((c) => c.status === 'error').length
+
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div className="space-y-8">
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
       </Link>
@@ -123,9 +143,33 @@ export function JobDetailPage() {
         />
       </PageHeader>
 
-      {/* Edit form — slide-over style */}
+      {/* Pipeline stats */}
+      {candidates.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+            <p className="text-xl font-semibold">{totalCandidates}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Total</p>
+          </div>
+          <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+            <p className="text-xl font-semibold">{processingCount}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Processing</p>
+          </div>
+          <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+            <p className="text-xl font-semibold">{completedCount}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Completed</p>
+          </div>
+          {errorCount > 0 && (
+            <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+              <p className="text-xl font-semibold">{errorCount}</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Errors</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Edit form */}
       {editing && (
-        <Card className="shadow-card animate-fade-up">
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Edit Job</CardTitle>
           </CardHeader>
@@ -205,7 +249,7 @@ export function JobDetailPage() {
         </TabsList>
 
         <TabsContent value="jd" className="space-y-4">
-          <Card className="shadow-card">
+          <Card className="shadow-sm">
             <CardContent className="py-6">
               <div className="prose prose-sm max-w-none">
                 <ReactMarkdown>{job.description}</ReactMarkdown>
@@ -235,7 +279,7 @@ export function JobDetailPage() {
               <p className="mt-1 text-xs text-muted-foreground">Upload a CV to get started</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border shadow-card">
+            <div className="overflow-hidden rounded-xl border shadow-sm">
               <table className="w-full">
                 <thead>
                   <tr className="border-b bg-muted/40">
@@ -247,7 +291,7 @@ export function JobDetailPage() {
                 </thead>
                 <tbody>
                   {candidates.map((c) => (
-                    <tr key={c.id} className="group border-b last:border-0 transition-colors hover:bg-muted/30">
+                    <tr key={c.id} className="group border-b last:border-0 transition-colors hover:bg-muted/40">
                       <td className="px-4 py-3">
                         <Link to={`/jobs/${jobId}/candidates/${c.id}`} className="block">
                           <p className="font-medium text-sm group-hover:text-primary transition-colors">{c.name}</p>
@@ -259,7 +303,10 @@ export function JobDetailPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {c.matchResult && (
-                          <span className="text-lg font-bold">{c.matchResult.overallScore}</span>
+                          <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${getScoreTextColor(c.matchResult.overallScore)}`}>
+                            {c.matchResult.overallScore}
+                            <span className={`inline-block h-2 w-2 rounded-full ${getScoreDotColor(c.matchResult.overallScore)}`} />
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -277,7 +324,7 @@ export function JobDetailPage() {
 
         {job.screeningCriteria && (
           <TabsContent value="screening">
-            <Card className="shadow-card">
+            <Card className="shadow-sm">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-base">Screening Criteria</CardTitle>

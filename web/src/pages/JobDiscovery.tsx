@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Search, Radio } from 'lucide-react'
 
 interface DiscoveredJob {
   title: string
@@ -47,7 +48,6 @@ export function JobDiscoveryPage() {
     return () => { abortRef.current?.abort() }
   }, [])
 
-  /** Stream SSE from a POST endpoint (JSON body) */
   const streamSearch = async (url: string, body: Record<string, unknown>) => {
     setLoading(true)
     setError(null)
@@ -81,7 +81,6 @@ export function JobDiscoveryPage() {
     }
   }
 
-  /** Stream SSE from a POST endpoint (multipart form body) */
   const streamUpload = async (url: string, formData: FormData) => {
     setLoading(true)
     setError(null)
@@ -114,7 +113,6 @@ export function JobDiscoveryPage() {
     }
   }
 
-  /** Process an SSE ReadableStream */
   const processStream = async (body: ReadableStream<Uint8Array>) => {
     const reader = body.getReader()
     const decoder = new TextDecoder()
@@ -187,7 +185,7 @@ export function JobDiscoveryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-8">
       <div>
         <Link to="/careers" className="text-sm text-muted-foreground hover:text-foreground">
           &larr; Back to Careers
@@ -239,8 +237,9 @@ export function JobDiscoveryPage() {
               <Button
                 onClick={handleSkillsSearch}
                 disabled={loading || skills.trim().length === 0}
-                className="w-full"
+                className="w-full gap-2"
               >
+                <Search className="h-4 w-4" />
                 {loading ? 'Searching...' : 'Search Jobs'}
               </Button>
             </CardContent>
@@ -286,24 +285,29 @@ export function JobDiscoveryPage() {
         </Card>
       )}
 
-      {/* Streaming Logs */}
-      {loading && logs.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Search Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded border bg-muted/50 p-3 max-h-48 overflow-y-auto">
-              {logs.map((log, i) => (
-                <p key={i} className="text-xs text-muted-foreground font-mono">{log}</p>
-              ))}
-              <div ref={logsEndRef} />
+      {/* Log viewer */}
+      {(loading || logs.length > 0) && (
+        <div className="overflow-hidden rounded-lg border border-border/40 bg-muted/40">
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="text-sm text-muted-foreground font-mono">Search Progress</span>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex h-1.5 w-1.5 rounded-full ${loading ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} />
+              <span className="text-sm text-muted-foreground">{loading ? 'Streaming...' : 'Complete'}</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="max-h-56 overflow-y-auto px-4 pb-4 font-mono text-xs">
+            {logs.map((log, i) => (
+              <p key={i} className="text-muted-foreground leading-relaxed">
+                <span className="inline-block w-6 text-right text-muted-foreground/40 mr-3 select-none">{i + 1}</span>
+                {log}
+              </p>
+            ))}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
       )}
 
-      {/* Loading spinner */}
+      {/* Loading spinner (only if no logs yet) */}
       {loading && logs.length === 0 && (
         <div className="flex justify-center py-8">
           <div className="text-center space-y-2">
@@ -316,9 +320,15 @@ export function JobDiscoveryPage() {
       {/* Results */}
       {jobs.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Found {jobs.length} matching jobs</h2>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Radio className="h-4 w-4 text-muted-foreground" />
+            Found {jobs.length} matching jobs
+          </h2>
           {jobs.map((job, i) => (
-            <Card key={i}>
+            <Card
+              key={i}
+              className="shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-md"
+            >
               <CardContent className="py-4 space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
@@ -326,7 +336,7 @@ export function JobDiscoveryPage() {
                       href={job.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-lg font-semibold hover:underline"
+                      className="text-lg font-semibold hover:underline hover:text-primary transition-colors"
                     >
                       {job.title}
                     </a>
@@ -337,9 +347,9 @@ export function JobDiscoveryPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {job.matchScore != null && (
-                      <Badge variant="outline" className="text-primary border-primary font-semibold">
+                      <span className="bg-primary/8 text-primary text-xs font-medium px-2 py-0.5 rounded-full">
                         {Math.round(job.matchScore)}% match
-                      </Badge>
+                      </span>
                     )}
                     <Badge className={sourceBadgeColors[job.source] || 'bg-gray-100 text-gray-800'}>
                       {job.source}
@@ -363,8 +373,8 @@ export function JobDiscoveryPage() {
                 )}
 
                 {job.matchReason && (
-                  <div className="rounded border border-blue-200 bg-blue-50 p-2">
-                    <p className="text-sm text-blue-900">{job.matchReason}</p>
+                  <div className="rounded border bg-muted/50 p-2">
+                    <p className="text-sm">{job.matchReason}</p>
                   </div>
                 )}
 

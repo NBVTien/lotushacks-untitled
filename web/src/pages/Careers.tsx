@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { SkeletonCard } from '@/components/ui/skeleton'
-import { MapPin, ArrowRight } from 'lucide-react'
+import { MapPin, ArrowRight, Sparkles } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
@@ -59,31 +59,33 @@ export function CareersPage() {
   }, [loadMore, hasMore, loading])
 
   return (
-    <div className="space-y-12 animate-fade-up">
+    <div className="space-y-12">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-hero px-8 py-16 text-center text-white md:px-16 md:py-20">
-        <div className="bg-grid-pattern absolute inset-0 opacity-30" />
-        <div className="relative">
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-            Join Our Team
-          </h1>
-          <p className="mx-auto mt-4 max-w-lg text-lg text-white/80">
-            Find your next opportunity. We're looking for passionate people to help us build the future.
-          </p>
-        </div>
+      <div className="rounded-2xl bg-gradient-to-b from-primary/5 to-background px-8 py-20 text-center md:px-16 md:py-24">
+        <h1 className="text-4xl font-bold tracking-tight text-balance md:text-5xl">
+          Join Our Team
+        </h1>
+        <p className="mx-auto mt-5 max-w-lg text-lg text-muted-foreground">
+          Find your next opportunity. We're looking for passionate people to help us build the future.
+        </p>
       </div>
 
       {/* AI Discovery Banner */}
-      <Card className="border-primary/30 bg-primary/5">
-        <CardContent className="flex items-center justify-between py-5">
-          <div>
-            <h2 className="text-lg font-semibold">Let AI find the perfect job for you</h2>
-            <p className="text-sm text-muted-foreground">
-              Enter your skills and let our AI search across ITviec, TopDev, LinkedIn, and more.
-            </p>
+      <Card className="border-primary/10 bg-primary/5 shadow-sm">
+        <CardContent className="flex items-center justify-between py-6">
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Let AI find the perfect job for you</h2>
+              <p className="text-sm text-muted-foreground">
+                Enter your skills and let our AI search across ITviec, TopDev, LinkedIn, and more.
+              </p>
+            </div>
           </div>
-          <Button onClick={() => navigate('/careers/discover')}>
-            Discover Jobs
+          <Button onClick={() => navigate('/careers/discover')} className="gap-2">
+            <Sparkles className="h-4 w-4" /> Discover Jobs
           </Button>
         </CardContent>
       </Card>
@@ -104,43 +106,52 @@ export function CareersPage() {
       ) : (
         <div className="space-y-4">
           {jobs.map((job) => (
-            <Card key={job.id} className="group overflow-hidden shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
+            <Card
+              key={job.id}
+              className="group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-md"
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-3">
-                    <div>
-                      <h2 className="text-lg font-semibold tracking-tight group-hover:text-primary transition-colors">
-                        {job.title}
-                      </h2>
-                      {job.company && (
-                        <p className="mt-0.5 text-sm text-muted-foreground">{job.company.name}</p>
+                  <div className="flex gap-4 flex-1">
+                    {/* Initial avatar */}
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary text-lg font-semibold">
+                      {job.title.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <h2 className="text-lg font-semibold tracking-tight group-hover:text-primary transition-colors">
+                          {job.title}
+                        </h2>
+                        {job.company && (
+                          <p className="mt-0.5 text-sm text-muted-foreground">{job.company.name}</p>
+                        )}
+                      </div>
+
+                      {expanded === job.id ? (
+                        <div className="prose prose-sm max-w-none">
+                          <ReactMarkdown>{job.description}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="text-sm leading-relaxed text-muted-foreground">
+                          {job.description.replace(/[#*_`\[\]]/g, '').slice(0, 250)}...
+                        </p>
+                      )}
+
+                      <button
+                        onClick={() => setExpanded(expanded === job.id ? null : job.id)}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {expanded === job.id ? 'Show less' : 'Read more'}
+                      </button>
+
+                      {job.requirements.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {job.requirements.map((r, i) => (
+                            <Badge key={i} variant="secondary">{r}</Badge>
+                          ))}
+                        </div>
                       )}
                     </div>
-
-                    {expanded === job.id ? (
-                      <div className="prose prose-sm max-w-none">
-                        <ReactMarkdown>{job.description}</ReactMarkdown>
-                      </div>
-                    ) : (
-                      <p className="text-sm leading-relaxed text-muted-foreground">
-                        {job.description.replace(/[#*_`\[\]]/g, '').slice(0, 250)}...
-                      </p>
-                    )}
-
-                    <button
-                      onClick={() => setExpanded(expanded === job.id ? null : job.id)}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      {expanded === job.id ? 'Show less' : 'Read more'}
-                    </button>
-
-                    {job.requirements.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {job.requirements.map((r, i) => (
-                          <Badge key={i} variant="outline">{r}</Badge>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
