@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { JobCardSkeleton } from '@/components/ui/skeleton'
-import { Plus, Briefcase, X, Users, LinkIcon, Check, LayoutGrid, List } from 'lucide-react'
+import { Plus, Briefcase, X, Users, LinkIcon, Check, LayoutGrid, List, Search } from 'lucide-react'
 import { PageTransition, StaggerContainer, StaggerItem } from '@/components/ui/motion'
 import { ErrorState } from '@/components/ErrorState'
 import { EmptyState } from '@/components/EmptyState'
@@ -34,6 +34,7 @@ export function JobsPage() {
   const view = searchParams.get('view') === 'table' ? 'table' : 'card'
   const setView = (v: 'card' | 'table') =>
     setSearchParams((p) => { const n = new URLSearchParams(p); n.set('view', v); return n })
+  const [search, setSearch] = useState('')
 
   type JobField = 'title' | 'description' | 'requirements'
   const [formErrors, setFormErrors] = useState<Partial<Record<JobField, string>>>({})
@@ -286,8 +287,18 @@ export function JobsPage() {
           />
         ) : (
           <div className="space-y-3">
-            {/* View toggle */}
-            <div className="flex items-center justify-end gap-1">
+            {/* Search + View toggle */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="relative w-full max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search jobs..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-9 pl-8 text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-1">
               <button
                 onClick={() => setView('card')}
                 title="Card view"
@@ -302,11 +313,22 @@ export function JobsPage() {
               >
                 <List className="h-4 w-4" />
               </button>
+              </div>
             </div>
 
-            {view === 'card' ? (
+            {(() => {
+              const filteredJobs = search.trim()
+                ? jobs.filter((j) => j.title.toLowerCase().includes(search.toLowerCase()))
+                : jobs
+              return filteredJobs.length === 0 ? (
+                <EmptyState
+                  icon={Search}
+                  title="No matching jobs"
+                  description="Try a different search term"
+                />
+              ) : view === 'card' ? (
               <StaggerContainer className="grid gap-4 md:grid-cols-2">
-                {jobs.map((job) => (
+                {filteredJobs.map((job) => (
                   <StaggerItem key={job.id}>
                     <Link to={`/recruiter/jobs/${job.id}`}>
                       <Card
@@ -391,7 +413,7 @@ export function JobsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
-                    {jobs.map((job) => {
+                    {filteredJobs.map((job) => {
                       const jobWithCount = job as Job & { candidateCount?: number }
                       return (
                         <tr key={job.id} className="hover:bg-muted/20 transition-colors">
@@ -466,7 +488,8 @@ export function JobsPage() {
                   </tbody>
                 </table>
               </div>
-            )}
+            )
+            })()}
           </div>
         )}
       </div>
