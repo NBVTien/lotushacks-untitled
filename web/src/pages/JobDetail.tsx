@@ -88,6 +88,7 @@ export function JobDetailPage() {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [candidateView, setCandidateView] = useState<'table' | 'pipeline'>('table')
+  const [activeTab, setActiveTab] = useState('jd')
 
   const loadData = useCallback(async () => {
     if (!jobId || notFound) return
@@ -540,7 +541,7 @@ export function JobDetailPage() {
           </form>
         ) : (
           /* Read-only view */
-          <Tabs defaultValue="jd">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center justify-between gap-2">
               <TabsList>
                 <TabsTrigger value="jd" className="gap-1.5">
@@ -553,7 +554,7 @@ export function JobDetailPage() {
                 <TabsTrigger value="survey">Survey</TabsTrigger>
               </TabsList>
 
-              {candidates.length > 0 && (
+              {candidates.length > 0 && activeTab === 'candidates' && (
                 <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
                   <button
                     onClick={() => setCandidateView('table')}
