@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/collapsible'
 import { jobsApi, discoveryApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
+import { PageTransition } from '@/components/ui/motion'
 
 interface SourcedCandidate {
   name: string
@@ -39,12 +40,6 @@ const sourceColors: Record<string, string> = {
   Toptal: 'bg-indigo-100 text-indigo-800',
 }
 
-function getScoreBadgeColor(score: number): string {
-  if (score >= 80) return 'bg-green-100 text-green-800'
-  if (score >= 60) return 'bg-blue-100 text-blue-800'
-  if (score >= 40) return 'bg-yellow-100 text-yellow-800'
-  return 'bg-red-100 text-red-800'
-}
 
 export function CandidateSourcingPage() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -97,7 +92,6 @@ export function CandidateSourcingPage() {
     setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }))
   }
 
-  /** Stream SSE from a POST endpoint */
   const streamSourcing = async (url: string, body: Record<string, unknown>) => {
     setSourcing(true)
     setError(null)
@@ -193,7 +187,8 @@ export function CandidateSourcingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <PageTransition>
+    <div className="space-y-8">
       <div>
         <Link to={`/jobs/${jobId}`} className="text-sm text-muted-foreground hover:text-foreground">
           &larr; Back to Job
@@ -287,21 +282,26 @@ export function CandidateSourcingPage() {
         </Card>
       )}
 
-      {/* Streaming Logs */}
-      {sourcing && logs.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Sourcing Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded border bg-muted/50 p-3 max-h-48 overflow-y-auto">
-              {logs.map((log, i) => (
-                <p key={i} className="text-xs text-muted-foreground font-mono">{log}</p>
-              ))}
-              <div ref={logsEndRef} />
+      {/* Log viewer */}
+      {(sourcing || logs.length > 0) && (
+        <div className="overflow-hidden rounded-lg border border-border/40 bg-muted/40">
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="text-sm text-muted-foreground font-mono">Sourcing Progress</span>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex h-1.5 w-1.5 rounded-full ${sourcing ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} />
+              <span className="text-sm text-muted-foreground">{sourcing ? 'Streaming...' : 'Complete'}</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="max-h-56 overflow-y-auto px-4 pb-4 font-mono text-xs">
+            {logs.map((log, i) => (
+              <p key={i} className="text-muted-foreground leading-relaxed">
+                <span className="inline-block w-6 text-right text-muted-foreground/40 mr-3 select-none">{i + 1}</span>
+                {log}
+              </p>
+            ))}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
       )}
 
       {sourcing && logs.length === 0 && (
@@ -318,7 +318,10 @@ export function CandidateSourcingPage() {
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Found {candidates.length} candidates</h2>
           {candidates.map((c, i) => (
-            <Card key={i}>
+            <Card
+              key={i}
+              className="shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-md"
+            >
               <CardContent className="py-4 space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -326,7 +329,7 @@ export function CandidateSourcingPage() {
                       href={c.profileUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-semibold hover:underline"
+                      className="font-semibold hover:underline hover:text-primary transition-colors"
                     >
                       {c.name}
                     </a>
@@ -339,9 +342,9 @@ export function CandidateSourcingPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {c.matchScore != null && (
-                      <Badge className={getScoreBadgeColor(c.matchScore)}>
+                      <span className="bg-primary/8 text-primary text-xs font-medium px-2 py-0.5 rounded-full">
                         {c.matchScore}% match
-                      </Badge>
+                      </span>
                     )}
                     <Badge className={sourceColors[c.source] || 'bg-gray-100 text-gray-800'}>
                       {c.source}
@@ -353,9 +356,9 @@ export function CandidateSourcingPage() {
                 </div>
 
                 {c.matchReason && (
-                  <div className="rounded border border-blue-200 bg-blue-50 p-3">
-                    <p className="text-xs font-medium text-blue-700 mb-1">AI Analysis</p>
-                    <p className="text-sm text-blue-900">{c.matchReason}</p>
+                  <div className="rounded border bg-muted/50 p-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">AI Analysis</p>
+                    <p className="text-sm">{c.matchReason}</p>
                   </div>
                 )}
 
@@ -438,5 +441,6 @@ export function CandidateSourcingPage() {
         </div>
       )}
     </div>
+    </PageTransition>
   )
 }

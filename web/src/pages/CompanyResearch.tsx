@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { discoveryApi } from '@/lib/api'
+import { PageTransition } from '@/components/ui/motion'
 
 interface CompanyData {
   name: string
@@ -100,7 +101,8 @@ export function CompanyResearchPage() {
   }, [companyName])
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <PageTransition>
+    <div className="mx-auto max-w-4xl space-y-8">
       <div>
         <Link to="/careers" className="text-sm text-muted-foreground hover:text-foreground">
           &larr; Back to Careers
@@ -125,21 +127,26 @@ export function CompanyResearchPage() {
         </Card>
       )}
 
-      {/* Streaming Logs */}
-      {loading && logs.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Research Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded border bg-muted/50 p-3 max-h-48 overflow-y-auto">
-              {logs.map((log, i) => (
-                <p key={i} className="text-xs text-muted-foreground font-mono">{log}</p>
-              ))}
-              <div ref={logsEndRef} />
+      {/* Log viewer */}
+      {(loading || logs.length > 0) && (
+        <div className="overflow-hidden rounded-lg border border-border/40 bg-muted/40">
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="text-sm text-muted-foreground font-mono">Research Progress</span>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex h-1.5 w-1.5 rounded-full ${loading ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} />
+              <span className="text-sm text-muted-foreground">{loading ? 'Streaming...' : 'Complete'}</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="max-h-56 overflow-y-auto px-4 pb-4 font-mono text-xs">
+            {logs.map((log, i) => (
+              <p key={i} className="text-muted-foreground leading-relaxed">
+                <span className="inline-block w-6 text-right text-muted-foreground/40 mr-3 select-none">{i + 1}</span>
+                {log}
+              </p>
+            ))}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
       )}
 
       {loading && logs.length === 0 && (
@@ -273,5 +280,6 @@ export function CompanyResearchPage() {
         </div>
       )}
     </div>
+    </PageTransition>
   )
 }

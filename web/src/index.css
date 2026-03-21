@@ -48,9 +48,9 @@
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
 
-    --animate-fade-up: fade-up 0.4s ease-out both;
-    --animate-fade-in: fade-in 0.3s ease-out both;
-    --animate-slide-in-right: slide-in-right 0.3s ease-out both;
+    --animate-fade-up: fade-up 0.2s ease-out both;
+    --animate-fade-in: fade-in 0.2s ease-out both;
+    --animate-slide-in-right: slide-in-right 0.2s ease-out both;
     --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
     --animate-score-fill: score-fill 1s ease-out both;
 }
@@ -140,7 +140,7 @@
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -156,7 +156,7 @@
 @keyframes slide-in-right {
   from {
     opacity: 0;
-    transform: translateX(16px);
+    transform: translateX(8px);
   }
   to {
     opacity: 1;
@@ -175,11 +175,11 @@
 
 /* Utility classes */
 .bg-gradient-brand {
-  background: linear-gradient(135deg, oklch(0.45 0.18 265), oklch(0.50 0.20 290), oklch(0.55 0.15 310));
+  background: oklch(0.45 0.18 265);
 }
 
 .bg-gradient-hero {
-  background: linear-gradient(135deg, oklch(0.45 0.18 265) 0%, oklch(0.50 0.20 290) 50%, oklch(0.55 0.18 310) 100%);
+  background: oklch(0.45 0.18 265);
 }
 
 .bg-grid-pattern {
@@ -190,20 +190,49 @@
 }
 
 .shadow-card {
-  box-shadow:
-    0 1px 3px oklch(0 0 0 / 4%),
-    0 4px 12px oklch(0 0 0 / 3%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
 }
 
 .shadow-card-hover {
-  box-shadow:
-    0 2px 8px oklch(0 0 0 / 6%),
-    0 8px 24px oklch(0 0 0 / 5%);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, oklch(0.45 0.18 265), oklch(0.55 0.18 310));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: oklch(0.45 0.18 265);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Glass effect — simplified */
+.glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: oklch(1 0 0 / 80%);
+}
+.dark .glass {
+  background: oklch(0.15 0.01 260 / 80%);
+}
+
+
+/* Selection color */
+::selection {
+  background: oklch(0.45 0.18 265 / 25%);
+  color: oklch(0.15 0.01 260);
+}
+.dark ::selection {
+  background: oklch(0.65 0.18 265 / 30%);
+  color: oklch(0.95 0.005 260);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
