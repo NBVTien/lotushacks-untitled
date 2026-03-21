@@ -522,27 +522,26 @@ Return JSON array:
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
       const resourceDescriptions = resources.map((r, i) =>
-        `${i + 1}. [${r.source}/${r.type}] "${r.title}" — ${r.description}`
-      ).join('\n')
+        `${i + 1}. [${r.source}] "${r.title}"\n   URL: ${r.url}\n   Raw description: ${r.description || 'none'}`
+      ).join('\n\n')
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `You are an experienced software engineering mentor. A developer needs to learn "${skill}". Based on the resources found, provide personalized learning guidance. Be specific, practical, and encouraging.`
+            content: `You are an experienced software engineering mentor helping a developer learn "${skill}". You must analyze EACH specific resource and explain what knowledge that particular resource provides. Be concrete — reference the actual repo name, article title, or project. Never give generic advice.`
           },
           {
             role: 'user',
-            content: `Here are learning resources found for "${skill}":\n\n${resourceDescriptions}\n\nFor EACH resource, provide:\n1. A mentor-style summary (2-3 sentences explaining why this resource is valuable and how the developer should approach it)\n2. 2-3 specific key takeaways the developer will gain\n\nReturn JSON array matching the resource order:\n[{"summary": "...", "keyTakeaways": ["...", "...", "..."]}]`
+            content: `A developer needs to learn "${skill}". Here are the specific resources found:\n\n${resourceDescriptions}\n\nFor EACH resource above (in order), provide:\n1. "summary": A specific mentor-style explanation (2-3 sentences) about THIS particular resource — what it contains, why it's valuable for learning ${skill}, and how the developer should use it. Reference the actual name/title.\n2. "keyTakeaways": 3 specific skills/knowledge the developer will gain from THIS resource. Be concrete (e.g. "How to set up a Spark cluster locally" not "Understanding distributed computing").\n\nReturn a JSON array with one object per resource, in the same order:\n[{"summary": "...", "keyTakeaways": ["...", "...", "..."]}]`
           }
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        temperature: 0.5,
+        max_tokens: 3000,
       })
 
       const content = response.choices[0]?.message?.content || ''
-      // Parse the JSON response
       let mentorData: Array<{ summary?: string; keyTakeaways?: string[] }> = []
       try {
         const match = content.match(/\[[\s\S]*\]/)
@@ -553,7 +552,7 @@ Return JSON array:
         this.logger.warn('Failed to parse OpenAI mentor response')
       }
 
-      // Merge mentor data into resources
+      // Merge mentor data into resources — keep original title/url/description
       return resources.map((r, i) => ({
         ...r,
         summary: mentorData[i]?.summary || r.description,
@@ -561,7 +560,6 @@ Return JSON array:
       }))
     } catch (err) {
       this.logger.warn(`OpenAI synthesis failed: ${err}`)
-      // Fallback: use descriptions as summaries
       return resources.map(r => ({
         ...r,
         summary: r.description,
@@ -571,24 +569,36 @@ Return JSON array:
   }
 
   private parseResourceJson(raw: string): Array<{ title?: string; url?: string; description?: string }> {
+    this.logger.debug(`Parsing TinyFish result (${raw.length} chars): ${raw.substring(0, 500)}...`)
+
     try {
       // Try parsing directly
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) return parsed
+      if (Array.isArray(parsed)) {
+        this.logger.log(`Parsed ${parsed.length} resources directly`)
+        return parsed
+      }
       if (parsed.resources) return parsed.resources
       if (parsed.results) return parsed.results
       if (parsed.items) return parsed.items
       return [parsed]
     } catch {
-      // Try to extract JSON array from the text
-      const match = raw.match(/\[[\s\S]*?\]/)?.[0]
-      if (match) {
-        try {
-          return JSON.parse(match)
-        } catch {
-          return []
+      // Try to extract the LAST (most complete) JSON array from the text
+      const matches = [...raw.matchAll(/\[[\s\S]*?\]/g)]
+      if (matches.length > 0) {
+        // Try each match from largest to smallest
+        const sorted = matches.map(m => m[0]).sort((a, b) => b.length - a.length)
+        for (const match of sorted) {
+          try {
+            const parsed = JSON.parse(match)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              this.logger.log(`Extracted ${parsed.length} resources from text`)
+              return parsed
+            }
+          } catch { /* try next */ }
         }
       }
+      this.logger.warn(`Could not parse any resources from TinyFish result`)
       return []
     }
   }
