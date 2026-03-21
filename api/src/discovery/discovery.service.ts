@@ -40,33 +40,47 @@ export class DiscoveryService {
     this.logger.log(`Job discovery: skills=${skillsQuery}, location=${locationQuery}`)
     onProgress?.('Starting job discovery across multiple sources...')
 
-    const jobListingPrompt =
-      'Extract all visible job listings from this page. For each job, return JSON array with objects containing:\n' +
+    const jobJsonFormat =
+      'For each job found, return JSON array with objects containing:\n' +
       '- title (string): job title\n' +
       '- company (string): company name\n' +
       '- location (string|null): job location\n' +
       '- url (string): link to the job posting (full URL)\n' +
-      '- salary (string|null): salary if shown\n' +
+      '- salary (string|null): salary or budget if shown\n' +
       '- requirements (string[]): key requirements or skills mentioned\n' +
       '- postedDate (string|null): when the job was posted\n' +
       'Return a JSON array of up to 10 job listings. If no jobs found, return empty array [].'
 
+    // Wellfound: navigate to site, use the search/role selector UI
+    const wellfoundGoal =
+      `Go to Wellfound (AngelList). Click on "Find Jobs" or the search input. ` +
+      `Type "${titleQuery}" in the role/search field. If a dropdown appears with role suggestions, ` +
+      `click the most relevant one (e.g. "${titleQuery}"). Wait for results to load. ` +
+      `Extract the visible job listings. ${jobJsonFormat}`
+
+    // Upwork: use Google to find job listings (avoids Cloudflare block)
+    const upworkGoal =
+      `Search for Upwork job listings. Look at the search results and click on Upwork job links. ` +
+      `Extract job details from the pages you visit. ${jobJsonFormat}`
+
     const sources = [
       {
-        name: 'Upwork Jobs',
-        url: `https://www.upwork.com/nx/search/jobs/?q=${encodeURIComponent(skillsQuery)}&sort=recency`,
+        name: 'Upwork',
+        url: `https://www.google.com/search?q=site:upwork.com+jobs+${encodeURIComponent(titleQuery + ' ' + skillsQuery)}`,
         profile: 'stealth' as const,
+        goal: upworkGoal,
       },
       {
         name: 'Wellfound',
-        url: `https://wellfound.com/jobs?query=${encodeURIComponent(skillsQuery)}`,
-        profile: 'lite' as const,
+        url: 'https://wellfound.com/jobs',
+        profile: 'stealth' as const,
+        goal: wellfoundGoal,
       },
     ]
 
     const crawlTasks = sources.map((source) =>
       this.tinyfish
-        .crawl(source.url, jobListingPrompt, {
+        .crawl(source.url, source.goal, {
           browserProfile: source.profile,
           label: source.name,
           onProgress,
