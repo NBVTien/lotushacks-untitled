@@ -226,7 +226,7 @@ export class CandidatesService {
     const job = await this.jobs.findOne(jobId)
 
     const result = await this.matching.generateInterviewQuestions(
-      { cvText: candidate.cvText, matchResult: candidate.matchResult },
+      { cvText: candidate.cvText, matchResult: candidate.matchResult, enrichment: candidate.enrichment },
       { description: job.description, requirements: job.requirements }
     )
 

@@ -33,9 +33,7 @@ import {
   AlertTriangle,
   Brain,
   FileText,
-  Globe,
   FileCode,
-  FileImage,
   Upload,
   Search,
   CheckCircle,
@@ -44,7 +42,6 @@ import {
   Sparkles,
   Loader2,
   MessageSquare,
-  Lightbulb,
 } from 'lucide-react'
 import { PageTransition } from '@/components/ui/motion'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -189,102 +186,114 @@ export function CandidateDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Candidates
         </Link>
 
-        {/* Pipeline stepper — simplified dots */}
-        <div className="flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm">
-          {PIPELINE_STEPS.map((step, i) => {
-            const isCompleted = currentStepIndex > i
-            const isCurrent = currentStepIndex === i
-            const isError = candidate.status === 'error'
-            return (
-              <div key={step.key} className="flex flex-1 items-center">
-                <div className="flex flex-col items-center gap-1">
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 ${
-                      isCompleted
-                        ? 'bg-primary text-primary-foreground'
-                        : isCurrent && !isError
-                          ? 'bg-primary ring-2 ring-primary/20 text-primary-foreground'
-                          : isCurrent && isError
-                            ? 'bg-red-500 text-white'
-                            : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
-                    }`}
-                  >
-                    {isCompleted ? (
-                      <CheckCircle className="h-4 w-4" />
-                    ) : isCurrent && isError ? (
-                      <AlertTriangle className="h-4 w-4" />
-                    ) : (
-                      <span className="text-xs font-semibold">{i + 1}</span>
-                    )}
+        {/* Compact header — score + info + enrichment signals in one row */}
+        <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <div className="flex flex-col md:flex-row gap-5">
+            {/* Score ring — compact */}
+            <div className="flex flex-col items-center justify-center shrink-0">
+              {matchResult ? (
+                <>
+                  <ScoreRing score={matchResult.overallScore} size={100} strokeWidth={10} />
+                  <div className="mt-2">
+                    <RecommendationBadge recommendation={matchResult.recommendation} />
                   </div>
-                  <span
-                    className={`text-[10px] font-medium ${isCurrent ? (isError ? 'text-red-500' : 'text-primary') : isCompleted ? 'text-foreground' : 'text-muted-foreground/50'}`}
-                  >
-                    {step.label}
-                  </span>
+                </>
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  <Zap className="mx-auto h-6 w-6 opacity-30" />
+                  <p className="mt-1 text-xs">Pending</p>
                 </div>
-                {i < PIPELINE_STEPS.length - 1 && (
-                  <div
-                    className={`mx-1 mb-4 h-0.5 flex-1 rounded-full transition-colors ${isCompleted ? 'bg-primary' : 'bg-border'}`}
-                  />
+              )}
+            </div>
+
+            {/* Candidate info + status + links */}
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-semibold tracking-tight">{candidate.name}</h1>
+                  {(candidate.email || candidate.phone) && (
+                    <p className="text-sm text-muted-foreground">
+                      {[candidate.email, candidate.phone].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
+                <StatusBadge status={candidate.status} />
+              </div>
+
+              {/* Pipeline progress — inline compact */}
+              <div className="flex items-center gap-1">
+                {PIPELINE_STEPS.map((step, i) => {
+                  const isCompleted = currentStepIndex > i
+                  const isCurrent = currentStepIndex === i
+                  const isError = candidate.status === 'error'
+                  return (
+                    <div key={step.key} className="flex items-center">
+                      <div
+                        className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold ${
+                          isCompleted
+                            ? 'bg-primary text-primary-foreground'
+                            : isCurrent && !isError
+                              ? 'bg-primary ring-1 ring-primary/30 text-primary-foreground'
+                              : isCurrent && isError
+                                ? 'bg-red-500 text-white'
+                                : 'bg-muted text-muted-foreground/50'
+                        }`}
+                        title={step.label}
+                      >
+                        {isCompleted ? <CheckCircle className="h-3 w-3" /> : isCurrent && isError ? <AlertTriangle className="h-3 w-3" /> : i + 1}
+                      </div>
+                      {i < PIPELINE_STEPS.length - 1 && (
+                        <div className={`w-4 h-0.5 ${isCompleted ? 'bg-primary' : 'bg-border'}`} />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* External links + enrichment signals */}
+              <div className="flex flex-wrap items-center gap-2">
+                {links.github && (
+                  <a href={links.github} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-muted">
+                    <Github className="h-3 w-3" /> GitHub
+                    {enrichment?.github && (
+                      <span className="text-muted-foreground ml-1">· {enrichment.github.repositories.length} repos · {enrichment.github.totalStars}★</span>
+                    )}
+                  </a>
+                )}
+                {links.linkedin && (
+                  <a href={links.linkedin} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-muted">
+                    <Linkedin className="h-3 w-3" /> LinkedIn
+                    {enrichment?.linkedin?.headline && (
+                      <span className="text-muted-foreground ml-1 truncate max-w-[200px]">· {enrichment.linkedin.headline}</span>
+                    )}
+                  </a>
+                )}
+                {enrichment?.github?.topLanguages && enrichment.github.topLanguages.length > 0 && (
+                  <div className="flex gap-1">
+                    {enrichment.github.topLanguages.slice(0, 4).map((l) => (
+                      <Badge key={l} variant="secondary" className="text-[10px] px-1.5 py-0">{l}</Badge>
+                    ))}
+                  </div>
                 )}
               </div>
-            )
-          })}
-        </div>
 
-        {/* Header with score ring - dashboard grid */}
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Score ring - prominent */}
-          <div className="flex flex-col items-center justify-center rounded-xl border bg-card p-6 shadow-sm">
-            {matchResult ? (
-              <>
-                <ScoreRing score={matchResult.overallScore} size={130} strokeWidth={12} />
-                <div className="mt-3">
-                  <RecommendationBadge recommendation={matchResult.recommendation} />
+              {/* Scoring basis — compact inline */}
+              {matchResult?.scoringBasis && (
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="text-muted-foreground">Sources:</span>
+                  {matchResult.scoringBasis.dataSources.map((src, i) => (
+                    <span key={i} className="inline-flex items-center gap-0.5 text-muted-foreground">
+                      <CheckCircle className="h-2.5 w-2.5 text-emerald-500" />{src}
+                    </span>
+                  ))}
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+                    matchResult.scoringBasis.confidence === 'high' ? 'text-emerald-600 border-emerald-300' :
+                    matchResult.scoringBasis.confidence === 'medium' ? 'text-amber-600 border-amber-300' :
+                    'text-red-600 border-red-300'
+                  }`}>
+                    {matchResult.scoringBasis.confidence} confidence
+                  </Badge>
                 </div>
-              </>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                <Zap className="mx-auto h-8 w-8 opacity-30" />
-                <p className="mt-2 text-sm">Score pending</p>
-              </div>
-            )}
-          </div>
-
-          {/* Candidate info */}
-          <div className="md:col-span-2 rounded-xl border bg-card p-6 shadow-sm space-y-3">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{candidate.name}</h1>
-              {(candidate.email || candidate.phone) && (
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {[candidate.email, candidate.phone].filter(Boolean).join(' · ')}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <StatusBadge status={candidate.status} />
-            </div>
-            <div className="flex gap-2">
-              {links.github && (
-                <a
-                  href={links.github}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted"
-                >
-                  <Github className="h-3.5 w-3.5" /> GitHub
-                </a>
-              )}
-              {links.linkedin && (
-                <a
-                  href={links.linkedin}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted"
-                >
-                  <Linkedin className="h-3.5 w-3.5" /> LinkedIn
-                </a>
               )}
             </div>
           </div>
@@ -346,219 +355,84 @@ export function CandidateDetailPage() {
             <TabsTrigger value="score" className="gap-1.5">
               <Brain className="h-3.5 w-3.5" /> Match
             </TabsTrigger>
-            <TabsTrigger value="parsed" className="gap-1.5">
-              <FileText className="h-3.5 w-3.5" /> Parsed CV
+            <TabsTrigger value="profile" className="gap-1.5">
+              <FileText className="h-3.5 w-3.5" /> Profile
             </TabsTrigger>
-            <TabsTrigger value="online" className="gap-1.5">
-              <Globe className="h-3.5 w-3.5" /> Online
-            </TabsTrigger>
-            <TabsTrigger value="cv" className="gap-1.5">
-              <FileCode className="h-3.5 w-3.5" /> Raw CV
-            </TabsTrigger>
-            <TabsTrigger value="pdf" className="gap-1.5">
-              <FileImage className="h-3.5 w-3.5" /> PDF
+            <TabsTrigger value="documents" className="gap-1.5">
+              <FileCode className="h-3.5 w-3.5" /> Documents
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="score" className="space-y-4">
             {matchResult ? (
               <>
-                {/* Scoring Methodology Notice */}
-                <Card className="shadow-sm border-blue-200 dark:border-blue-800/30 bg-blue-50/50 dark:bg-blue-950/10">
-                  <CardContent className="py-3 px-4">
-                    <details className="group">
-                      <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-blue-700 dark:text-blue-300 select-none">
-                        <Brain className="h-4 w-4" />
-                        How is this score calculated?
-                        {matchResult.scoringBasis && (
-                          <Badge variant="outline" className={`ml-2 text-xs ${
-                            matchResult.scoringBasis.confidence === 'high' ? 'text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-700' :
-                            matchResult.scoringBasis.confidence === 'medium' ? 'text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700' :
-                            'text-red-600 border-red-300 dark:text-red-400 dark:border-red-700'
-                          }`}>
-                            {matchResult.scoringBasis.confidence} confidence
-                          </Badge>
-                        )}
-                        <span className="ml-auto text-xs text-blue-500 group-open:hidden">Click to expand</span>
-                      </summary>
-                      <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                        <p>Score generated by <strong>AI (GPT-4o-mini)</strong> based on:</p>
-                        <div className="grid gap-2 sm:grid-cols-2 mt-2">
-                          <div className="rounded-md border bg-background/50 p-2.5">
-                            <p className="font-medium text-foreground mb-1">Data Sources Used</p>
-                            <ul className="space-y-0.5 text-xs">
-                              {matchResult.scoringBasis?.dataSources ? matchResult.scoringBasis.dataSources.map((src, i) => (
-                                <li key={i} className="flex items-start gap-1.5">
-                                  <CheckCircle className="h-3 w-3 shrink-0 text-emerald-500 mt-0.5" /> {src}
-                                </li>
-                              )) : (
-                                <>
-                                  <li className="flex items-center gap-1.5"><FileText className="h-3 w-3 shrink-0" /> CV content</li>
-                                  {enrichment?.github && <li className="flex items-center gap-1.5"><Github className="h-3 w-3 shrink-0" /> GitHub profile</li>}
-                                  {enrichment?.linkedin && <li className="flex items-center gap-1.5"><Linkedin className="h-3 w-3 shrink-0" /> LinkedIn profile</li>}
-                                </>
-                              )}
-                            </ul>
-                          </div>
-                          <div className="rounded-md border bg-background/50 p-2.5">
-                            <p className="font-medium text-foreground mb-1">Evaluation Criteria</p>
-                            <ul className="space-y-0.5 text-xs">
-                              {matchResult.scoringBasis?.scoringCriteria && matchResult.scoringBasis.scoringCriteria.length > 0
-                                ? matchResult.scoringBasis.scoringCriteria.map((c, i) => (
-                                  <li key={i}>• {c}</li>
-                                ))
-                                : (
-                                <>
-                                  <li>• Skills alignment with job requirements</li>
-                                  <li>• Relevant work experience</li>
-                                  <li>• Open-source contributions</li>
-                                </>
-                              )}
-                            </ul>
-                          </div>
-                        </div>
-                        {matchResult.scoringBasis?.limitations && matchResult.scoringBasis.limitations.length > 0 && (
-                          <div className="rounded-md border border-amber-200 dark:border-amber-800/30 bg-amber-50/50 dark:bg-amber-950/10 p-2.5">
-                            <p className="font-medium text-amber-700 dark:text-amber-300 mb-1 text-xs">Limitations</p>
-                            <ul className="space-y-0.5 text-xs text-amber-600 dark:text-amber-400">
-                              {matchResult.scoringBasis.limitations.map((l, i) => (
-                                <li key={i} className="flex items-start gap-1.5">
-                                  <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" /> {l}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          <Badge variant="outline" className="text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-700 text-xs">80-100: Strong Match</Badge>
-                          <Badge variant="outline" className="text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-700 text-xs">60-79: Good Match</Badge>
-                          <Badge variant="outline" className="text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700 text-xs">40-59: Partial Match</Badge>
-                          <Badge variant="outline" className="text-red-600 border-red-300 dark:text-red-400 dark:border-red-700 text-xs">0-39: Weak Match</Badge>
-                        </div>
-                      </div>
-                    </details>
-                  </CardContent>
-                </Card>
-
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <Badge variant="secondary">Based on: CV</Badge>
-                  {candidate.parsedCV && (
-                    <Badge variant="secondary">AI-parsed skills & experience</Badge>
-                  )}
-                  {enrichment?.github && <Badge variant="secondary">GitHub profile</Badge>}
-                  {enrichment?.linkedin && <Badge variant="secondary">LinkedIn profile</Badge>}
-                  {!enrichment?.github && !enrichment?.linkedin && links.github && (
-                    <Badge variant="outline" className="text-amber-600 border-amber-300">
-                      Enrichment missing
-                    </Badge>
-                  )}
-                </div>
-
-                <Card className="shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-base">Explanation</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {matchResult.explanation}
-                    </p>
-                  </CardContent>
-                </Card>
-
+                {/* Skill Match + Strengths/Gaps — compact 2-column layout */}
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Card className="shadow-sm bg-emerald-50/50 dark:bg-emerald-950/10">
-                    <CardHeader>
-                      <CardTitle className="text-base">Strengths</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="list-disc space-y-1.5 pl-4 text-sm">
-                        {matchResult.strengths.map((s, i) => (
-                          <li key={i}>{s}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  <Card className="shadow-sm bg-red-50/50 dark:bg-red-950/10">
-                    <CardHeader>
-                      <CardTitle className="text-base">Gaps</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="list-disc space-y-1.5 pl-4 text-sm">
-                        {matchResult.gaps.map((g, i) => (
-                          <li key={i}>{g}</li>
-                        ))}
-                      </ul>
+                  {/* Skill Match Checklist */}
+                  {matchResult.skillScores && matchResult.skillScores.length > 0 && (
+                    <Card className="shadow-sm">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Skill Match</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-1">
+                          {matchResult.skillScores.map((skill, i) => (
+                            <div key={i} className="flex items-center gap-2 py-1">
+                              <div className="shrink-0">
+                                {skill.level === 'yes' && <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />}
+                                {skill.level === 'partial' && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                                {skill.level === 'no' && <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-red-400 text-red-400 text-[9px] font-bold">✕</span>}
+                              </div>
+                              <span className="text-sm font-medium">{skill.name}</span>
+                              <span className="text-xs text-muted-foreground truncate ml-auto max-w-[45%]" title={skill.evidence}>{skill.evidence}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Strengths & Gaps — stacked in one card */}
+                  <Card className="shadow-sm">
+                    <CardContent className="py-4 space-y-4">
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1.5">Strengths</p>
+                        <ul className="space-y-1 text-sm">
+                          {matchResult.strengths.map((s, i) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              <CheckCircle className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="border-t pt-3">
+                        <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1.5">Gaps</p>
+                        <ul className="space-y-1 text-sm">
+                          {matchResult.gaps.map((g, i) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              <AlertTriangle className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />
+                              <span>{g}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Improvement Tips */}
-                {matchResult.improvementTips && matchResult.improvementTips.length > 0 && (
-                  <Card className="shadow-sm bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/30">
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Lightbulb className="h-4 w-4 text-amber-500" />
-                        Profile Improvement Tips
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {matchResult.improvementTips.map((tip, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: -12 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.08, duration: 0.3 }}
-                            className="flex gap-3 items-start rounded-md border-l-3 border-amber-400 bg-white/60 dark:bg-white/5 px-3 py-2"
-                          >
-                            <span className="mt-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400 shrink-0">
-                              {i + 1}.
-                            </span>
-                            <p className="text-sm text-foreground/80 leading-relaxed">{tip}</p>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Skill Match Checklist */}
-                {matchResult.skillScores && matchResult.skillScores.length > 0 && (
-                  <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-base">Skill Match</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        AI-evaluated against job requirements
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-1.5">
-                        {matchResult.skillScores.map((skill, i) => (
-                          <div key={i} className={`flex items-start gap-3 rounded-lg px-3 py-2 ${
-                            skill.level === 'yes' ? 'bg-emerald-50/50 dark:bg-emerald-950/10' :
-                            skill.level === 'partial' ? 'bg-amber-50/50 dark:bg-amber-950/10' :
-                            'bg-red-50/50 dark:bg-red-950/10'
-                          }`}>
-                            <div className="shrink-0 mt-0.5">
-                              {skill.level === 'yes' && <CheckCircle className="h-4 w-4 text-emerald-500" />}
-                              {skill.level === 'partial' && <AlertTriangle className="h-4 w-4 text-amber-500" />}
-                              {skill.level === 'no' && <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-red-400 text-red-400 text-[10px] font-bold">✕</span>}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-medium">{skill.name}</span>
-                              <p className="text-xs text-muted-foreground mt-0.5">{skill.evidence}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-4 mt-4 pt-3 border-t text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-emerald-500" /> Has skill</span>
-                        <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-500" /> Partial</span>
-                        <span className="flex items-center gap-1"><span className="inline-flex h-3 w-3 items-center justify-center rounded-full border-2 border-red-400 text-red-400 text-[8px] font-bold">✕</span> Missing</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Explanation — collapsible */}
+                <details className="group">
+                  <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium select-none rounded-lg border bg-card px-4 py-3 shadow-sm hover:bg-muted/50">
+                    <Brain className="h-4 w-4 text-muted-foreground" />
+                    AI Explanation
+                    <span className="ml-auto text-xs text-muted-foreground group-open:hidden">Show</span>
+                    <span className="ml-auto text-xs text-muted-foreground hidden group-open:inline">Hide</span>
+                  </summary>
+                  <div className="mt-2 rounded-lg border bg-card p-4 shadow-sm">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{matchResult.explanation}</p>
+                  </div>
+                </details>
 
                 {/* Interview Questions */}
                 <InterviewQuestionsSection
@@ -577,13 +451,41 @@ export function CandidateDetailPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="parsed" className="space-y-4">
-            {candidate.parsedCV ? (
+          <TabsContent value="profile" className="space-y-4">
+            {/* Re-enrich controls */}
+            {(links.github || links.linkedin) && (candidate.status === 'completed' || candidate.status === 'error') && (
+              <div className="flex items-center gap-3">
+                <AlertDialog>
+                  <AlertDialogTrigger className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted transition-colors">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {enrichment?.github || enrichment?.linkedin ? 'Re-fetch' : 'Fetch'}{' '}
+                    {[links.github && 'GitHub', links.linkedin && 'LinkedIn'].filter(Boolean).join(' + ')}
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Fetch online profile data?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will fetch data from{' '}
+                        {[links.github && 'GitHub', links.linkedin && 'LinkedIn'].filter(Boolean).join(' and ')}{' '}
+                        and re-score the candidate.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleReEnrich}>Start</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
+
+            {/* Parsed CV — Summary + Skills + Experience + Education inline */}
+            {candidate.parsedCV && (
               <>
                 {candidate.parsedCV.summary && (
                   <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-base">Summary</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Summary</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm leading-relaxed">{candidate.parsedCV.summary}</p>
@@ -591,177 +493,94 @@ export function CandidateDetailPage() {
                   </Card>
                 )}
 
-                {candidate.parsedCV.skills.length > 0 && (
-                  <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-base">Skills</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-1.5">
-                        {candidate.parsedCV.skills.map((s, i) => (
-                          <Badge key={i} variant="secondary">
-                            {s}
-                          </Badge>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {candidate.parsedCV.skills.length > 0 && (
+                    <Card className="shadow-sm">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Skills</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-1.5">
+                          {candidate.parsedCV.skills.map((s, i) => (
+                            <Badge key={i} variant="secondary" className="text-xs">{s}</Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {candidate.parsedCV.education.length > 0 && (
+                    <Card className="shadow-sm">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Education</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {candidate.parsedCV.education.map((edu, i) => (
+                          <div key={i}>
+                            <p className="text-sm font-medium">{edu.degree}</p>
+                            <p className="text-xs text-muted-foreground">{edu.school} · {edu.year}</p>
+                          </div>
                         ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
 
                 {candidate.parsedCV.experience.length > 0 && (
                   <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-base">Experience</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {candidate.parsedCV.experience.map((exp, i) => (
-                        <div key={i} className="relative border-l-2 border-primary/20 pl-4">
-                          <div className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-primary" />
-                          <p className="font-medium">{exp.title}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {exp.company} · {exp.duration}
-                          </p>
-                          {exp.description && (
-                            <p className="mt-1.5 text-sm leading-relaxed">{exp.description}</p>
-                          )}
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {candidate.parsedCV.education.length > 0 && (
-                  <Card className="shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-base">Education</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Experience</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {candidate.parsedCV.education.map((edu, i) => (
-                        <div key={i}>
-                          <p className="font-medium">{edu.degree}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {edu.school} · {edu.year}
-                          </p>
+                      {candidate.parsedCV.experience.map((exp, i) => (
+                        <div key={i} className="relative border-l-2 border-primary/20 pl-3">
+                          <div className="absolute -left-[4px] top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                          <p className="text-sm font-medium">{exp.title}</p>
+                          <p className="text-xs text-muted-foreground">{exp.company} · {exp.duration}</p>
+                          {exp.description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{exp.description}</p>}
                         </div>
                       ))}
                     </CardContent>
                   </Card>
                 )}
               </>
-            ) : (
-              <p className="text-muted-foreground">CV not yet parsed.</p>
-            )}
-          </TabsContent>
-
-          <TabsContent value="online" className="space-y-4">
-            {/* Re-enrich controls */}
-            {(links.github || links.linkedin) && (
-              <div className="flex items-center gap-3">
-                {candidate.status === 'completed' || candidate.status === 'error' ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted transition-colors">
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      {enrichment?.github || enrichment?.linkedin ? 'Re-fetch' : 'Fetch'}{' '}
-                      {[links.github && 'GitHub', links.linkedin && 'LinkedIn']
-                        .filter(Boolean)
-                        .join(' + ')}
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Fetch online profile data?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will fetch data from{' '}
-                          {[links.github && 'GitHub', links.linkedin && 'LinkedIn']
-                            .filter(Boolean)
-                            .join(' and ')}{' '}
-                          and re-score the candidate.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleReEnrich}>Start</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                ) : ['enriching', 'scoring'].includes(candidate.status) ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={candidate.status} />
-                      <span className="text-sm text-muted-foreground">
-                        {candidate.status === 'scoring' ? 'Scoring...' : 'Fetching online data...'}
-                      </span>
-                    </div>
-                    {candidate.progressLogs && candidate.progressLogs.length > 0 && (
-                      <div className="rounded-lg border bg-muted/30 p-3 max-h-48 overflow-y-auto">
-                        {candidate.progressLogs.map((log, i) => (
-                          <p key={i} className="text-xs text-muted-foreground font-mono">
-                            {log}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-                {candidate.errorMessage?.includes('nrich') && (
-                  <p className="text-sm text-amber-600">{candidate.errorMessage}</p>
-                )}
-              </div>
             )}
 
             {/* GitHub */}
             {enrichment?.github && (
               <Card className="shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm">
                     <Github className="h-4 w-4" /> @{enrichment.github.username}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {enrichment.github.bio && <p className="text-sm">{enrichment.github.bio}</p>}
-                  {enrichment.github.topLanguages.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {enrichment.github.topLanguages.map((l) => (
-                        <Badge key={l} variant="secondary">
-                          {l}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span>
-                      Stars:{' '}
-                      <strong className="text-foreground">{enrichment.github.totalStars}</strong>
-                    </span>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    {enrichment.github.topLanguages.length > 0 && (
+                      <div className="flex gap-1">
+                        {enrichment.github.topLanguages.map((l) => (
+                          <Badge key={l} variant="secondary" className="text-xs">{l}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    <span>Stars: <strong className="text-foreground">{enrichment.github.totalStars}</strong></span>
                     {enrichment.github.totalContributions != null && (
-                      <span>
-                        Contributions:{' '}
-                        <strong className="text-foreground">
-                          {enrichment.github.totalContributions}
-                        </strong>
-                      </span>
+                      <span>Contributions: <strong className="text-foreground">{enrichment.github.totalContributions}</strong></span>
                     )}
                   </div>
-                  <GitHubAnalysis
-                    raw={enrichment.github.raw}
-                    username={enrichment.github.username}
-                  />
+                  <GitHubAnalysis raw={enrichment.github.raw} username={enrichment.github.username} />
                   {enrichment.github.repositories.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-sm font-medium">Repositories</p>
+                      <p className="text-xs font-medium text-muted-foreground">Repositories</p>
                       {enrichment.github.repositories.map((r) => (
-                        <div key={r.name} className="rounded-lg bg-muted/40 p-3 text-sm">
+                        <div key={r.name} className="rounded-lg bg-muted/40 p-2.5 text-sm">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{r.name}</span>
-                            {r.language && (
-                              <Badge variant="outline" className="text-xs">
-                                {r.language}
-                              </Badge>
-                            )}
-                            <span className="text-muted-foreground">{r.stars} stars</span>
+                            <span className="font-medium text-sm">{r.name}</span>
+                            {r.language && <Badge variant="outline" className="text-xs">{r.language}</Badge>}
+                            <span className="text-xs text-muted-foreground">{r.stars}★</span>
                           </div>
-                          {r.description && (
-                            <p className="mt-1 text-muted-foreground">{r.description}</p>
-                          )}
+                          {r.description && <p className="mt-0.5 text-xs text-muted-foreground">{r.description}</p>}
                         </div>
                       ))}
                     </div>
@@ -771,46 +590,29 @@ export function CandidateDetailPage() {
             )}
 
             {/* LinkedIn */}
-            {enrichment?.linkedin &&
-              (enrichment.linkedin.headline ||
-                enrichment.linkedin.summary ||
-                enrichment.linkedin.experience.length > 0 ||
-                enrichment.linkedin.skills.length > 0) && (
-                <Card className="shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Linkedin className="h-4 w-4" /> LinkedIn
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {enrichment.linkedin.headline && (
-                      <p className="font-medium">{enrichment.linkedin.headline}</p>
-                    )}
-                    {enrichment.linkedin.summary && (
-                      <p className="text-sm leading-relaxed">{enrichment.linkedin.summary}</p>
-                    )}
-                    {enrichment.linkedin.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {enrichment.linkedin.skills.map((s) => (
-                          <Badge key={s} variant="secondary">
-                            {s}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    {enrichment.linkedin.experience.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium">Experience</p>
-                        <ul className="list-disc pl-4 text-sm">
-                          {enrichment.linkedin.experience.map((e, i) => (
-                            <li key={i}>{e}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+            {enrichment?.linkedin && (enrichment.linkedin.headline || enrichment.linkedin.summary || enrichment.linkedin.experience.length > 0 || enrichment.linkedin.skills.length > 0) && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Linkedin className="h-4 w-4" /> LinkedIn
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {enrichment.linkedin.headline && <p className="text-sm font-medium">{enrichment.linkedin.headline}</p>}
+                  {enrichment.linkedin.summary && <p className="text-xs leading-relaxed text-muted-foreground">{enrichment.linkedin.summary}</p>}
+                  {enrichment.linkedin.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {enrichment.linkedin.skills.map((s) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}
+                    </div>
+                  )}
+                  {enrichment.linkedin.experience.length > 0 && (
+                    <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                      {enrichment.linkedin.experience.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Extended Analysis */}
             <ExtendedAnalysis
@@ -823,18 +625,20 @@ export function CandidateDetailPage() {
             />
           </TabsContent>
 
-          <TabsContent value="cv">
-            <Card className="shadow-sm">
-              <CardContent className="py-6">
-                <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {candidate.cvText || 'No text extracted yet.'}
-                </pre>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="pdf">
-            <PdfViewer jobId={jobId!} candidateId={candidateId!} />
+          <TabsContent value="documents" className="space-y-4">
+            <div className="grid gap-4">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Raw CV Text</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="whitespace-pre-wrap text-xs leading-relaxed max-h-[400px] overflow-y-auto">
+                    {candidate.cvText || 'No text extracted yet.'}
+                  </pre>
+                </CardContent>
+              </Card>
+              <PdfViewer jobId={jobId!} candidateId={candidateId!} />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

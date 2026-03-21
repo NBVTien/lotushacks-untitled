@@ -61,7 +61,31 @@ export class MatchingService {
               '"3+ years relevant experience at similar companies"), ' +
               'limitations (array of strings noting any missing data that limited your assessment, e.g. "No LinkedIn profile available to verify work history", ' +
               '"GitHub profile has no public repositories"). ' +
-              'Be fair, evidence-based, and consider both CV content and real-world signals from GitHub/LinkedIn.',
+              '\n\n## Scoring Weight Guidelines\n' +
+              'Apply the following approximate weighting when computing overallScore:\n' +
+              '- Technical skills alignment with job requirements: 30-40%\n' +
+              '- Relevant work experience: 20-30%\n' +
+              '- GitHub/external profile signals: 20-30%\n' +
+              '- Education and other factors: 10-20%\n' +
+              '\n## GitHub Enrichment Weighting (CRITICAL)\n' +
+              'GitHub activity is a STRONG signal of real-world coding ability. ' +
+              'A candidate with active, well-maintained repos should score 15-25 points higher than one with CV-only data, all else being equal. ' +
+              'When evaluating GitHub data, consider:\n' +
+              '- Repository quality: well-documented READMEs, meaningful descriptions, clean code structure\n' +
+              '- Language diversity: does the candidate work across multiple relevant languages/frameworks?\n' +
+              '- Commit recency: recent activity shows active engagement (repos updated in last 3 months are strong signals)\n' +
+              '- Stars and community recognition: repos with stars indicate projects others find valuable\n' +
+              '- Project complexity and relevance: do the repos demonstrate skills required for the job?\n' +
+              'If a GitHub profile exists but has 0 public repos or only trivial forks, treat it as a WEAK signal (almost equivalent to no GitHub).\n' +
+              '\n## LinkedIn Enrichment Weighting\n' +
+              'LinkedIn data validates and enriches CV claims. Verified experience and endorsements add 5-10 points of confidence.\n' +
+              '\n## Explanation Requirements\n' +
+              'In the explanation, you MUST explicitly mention:\n' +
+              '1. What enrichment data sources were available (GitHub, LinkedIn, or neither)\n' +
+              '2. How each available data source influenced your score — what did it confirm, contradict, or add beyond the CV?\n' +
+              '3. If no enrichment data was available, state that the score is based on CV only and may be less reliable\n' +
+              'Example: "GitHub profile confirms strong TypeScript skills with 8 active repos, which elevated the score by ~15 points above a CV-only assessment."\n' +
+              '\nBe fair, evidence-based, and consider both CV content and real-world signals from GitHub/LinkedIn.',
           },
           { role: 'user', content: prompt },
         ],
@@ -85,10 +109,17 @@ export class MatchingService {
       if (candidate.parsedCV) dataSources.push('AI-parsed CV structure (skills, experience, education)')
       if (candidate.enrichment?.github) {
         const gh = candidate.enrichment.github
-        dataSources.push(`GitHub profile (@${gh.username}) — ${gh.repositories.length} repos, ${gh.topLanguages.join(', ')}`)
+        const repoCount = gh.repositories.length
+        const langs = gh.topLanguages.length > 0 ? gh.topLanguages.join(', ') : 'no languages detected'
+        const starsInfo = gh.totalStars > 0 ? `, ${gh.totalStars} total stars` : ''
+        const contribInfo = gh.totalContributions ? `, ~${gh.totalContributions} contributions` : ''
+        dataSources.push(`GitHub profile (@${gh.username}) — ${repoCount} active repos, languages: ${langs}${starsInfo}${contribInfo}`)
       }
       if (candidate.enrichment?.linkedin) {
-        dataSources.push('LinkedIn profile (experience, skills, headline)')
+        const li = candidate.enrichment.linkedin
+        const skillCount = li.skills.length
+        const expCount = li.experience.length
+        dataSources.push(`LinkedIn profile — ${expCount} experience entries, ${skillCount} endorsed skills, headline: "${li.headline || 'N/A'}"`)
       }
       if (job.screeningCriteria) dataSources.push('Custom screening criteria from recruiter')
 
@@ -97,9 +128,24 @@ export class MatchingService {
         aiLimitations.push('No external profiles (GitHub/LinkedIn) available — score based on CV only')
       }
 
-      let confidence: ScoringBasis['confidence'] = 'high'
-      if (!candidate.enrichment?.github && !candidate.enrichment?.linkedin) confidence = 'low'
-      else if (!candidate.enrichment?.github || !candidate.enrichment?.linkedin) confidence = 'medium'
+      // Nuanced confidence calculation
+      let confidence: ScoringBasis['confidence'] = 'low'
+      const hasGitHub = !!candidate.enrichment?.github
+      const hasLinkedIn = !!candidate.enrichment?.linkedin
+      const gitHubHasRepos = hasGitHub && candidate.enrichment!.github!.repositories.length > 0
+      const gitHubIsSubstantial = gitHubHasRepos && candidate.enrichment!.github!.repositories.length >= 3
+
+      if (gitHubIsSubstantial && hasLinkedIn) {
+        confidence = 'high'
+      } else if (gitHubHasRepos || hasLinkedIn) {
+        confidence = 'medium'
+      } else {
+        // No enrichment, or GitHub with 0 repos and no LinkedIn
+        confidence = 'low'
+        if (hasGitHub && !gitHubHasRepos) {
+          aiLimitations.push('GitHub profile exists but has no public repositories — treated as minimal signal')
+        }
+      }
 
       const scoringBasis: ScoringBasis = {
         dataSources,
@@ -134,7 +180,7 @@ export class MatchingService {
   }
 
   async generateInterviewQuestions(
-    candidate: { cvText: string; matchResult: MatchResult },
+    candidate: { cvText: string; matchResult: MatchResult; enrichment?: EnrichedProfile | null },
     job: { description: string; requirements: string[] }
   ): Promise<InterviewQuestionsResult> {
     this.logger.log('Generating interview questions')
@@ -147,6 +193,33 @@ export class MatchingService {
     prompt += `Strengths: ${candidate.matchResult.strengths.join(', ')}\n`
     prompt += `Gaps: ${candidate.matchResult.gaps.join(', ')}\n`
     prompt += `Recommendation: ${candidate.matchResult.recommendation}\n\n`
+
+    // Include GitHub project details for targeted questions
+    if (candidate.enrichment?.github) {
+      const gh = candidate.enrichment.github
+      prompt += `## GitHub Profile (@${gh.username})\n`
+      prompt += `Bio: ${gh.bio || 'N/A'}\n`
+      prompt += `Top Languages: ${gh.topLanguages.join(', ') || 'N/A'}\n`
+      prompt += `Total Stars: ${gh.totalStars}\n`
+      if (gh.repositories.length > 0) {
+        prompt += `Notable Repositories:\n`
+        gh.repositories.forEach((r) => {
+          prompt += `- **${r.name}** (${r.language || 'N/A'}, ${r.stars} stars): ${r.description || 'No description'}\n`
+        })
+      }
+      prompt += '\n'
+    }
+
+    if (candidate.enrichment?.linkedin) {
+      const li = candidate.enrichment.linkedin
+      prompt += `## LinkedIn Profile\n`
+      prompt += `Headline: ${li.headline || 'N/A'}\n`
+      if (li.experience.length > 0) {
+        prompt += `Experience: ${li.experience.join('; ')}\n`
+      }
+      prompt += '\n'
+    }
+
     prompt += 'Generate 6-8 personalized interview questions for this candidate. Return JSON.'
 
     try {
@@ -157,14 +230,19 @@ export class MatchingService {
             role: 'system',
             content:
               'You are a recruitment AI that generates personalized interview questions. ' +
-              'Based on the candidate CV, match analysis (strengths and gaps), and job requirements, ' +
+              'Based on the candidate CV, match analysis (strengths and gaps), job requirements, ' +
+              'and any available GitHub/LinkedIn enrichment data, ' +
               'generate 6-8 targeted interview questions. Return a JSON object with a "questions" array. ' +
               'Each question object must have: ' +
               '"question" (the interview question string), ' +
               '"category" (one of: "technical", "behavioral", "experience", "gap-exploration"), ' +
               '"rationale" (a brief explanation of why this question is relevant for this specific candidate). ' +
               'Questions should probe the candidate\'s specific gaps and validate their claimed strengths. ' +
-              'Include a mix of categories.',
+              'Include a mix of categories. ' +
+              'IMPORTANT: If GitHub project data is provided, include at least 1-2 questions that reference SPECIFIC GitHub repositories the candidate has built. ' +
+              'Ask about architecture decisions, technical challenges, or design choices in those projects. ' +
+              'For example: "Your repo X uses Y framework — what led you to choose that over alternatives?" or ' +
+              '"Tell me about the most challenging technical problem you solved while building [repo name]."',
           },
           { role: 'user', content: prompt },
         ],
