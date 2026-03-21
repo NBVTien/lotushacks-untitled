@@ -725,19 +725,7 @@ export function CandidateDetailPage() {
           </TabsContent>
 
           <TabsContent value="documents" className="space-y-4">
-            <div className="grid gap-4">
-              <Card className="shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Raw CV Text</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <pre className="whitespace-pre-wrap text-xs leading-relaxed max-h-[400px] overflow-y-auto">
-                    {candidate.cvText || 'No text extracted yet.'}
-                  </pre>
-                </CardContent>
-              </Card>
-              <PdfViewer jobId={jobId!} candidateId={candidateId!} />
-            </div>
+            <PdfViewer jobId={jobId!} candidateId={candidateId!} />
           </TabsContent>
 
           <TabsContent value="pipeline">
