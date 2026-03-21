@@ -541,16 +541,43 @@ export function JobDetailPage() {
         ) : (
           /* Read-only view */
           <Tabs defaultValue="jd">
-            <TabsList>
-              <TabsTrigger value="jd" className="gap-1.5">
-                <FileText className="h-3.5 w-3.5" /> Description
-              </TabsTrigger>
-              <TabsTrigger value="candidates" className="gap-1.5">
-                <Users className="h-3.5 w-3.5" /> Candidates ({candidates.length})
-              </TabsTrigger>
-              {job.screeningCriteria && <TabsTrigger value="screening">Screening</TabsTrigger>}
-              <TabsTrigger value="survey">Survey</TabsTrigger>
-            </TabsList>
+            <div className="flex items-center justify-between gap-2">
+              <TabsList>
+                <TabsTrigger value="jd" className="gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Description
+                </TabsTrigger>
+                <TabsTrigger value="candidates" className="gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Candidates ({candidates.length})
+                </TabsTrigger>
+                {job.screeningCriteria && <TabsTrigger value="screening">Screening</TabsTrigger>}
+                <TabsTrigger value="survey">Survey</TabsTrigger>
+              </TabsList>
+
+              {candidates.length > 0 && (
+                <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+                  <button
+                    onClick={() => setCandidateView('table')}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      candidateView === 'table'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Table
+                  </button>
+                  <button
+                    onClick={() => setCandidateView('pipeline')}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      candidateView === 'pipeline'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Pipeline
+                  </button>
+                </div>
+              )}
+            </div>
 
             <TabsContent value="jd" className="space-y-4">
               <Card className="shadow-sm">
@@ -588,30 +615,6 @@ export function JobDetailPage() {
                 />
               ) : (
                 <>
-                  {/* View toggle */}
-                  <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 w-fit">
-                    <button
-                      onClick={() => setCandidateView('table')}
-                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                        candidateView === 'table'
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Table
-                    </button>
-                    <button
-                      onClick={() => setCandidateView('pipeline')}
-                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                        candidateView === 'pipeline'
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Pipeline
-                    </button>
-                  </div>
-
                   {candidateView === 'pipeline' ? (
                     <PipelineBoard jobId={jobId!} />
                   ) : (
