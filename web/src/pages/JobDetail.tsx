@@ -136,7 +136,7 @@ export function JobDetailPage() {
     return (
       <div className="space-y-4">
         <Link
-          to="/"
+          to="/recruiter"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
@@ -150,7 +150,7 @@ export function JobDetailPage() {
     return (
       <div className="space-y-6">
         <Link
-          to="/"
+          to="/recruiter"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
@@ -176,7 +176,7 @@ export function JobDetailPage() {
     <PageTransition>
       <div className="space-y-8">
         <Link
-          to="/"
+          to="/recruiter"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Jobs
@@ -230,7 +230,7 @@ export function JobDetailPage() {
                 <DropdownMenuContent align="end" className="min-w-48">
                   <DropdownMenuItem
                     onClick={() => {
-                      const link = `${window.location.origin}/careers/${jobId}/apply`
+                      const link = `${window.location.origin}/jobs/${jobId}/apply`
                       navigator.clipboard.writeText(link)
                       setCopied(true)
                       setTimeout(() => setCopied(false), 2000)
@@ -670,7 +670,7 @@ export function JobDetailPage() {
                                 />
                               </td>
                               <td className="px-4 py-3">
-                                <Link to={`/jobs/${jobId}/candidates/${c.id}`} className="block">
+                                <Link to={`/recruiter/jobs/${jobId}/candidates/${c.id}`} className="block">
                                   <p className="font-medium text-sm group-hover:text-primary transition-colors">
                                     {c.name}
                                   </p>
@@ -717,7 +717,7 @@ export function JobDetailPage() {
                         className="gap-2 shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-300"
                         onClick={() => {
                           const ids = Array.from(selectedIds).join(',')
-                          navigate(`/jobs/${jobId}/compare?ids=${ids}`)
+                          navigate(`/recruiter/jobs/${jobId}/compare?ids=${ids}`)
                         }}
                       >
                         <GitCompareArrows className="h-4 w-4" />

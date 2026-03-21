@@ -61,8 +61,15 @@ export class MatchingService {
               '"3+ years relevant experience at similar companies"), ' +
               'limitations (array of strings noting any missing data that limited your assessment, e.g. "No LinkedIn profile available to verify work history", ' +
               '"GitHub profile has no public repositories"). ' +
-              '\n\n## Scoring Weight Guidelines\n' +
-              'Apply the following approximate weighting when computing overallScore:\n' +
+              '\n\n## Screening Criteria (HIGHEST PRIORITY)\n' +
+              'If the recruiter has provided custom screening criteria, these OVERRIDE the default scoring weights. ' +
+              'Screening criteria represent the recruiter\'s explicit preferences and must be followed as closely as possible. ' +
+              'For example, if the criteria say "90% if candidate worked at CompanyX" and the candidate DID work there, ' +
+              'the score MUST be at least 90 regardless of other factors. ' +
+              'Screening criteria act as score modifiers — they can dramatically raise or lower the score. ' +
+              'Always explain in your response how screening criteria influenced the final score.\n' +
+              '\n## Default Scoring Weight Guidelines\n' +
+              'When NO screening criteria are provided, apply the following approximate weighting:\n' +
               '- Technical skills alignment with job requirements: 30-40%\n' +
               '- Relevant work experience: 20-30%\n' +
               '- GitHub/external profile signals: 20-30%\n' +
@@ -270,7 +277,7 @@ export class MatchingService {
     prompt += `## Requirements\n${job.requirements.map((r) => `- ${r}`).join('\n')}\n\n`
 
     if (job.screeningCriteria) {
-      prompt += `## Screening Criteria (IMPORTANT — recruiter's additional filtering criteria)\n${job.screeningCriteria}\n\n`
+      prompt += `## SCREENING CRITERIA (HIGHEST PRIORITY — recruiter's mandatory scoring rules)\nThese criteria MUST be applied as score overrides. Follow them exactly:\n${job.screeningCriteria}\n\n`
     }
 
     // Prefer structured parsed CV data over raw text

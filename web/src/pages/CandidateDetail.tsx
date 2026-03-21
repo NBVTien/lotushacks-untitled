@@ -33,7 +33,7 @@ import {
   Search,
   CheckCircle,
   Zap,
-  Star,
+  Clock,
   Sparkles,
   Loader2,
   MessageSquare,
@@ -59,7 +59,7 @@ const PIPELINE_STEPS = [
   { key: 'uploaded', label: 'Uploaded', icon: Upload },
   { key: 'parsed', label: 'Parsed', icon: FileText },
   { key: 'enriching', label: 'Enriched', icon: Search },
-  { key: 'scoring', label: 'Scored', icon: Star },
+  { key: 'scoring', label: 'Scored', icon: Brain },
   { key: 'completed', label: 'Completed', icon: CheckCircle },
 ]
 
@@ -142,7 +142,7 @@ export function CandidateDetailPage() {
     return (
       <div className="space-y-4">
         <Link
-          to={`/jobs/${jobId}`}
+          to={`/recruiter/jobs/${jobId}`}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back
@@ -156,7 +156,7 @@ export function CandidateDetailPage() {
     return (
       <div className="space-y-6">
         <Link
-          to={`/jobs/${jobId}`}
+          to={`/recruiter/jobs/${jobId}`}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Job
@@ -177,7 +177,7 @@ export function CandidateDetailPage() {
     <PageTransition>
       <div className="space-y-8">
         <Link
-          to={`/jobs/${jobId}`}
+          to={`/recruiter/jobs/${jobId}`}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Candidates
@@ -197,7 +197,7 @@ export function CandidateDetailPage() {
                 </>
               ) : (
                 <div className="text-center text-muted-foreground">
-                  <Zap className="mx-auto h-6 w-6 opacity-30" />
+                  <Clock className="mx-auto h-6 w-6 opacity-30" />
                   <p className="mt-1 text-xs">Pending</p>
                 </div>
               )}
@@ -352,60 +352,62 @@ export function CandidateDetailPage() {
               </div>
 
               {/* Step progress with animations */}
-              <div className="flex items-center gap-1">
-                {PIPELINE_STEPS.map((step, i) => {
-                  const isCompleted = currentStepIndex > i
-                  const isCurrent = currentStepIndex === i
-                  const StepIcon = step.icon
-                  return (
-                    <div key={step.key} className="flex items-center flex-1">
-                      <motion.div
-                        initial={false}
-                        animate={{
-                          scale: isCurrent ? [1, 1.15, 1] : 1,
-                          backgroundColor: isCompleted ? 'var(--color-primary)' : isCurrent ? 'var(--color-primary)' : 'var(--color-muted)',
-                        }}
-                        transition={isCurrent ? { scale: { duration: 1.5, repeat: Infinity } } : {}}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full shrink-0 ${
-                          isCompleted || isCurrent ? 'text-primary-foreground' : 'text-muted-foreground/40'
-                        }`}
-                      >
-                        {isCompleted ? (
-                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                            <CheckCircle className="h-4 w-4" />
-                          </motion.div>
-                        ) : isCurrent ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <StepIcon className="h-3.5 w-3.5" />
-                        )}
-                      </motion.div>
-                      {i < PIPELINE_STEPS.length - 1 && (
-                        <div className="flex-1 mx-1 h-0.5 rounded-full overflow-hidden bg-muted">
-                          <motion.div
-                            initial={{ width: '0%' }}
-                            animate={{ width: isCompleted ? '100%' : isCurrent ? '50%' : '0%' }}
-                            transition={{ duration: 0.5 }}
-                            className="h-full bg-primary rounded-full"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Step labels */}
-              <div className="flex items-center">
-                {PIPELINE_STEPS.map((step, i) => (
-                  <div key={step.key} className="flex-1 text-center">
-                    <span className={`text-[10px] font-medium ${
-                      currentStepIndex > i ? 'text-primary' : currentStepIndex === i ? 'text-foreground' : 'text-muted-foreground/40'
-                    }`}>
-                      {step.label}
-                    </span>
-                  </div>
-                ))}
+              <div className="relative">
+                {/* Background line — spans full width at icon center height */}
+                <div className="absolute top-4 left-0 right-0 flex px-[calc(10%-4px)]">
+                  {PIPELINE_STEPS.slice(0, -1).map((step, i) => {
+                    const isCompleted = currentStepIndex > i
+                    const isCurrent = currentStepIndex === i
+                    return (
+                      <div key={step.key} className="flex-1 h-0.5 bg-muted rounded-full overflow-hidden mx-1">
+                        <motion.div
+                          initial={{ width: '0%' }}
+                          animate={{ width: isCompleted ? '100%' : '0%' }}
+                          transition={{ duration: 0.5 }}
+                          className="h-full bg-primary rounded-full"
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Icons + labels */}
+                <div className="relative z-10 flex">
+                  {PIPELINE_STEPS.map((step, i) => {
+                    const isCompleted = currentStepIndex > i
+                    const isCurrent = currentStepIndex === i
+                    const StepIcon = step.icon
+                    return (
+                      <div key={step.key} className="flex-1 flex flex-col items-center">
+                        <motion.div
+                          initial={false}
+                          animate={{
+                            scale: isCurrent ? [1, 1.15, 1] : 1,
+                            backgroundColor: isCompleted ? 'var(--color-primary)' : isCurrent ? 'var(--color-primary)' : 'var(--color-muted)',
+                          }}
+                          transition={isCurrent ? { scale: { duration: 1.5, repeat: Infinity } } : {}}
+                          className={`flex h-8 w-8 items-center justify-center rounded-full shrink-0 ${
+                            isCompleted || isCurrent ? 'text-primary-foreground' : 'text-muted-foreground/40'
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                              <CheckCircle className="h-4 w-4" />
+                            </motion.div>
+                          ) : isCurrent ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <StepIcon className="h-3.5 w-3.5" />
+                          )}
+                        </motion.div>
+                        <span className={`mt-1.5 text-[10px] font-medium ${
+                          isCompleted ? 'text-primary' : isCurrent ? 'text-foreground' : 'text-muted-foreground/40'
+                        }`}>
+                          {step.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Progress logs — animated */}

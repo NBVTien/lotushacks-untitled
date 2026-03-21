@@ -107,7 +107,7 @@ export function CompanyResearchPage() {
     <PageTransition>
       <div className="mx-auto max-w-4xl space-y-8">
         <div>
-          <Link to="/careers" className="text-sm text-muted-foreground hover:text-foreground">
+          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
             &larr; Back to Careers
           </Link>
         </div>

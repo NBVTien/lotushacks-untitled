@@ -102,7 +102,7 @@ export function CandidatePortalPage() {
           </div>
           <Button
             className="gap-2"
-            onClick={() => navigate('/careers/portal/gap-analysis')}
+            onClick={() => navigate('/portal/gap-analysis')}
             disabled={!parsedCV}
           >
             <Sparkles className="h-4 w-4" />
@@ -293,7 +293,7 @@ export function CandidatePortalPage() {
                 </div>
                 <Button
                   className="gap-2"
-                  onClick={() => navigate('/careers/portal/gap-analysis')}
+                  onClick={() => navigate('/portal/gap-analysis')}
                 >
                   Gap Analysis
                   <ArrowRight className="h-4 w-4" />

@@ -21,17 +21,17 @@ import { Briefcase, LogOut, LayoutDashboard, Moon, Sun } from 'lucide-react'
 import { ThemeProvider, useTheme } from './lib/theme'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function RecruiterProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth()
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (user?.role === 'candidate') return <Navigate to="/careers/portal" replace />
+  if (!isAuthenticated) return <Navigate to="/recruiter/login" replace />
+  if (user?.role === 'candidate') return <Navigate to="/portal" replace />
   return <>{children}</>
 }
 
 function CandidateProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth()
-  if (!isAuthenticated) return <Navigate to="/careers/login" replace />
-  if (user?.role !== 'candidate') return <Navigate to="/careers" replace />
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (user?.role !== 'candidate') return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -53,8 +53,8 @@ function Sidebar() {
   const { user, logout } = useAuth()
 
   const navItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/jobs', label: 'Jobs', icon: Briefcase },
+    { to: '/recruiter', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/recruiter/jobs', label: 'Jobs', icon: Briefcase },
   ]
 
   return (
@@ -64,15 +64,15 @@ function Sidebar() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
           <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
         </div>
-        <span className="text-base font-semibold tracking-tight">Recruit AI</span>
+        <span className="text-base font-semibold tracking-tight">TalentLens Recruiter</span>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
           const isActive =
-            item.to === '/'
-              ? location.pathname === '/'
+            item.to === '/recruiter'
+              ? location.pathname === '/recruiter'
               : location.pathname === item.to || location.pathname.startsWith(item.to + '/')
           return (
             <Link
@@ -122,11 +122,11 @@ function MobileHeader() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/50 px-4 bg-background/95 backdrop-blur-sm lg:hidden">
-      <Link to="/" className="flex items-center gap-2">
+      <Link to="/recruiter" className="flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
           <LayoutDashboard className="h-3.5 w-3.5 text-primary-foreground" />
         </div>
-        <span className="text-sm font-semibold">Recruit AI</span>
+        <span className="text-sm font-semibold">TalentLens Recruiter</span>
       </Link>
       <div className="flex items-center gap-2">
         <ThemeToggle />
@@ -151,21 +151,21 @@ function CareersNav() {
 
   const navLinks = isAuthenticated && isCandidate
     ? [
-        { to: '/careers/portal', label: 'My Profile' },
-        { to: '/careers/portal/gap-analysis', label: 'Gap Analysis' },
+        { to: '/portal', label: 'My Profile' },
+        { to: '/portal/gap-analysis', label: 'Gap Analysis' },
       ]
     : [
-        { to: '/careers/login', label: 'Login' },
+        { to: '/login', label: 'Login' },
       ]
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-        <Link to="/careers" className="flex items-center gap-2.5">
+        <Link to="/" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Briefcase className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-base font-semibold tracking-tight">Careers</span>
+          <span className="text-base font-semibold tracking-tight">TalentLens</span>
         </Link>
         <nav className="flex items-center gap-6">
           {navLinks.map((link) => {
@@ -219,67 +219,17 @@ export default function App() {
           <Toaster />
           <ErrorBoundary>
           <Routes>
-            {/* Auth — no nav */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/careers/login" element={<CandidateLoginPage />} />
-            <Route path="/careers/register" element={<CandidateRegisterPage />} />
+            {/* Candidate auth — no nav */}
+            <Route path="/login" element={<CandidateLoginPage />} />
+            <Route path="/register" element={<CandidateRegisterPage />} />
 
-            {/* Recruiter (protected) — sidebar layout */}
+            {/* Recruiter auth — no nav */}
+            <Route path="/recruiter/login" element={<LoginPage />} />
+            <Route path="/recruiter/register" element={<RegisterPage />} />
+
+            {/* Careers (default, public) — careers nav */}
             <Route
               path="/"
-              element={
-                <ProtectedRoute>
-                  <RecruiterLayout>
-                    <DashboardPage />
-                  </RecruiterLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/jobs"
-              element={
-                <ProtectedRoute>
-                  <RecruiterLayout>
-                    <JobsPage />
-                  </RecruiterLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/jobs/:jobId"
-              element={
-                <ProtectedRoute>
-                  <RecruiterLayout>
-                    <JobDetailPage />
-                  </RecruiterLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/jobs/:jobId/compare"
-              element={
-                <ProtectedRoute>
-                  <RecruiterLayout>
-                    <CandidateComparePage />
-                  </RecruiterLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/jobs/:jobId/candidates/:candidateId"
-              element={
-                <ProtectedRoute>
-                  <RecruiterLayout>
-                    <CandidateDetailPage />
-                  </RecruiterLayout>
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Candidate (public) — careers nav */}
-            <Route
-              path="/careers"
               element={
                 <>
                   <CareersNav />
@@ -290,7 +240,7 @@ export default function App() {
               }
             />
             <Route
-              path="/careers/company/:name"
+              path="/company/:name"
               element={
                 <>
                   <CareersNav />
@@ -301,7 +251,7 @@ export default function App() {
               }
             />
             <Route
-              path="/careers/:jobId/apply"
+              path="/jobs/:jobId/apply"
               element={
                 <>
                   <CareersNav />
@@ -314,7 +264,7 @@ export default function App() {
 
             {/* Candidate Portal (protected, candidate only) */}
             <Route
-              path="/careers/portal"
+              path="/portal"
               element={
                 <CandidateProtectedRoute>
                   <CareersNav />
@@ -325,7 +275,7 @@ export default function App() {
               }
             />
             <Route
-              path="/careers/portal/gap-analysis"
+              path="/portal/gap-analysis"
               element={
                 <CandidateProtectedRoute>
                   <CareersNav />
@@ -336,7 +286,7 @@ export default function App() {
               }
             />
             <Route
-              path="/careers/portal/gap-analysis/:analysisId/resources"
+              path="/portal/gap-analysis/:analysisId/resources"
               element={
                 <CandidateProtectedRoute>
                   <CareersNav />
@@ -346,6 +296,62 @@ export default function App() {
                 </CandidateProtectedRoute>
               }
             />
+
+            {/* Recruiter (protected) — sidebar layout */}
+            <Route
+              path="/recruiter"
+              element={
+                <RecruiterProtectedRoute>
+                  <RecruiterLayout>
+                    <DashboardPage />
+                  </RecruiterLayout>
+                </RecruiterProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/jobs"
+              element={
+                <RecruiterProtectedRoute>
+                  <RecruiterLayout>
+                    <JobsPage />
+                  </RecruiterLayout>
+                </RecruiterProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/jobs/:jobId"
+              element={
+                <RecruiterProtectedRoute>
+                  <RecruiterLayout>
+                    <JobDetailPage />
+                  </RecruiterLayout>
+                </RecruiterProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/jobs/:jobId/compare"
+              element={
+                <RecruiterProtectedRoute>
+                  <RecruiterLayout>
+                    <CandidateComparePage />
+                  </RecruiterLayout>
+                </RecruiterProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/jobs/:jobId/candidates/:candidateId"
+              element={
+                <RecruiterProtectedRoute>
+                  <RecruiterLayout>
+                    <CandidateDetailPage />
+                  </RecruiterLayout>
+                </RecruiterProtectedRoute>
+              }
+            />
+
+            {/* Legacy redirects */}
+            <Route path="/careers" element={<Navigate to="/" replace />} />
+            <Route path="/careers/*" element={<Navigate to="/" replace />} />
           </Routes>
           </ErrorBoundary>
         </AuthProvider>

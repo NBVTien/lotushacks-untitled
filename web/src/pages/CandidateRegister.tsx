@@ -71,7 +71,7 @@ export function CandidateRegisterPage() {
     try {
       const res = await candidateAuthApi.register(form)
       login(res.accessToken, res.user)
-      navigate('/careers/portal')
+      navigate('/portal')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       const errorMsg = msg || 'Registration failed'
@@ -192,7 +192,7 @@ export function CandidateRegisterPage() {
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
-                <Link to="/careers/login" className="font-medium text-primary hover:underline">
+                <Link to="/login" className="font-medium text-primary hover:underline">
                   Sign In
                 </Link>
               </p>

@@ -68,7 +68,7 @@ export function LoginPage() {
         return
       }
       login(res.accessToken, res.user)
-      navigate('/')
+      navigate('/recruiter')
     } catch {
       setError('Invalid email or password')
       toast.error('Invalid email or password')
@@ -171,13 +171,13 @@ export function LoginPage() {
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
                 Don't have an account?{' '}
-                <Link to="/register" className="font-medium text-primary hover:underline">
+                <Link to="/recruiter/register" className="font-medium text-primary hover:underline">
                   Register
                 </Link>
               </p>
               <p className="mt-2 text-center text-sm text-muted-foreground">
                 Looking for jobs?{' '}
-                <Link to="/careers/login" className="font-medium text-primary hover:underline">
+                <Link to="/login" className="font-medium text-primary hover:underline">
                   Candidate login
                 </Link>
               </p>

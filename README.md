@@ -118,9 +118,9 @@ npm run dev              # API :4005 + Web :5173
 
 | URL | For |
 |-----|-----|
-| [localhost:5173](http://localhost:5173) | Recruiter Dashboard |
-| [localhost:5173/careers](http://localhost:5173/careers) | Browse Jobs, Company Research |
-| [localhost:5173/careers/portal](http://localhost:5173/careers/portal) | Candidate Portal: CV Profile, Gap Analysis, Learning Resources |
+| [localhost:5173](http://localhost:5173) | Careers homepage — browse jobs, company research |
+| [localhost:5173/portal](http://localhost:5173/portal) | Candidate Portal — CV profile, gap analysis, learning resources |
+| [localhost:5173/recruiter](http://localhost:5173/recruiter) | Recruiter Dashboard — manage jobs, evaluate candidates |
 
 **Demo accounts** (password: `123456`):
 - Recruiter: `hr@acme.example`

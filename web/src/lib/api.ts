@@ -30,9 +30,11 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401 && !err.config.url?.includes('/auth/')) {
+      const userStr = localStorage.getItem('user')
+      const isRecruiter = userStr ? JSON.parse(userStr).role === 'recruiter' : false
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      window.location.href = isRecruiter ? '/recruiter/login' : '/login'
     }
     return Promise.reject(err)
   }
@@ -112,6 +114,8 @@ export const portalApi = {
   analyzeGap: (savedJdId: string) =>
     api.post('/candidate-portal/gap-analysis', { savedJdId }).then((r) => r.data),
   learningResourcesUrl: () => 'http://localhost:4005/candidate-portal/learning-resources',
+  getCachedResources: (savedJdId: string) =>
+    api.get(`/candidate-portal/saved-jds/${savedJdId}/resources`).then((r) => r.data),
 }
 
 export const candidatesApi = {

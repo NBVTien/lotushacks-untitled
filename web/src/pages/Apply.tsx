@@ -146,7 +146,7 @@ export function ApplyPage() {
             get back to you at <strong>{candidateEmail}</strong>.
           </p>
         </div>
-        <Link to="/careers">
+        <Link to="/">
           <Button variant="outline" className="gap-1.5">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Careers
           </Button>
@@ -159,7 +159,7 @@ export function ApplyPage() {
     <PageTransition>
       <div className="mx-auto max-w-lg space-y-6">
         <Link
-          to="/careers"
+          to="/"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Careers

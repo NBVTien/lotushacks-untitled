@@ -220,7 +220,7 @@ export function PipelineBoard({ jobId }: PipelineBoardProps) {
                     >
                       <div
                         className="cursor-pointer"
-                        onClick={() => navigate(`/jobs/${jobId}/candidates/${c.id}`)}
+                        onClick={() => navigate(`/recruiter/jobs/${jobId}/candidates/${c.id}`)}
                       >
                         <div className="flex items-start justify-between gap-1">
                           <div className="min-w-0 flex-1">

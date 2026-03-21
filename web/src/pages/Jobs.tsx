@@ -137,7 +137,7 @@ export function JobsPage() {
   const handleCopyLink = (e: React.MouseEvent, jobId: string) => {
     e.preventDefault()
     e.stopPropagation()
-    const link = `${window.location.origin}/careers/${jobId}/apply`
+    const link = `${window.location.origin}/jobs/${jobId}/apply`
     navigator.clipboard.writeText(link)
     setCopiedJobId(jobId)
     setTimeout(() => setCopiedJobId(null), 2000)
@@ -305,7 +305,7 @@ export function JobsPage() {
               <StaggerContainer className="grid gap-4 md:grid-cols-2">
                 {jobs.map((job) => (
                   <StaggerItem key={job.id}>
-                    <Link to={`/jobs/${job.id}`}>
+                    <Link to={`/recruiter/jobs/${job.id}`}>
                       <Card
                         className={`group shadow-sm border-border/50 transition-shadow duration-200 hover:shadow-[inset_3px_0_0_0_var(--color-primary),0_4px_12px_rgba(0,0,0,0.06)] ${!job.isActive ? 'opacity-60' : ''}`}
                       >
@@ -394,7 +394,7 @@ export function JobsPage() {
                         <tr key={job.id} className="hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-3">
                             <Link
-                              to={`/jobs/${job.id}`}
+                              to={`/recruiter/jobs/${job.id}`}
                               className="flex items-center gap-2 font-medium hover:underline"
                             >
                               <span

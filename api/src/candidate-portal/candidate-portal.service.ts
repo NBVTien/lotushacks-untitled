@@ -202,6 +202,46 @@ export class CandidatePortalService {
     return resources.find(r => r.skill === skill) || null
   }
 
+  private async generateSearchQueries(skill: string): Promise<{ devtoQuery: string; githubQuery: string; coreTech: string }> {
+    try {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a tech learning advisor. Given a skill gap, generate optimal search queries to find learning resources.'
+          },
+          {
+            role: 'user',
+            content: `A developer has this skill gap: "${skill}"
+
+Generate two search queries:
+1. A dev.to search query to find the best tutorial/guide articles (2-4 words, focus on the core technology)
+2. A GitHub search query to find the best learning repositories (2-4 words, focus on examples/tutorials)
+
+Return JSON: {"devtoQuery": "...", "githubQuery": "...", "coreTech": "the core technology name"}`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 200,
+      })
+
+      const content = response.choices[0]?.message?.content || ''
+      try {
+        const match = content.match(/\{[\s\S]*\}/)
+        if (match) return JSON.parse(match[0])
+      } catch {
+        // fall through to fallback
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to generate search queries: ${err}`)
+    }
+
+    // Fallback: extract key tech terms
+    return { devtoQuery: skill, githubQuery: skill + ' tutorial example', coreTech: skill }
+  }
+
   async discoverResourcesForSkill(
     skill: string,
     onProgress?: (msg: string) => void,
@@ -216,11 +256,16 @@ export class CandidatePortalService {
 
     const resources: LearningResource[] = []
 
-    // Search dev.to for blog posts — extract factual data only
-    onProgress?.(`[dev.to] Searching tutorials for: ${skill}`)
+    // Step 1: OpenAI generates targeted search queries from the gap description
+    const queries = await this.generateSearchQueries(skill)
+    onProgress?.(`[AI] Analyzing gap: "${skill}" → searching for "${queries.devtoQuery}"`)
+
+    // Search dev.to for blog posts — using AI-generated query
+    const devToUrl = `https://dev.to/search?q=${encodeURIComponent(queries.devtoQuery)}`
+    onProgress?.(`[dev.to] Searching tutorials for: ${queries.devtoQuery}`)
     const devToResult = await this.tinyFishCrawl.crawl(
-      `https://dev.to/search?q=${encodeURIComponent(skill + ' tutorial guide')}`,
-      `Search for the top 3 most relevant blog posts/tutorials about "${skill}".
+      devToUrl,
+      `Search for the top 3 most relevant blog posts/tutorials about "${queries.coreTech}".
 For each result, click into the actual article page and extract:
 1. The exact article title
 2. The actual URL (must be https://dev.to/username/article-slug, NOT a search URL)
@@ -230,7 +275,7 @@ For each result, click into the actual article page and extract:
 Return JSON array:
 [{"title": "exact title", "url": "https://dev.to/...", "description": "factual description", "topics": ["topic1", "topic2"]}]`,
       {
-        label: `dev.to/${skill}`,
+        label: `dev.to/${queries.coreTech}`,
         onProgress,
         browserProfile: 'lite',
         timeoutMs: 360_000,
@@ -243,9 +288,9 @@ Return JSON array:
         for (const item of parsed) {
           const url = item.url && item.url.includes('dev.to/') && !item.url.includes('/search?')
             ? item.url
-            : `https://dev.to/search?q=${encodeURIComponent(skill)}`
+            : `https://dev.to/search?q=${encodeURIComponent(queries.devtoQuery)}`
           resources.push({
-            title: item.title || `${skill} tutorial`,
+            title: item.title || `${queries.coreTech} tutorial`,
             url,
             source: 'dev.to',
             type: 'blog',
@@ -260,13 +305,14 @@ Return JSON array:
       }
     }
 
-    onProgress?.(`Found ${resources.length} articles on dev.to for ${skill}`)
+    onProgress?.(`Found ${resources.length} articles on dev.to for ${queries.coreTech}`)
 
-    // Search GitHub for educational repos — extract factual data only
-    onProgress?.(`[GitHub] Searching repositories for: ${skill}`)
+    // Search GitHub for educational repos — using AI-generated query
+    const githubUrl = `https://github.com/search?q=${encodeURIComponent(queries.githubQuery)}&type=repositories&s=stars`
+    onProgress?.(`[GitHub] Searching repositories for: ${queries.githubQuery}`)
     const githubResult = await this.tinyFishCrawl.crawl(
-      `https://github.com/search?q=${encodeURIComponent(skill + ' tutorial example')}&type=repositories&s=stars`,
-      `Find the top 3 most popular GitHub repositories for learning "${skill}".
+      githubUrl,
+      `Find the top 3 most popular GitHub repositories for learning "${queries.coreTech}".
 For each, click into the repository and extract:
 1. The repository name (owner/repo format)
 2. The actual URL (must be https://github.com/owner/repo)
@@ -276,7 +322,7 @@ For each, click into the repository and extract:
 Return JSON array:
 [{"title": "owner/repo", "url": "https://github.com/owner/repo", "description": "factual description", "topics": ["topic1", "topic2"]}]`,
       {
-        label: `github/${skill}`,
+        label: `github/${queries.coreTech}`,
         onProgress,
         browserProfile: 'lite',
         timeoutMs: 360_000,

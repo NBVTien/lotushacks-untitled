@@ -42,7 +42,7 @@ export function CandidateComparePage() {
       <PageTransition>
         <div className="space-y-4">
           <Link
-            to={`/jobs/${jobId}`}
+            to={`/recruiter/jobs/${jobId}`}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Job
@@ -60,7 +60,7 @@ export function CandidateComparePage() {
       <PageTransition>
         <div className="space-y-6">
           <Link
-            to={`/jobs/${jobId}`}
+            to={`/recruiter/jobs/${jobId}`}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Job
@@ -78,7 +78,7 @@ export function CandidateComparePage() {
       <PageTransition>
         <div className="space-y-4">
           <Link
-            to={`/jobs/${jobId}`}
+            to={`/recruiter/jobs/${jobId}`}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Job
@@ -119,7 +119,7 @@ export function CandidateComparePage() {
     <PageTransition>
       <div className="space-y-8">
         <Link
-          to={`/jobs/${jobId}`}
+          to={`/recruiter/jobs/${jobId}`}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Job
@@ -162,7 +162,7 @@ export function CandidateComparePage() {
                 {/* Header: Name & email */}
                 <div className="border-b px-5 pt-6 pb-4">
                   <Link
-                    to={`/jobs/${jobId}/candidates/${c.id}`}
+                    to={`/recruiter/jobs/${jobId}/candidates/${c.id}`}
                     className="text-base font-semibold hover:text-primary transition-colors"
                   >
                     {c.name}

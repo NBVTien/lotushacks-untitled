@@ -50,6 +50,12 @@ export class CandidatePortalController {
     return this.portalService.listSavedJds(user.id)
   }
 
+  @Get('saved-jds/:id/resources')
+  async getCachedResources(@Param('id') id: string, @Req() req: Request) {
+    const user = req.user as { id: string }
+    return this.portalService.getCachedResources(user.id, id)
+  }
+
   @Delete('saved-jds/:id')
   async deleteSavedJd(@Param('id') id: string, @Req() req: Request) {
     const user = req.user as { id: string }
@@ -64,7 +70,7 @@ export class CandidatePortalController {
 
   @Post('learning-resources/skill')
   async discoverResourcesForSkill(
-    @Body() body: { skill: string; savedJdId?: string },
+    @Body() body: { skill: string; savedJdId?: string; force?: boolean },
     @Req() req: Request,
     @Res() res: Response
   ) {
@@ -77,7 +83,7 @@ export class CandidatePortalController {
     res.flushHeaders()
 
     // Check for cached results for this specific skill
-    if (body.savedJdId) {
+    if (body.savedJdId && !body.force) {
       const cached = await this.portalService.getCachedResourcesForSkill(user.id, body.savedJdId, body.skill)
       if (cached) {
         res.write(`data: ${JSON.stringify({ type: 'progress', message: 'Loading cached results...' })}\n\n`)

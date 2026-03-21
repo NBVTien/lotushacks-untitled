@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PageTransition } from '@/components/ui/motion'
 import { useAuth } from '@/lib/auth'
+import { portalApi } from '@/lib/api'
 import {
   BookOpen,
   ExternalLink,
@@ -54,13 +55,30 @@ export function LearningResourcesPage() {
 
   const savedJdId = searchParams.get('savedJdId') || ''
 
-  // Initialize skill states
+  // Initialize skill states & load cached resources
   useEffect(() => {
     const initial: Record<string, SkillState> = {}
     for (const gap of gaps) {
       initial[gap] = { status: 'idle', resources: [], logs: [], expanded: false }
     }
     setSkillStates(initial)
+
+    if (!savedJdId) return
+    portalApi.getCachedResources(savedJdId).then((cached) => {
+      if (!cached || !Array.isArray(cached)) return
+      const newStates: Record<string, SkillState> = {}
+      for (const gap of gaps) {
+        const found = cached.find((r: LearningResourceResult) => r.skill === gap)
+        if (found && found.resources.length > 0) {
+          newStates[gap] = { status: 'complete', resources: found.resources, logs: [], expanded: false }
+        } else {
+          newStates[gap] = { status: 'idle', resources: [], logs: [], expanded: false }
+        }
+      }
+      setSkillStates(newStates)
+    }).catch(() => {
+      // Ignore errors, keep idle state
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup abort controllers
@@ -70,7 +88,7 @@ export function LearningResourcesPage() {
     }
   }, [])
 
-  const exploreSkill = useCallback(async (skill: string) => {
+  const exploreSkill = useCallback(async (skill: string, force = false) => {
     // Update state to loading
     setSkillStates(prev => ({
       ...prev,
@@ -89,7 +107,7 @@ export function LearningResourcesPage() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ skill, savedJdId }),
+        body: JSON.stringify({ skill, savedJdId, force }),
         signal: abort.signal,
       })
 
@@ -182,7 +200,7 @@ export function LearningResourcesPage() {
       <div className="mx-auto max-w-4xl space-y-8">
         <div>
           <Link
-            to="/careers/portal/gap-analysis"
+            to="/portal/gap-analysis"
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             &larr; Back to Gap Analysis
@@ -211,7 +229,7 @@ export function LearningResourcesPage() {
                 key={gap}
                 skill={gap}
                 state={state}
-                onExplore={() => exploreSkill(gap)}
+                onExplore={(force) => exploreSkill(gap, force)}
                 onToggle={() => toggleExpanded(gap)}
               />
             )
@@ -230,7 +248,7 @@ function SkillCard({
 }: {
   skill: string
   state: SkillState
-  onExplore: () => void
+  onExplore: (force?: boolean) => void
   onToggle: () => void
 }) {
   const logsEndRef = useRef<HTMLDivElement>(null)
@@ -275,7 +293,7 @@ function SkillCard({
           </button>
           <div className="ml-3">
             {state.status === 'idle' && (
-              <Button size="sm" onClick={onExplore} className="gap-1.5">
+              <Button size="sm" onClick={() => onExplore()} className="gap-1.5">
                 <Play className="h-3.5 w-3.5" />
                 Explore
               </Button>
@@ -287,12 +305,12 @@ function SkillCard({
               </Button>
             )}
             {state.status === 'complete' && (
-              <Button size="sm" variant="outline" onClick={onExplore} className="gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => onExplore(true)} className="gap-1.5">
                 Refresh
               </Button>
             )}
             {state.status === 'error' && (
-              <Button size="sm" variant="outline" onClick={onExplore} className="gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => onExplore()} className="gap-1.5">
                 Retry
               </Button>
             )}

@@ -78,7 +78,7 @@ export function RegisterPage() {
     try {
       const res = await authApi.register(form)
       login(res.accessToken, res.user)
-      navigate('/')
+      navigate('/recruiter')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       const errorMsg = msg || 'Registration failed'
@@ -213,7 +213,7 @@ export function RegisterPage() {
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
-                <Link to="/login" className="font-medium text-primary hover:underline">
+                <Link to="/recruiter/login" className="font-medium text-primary hover:underline">
                   Sign In
                 </Link>
               </p>

@@ -37,7 +37,7 @@ No test framework is currently configured.
 ```
 web/ (React 19 + Vite 8 + Tailwind 4 + shadcn/ui)
   → Axios calls to http://localhost:4005
-  → Two audiences: recruiter dashboard (/) and candidate portal (/careers)
+  → Two audiences: candidate portal (/, /portal) and recruiter dashboard (/recruiter)
 
 api/ (NestJS 11 + TypeORM + PostgreSQL 16)
   ├── jobs/          CRUD for job descriptions
@@ -64,7 +64,7 @@ Company research powered by TinyFish agents (SSE streaming):
 - **Company Research** (`POST /discovery/company-research`) — Company name → crawl Glassdoor, tech blog, website → company intelligence
 
 Frontend routes:
-- `/careers/company/:name` — Company research for candidates
+- `/company/:name` — Company research for candidates
 
 ### Candidate Portal Module
 
@@ -75,11 +75,13 @@ Authenticated candidate features (JWT with `role: 'candidate'`):
 - **Learning Resources** — Per-skill on-demand: TinyFish crawls dev.to and GitHub to extract raw data, then OpenAI synthesizes mentor-style summaries and key takeaways. Each skill runs independently (candidate picks which to explore). SSE streaming. Endpoints: `POST /candidate-portal/learning-resources/skill` (per-skill), `POST /candidate-portal/learning-resources` (batch). Results cached in `saved_jds.lastResources`.
 
 Frontend routes:
-- `/careers/login` — Candidate login
-- `/careers/register` — Candidate registration
-- `/careers/portal` — Profile + CV management
-- `/careers/portal/gap-analysis` — Gap analysis
-- `/careers/portal/gap-analysis/:id/resources` — Learning resources
+- `/login` — Candidate login
+- `/register` — Candidate registration
+- `/portal` — Profile + CV management
+- `/portal/gap-analysis` — Gap analysis
+- `/portal/gap-analysis/:id/resources` — Learning resources
+- `/recruiter/login` — Recruiter login
+- `/recruiter` — Recruiter dashboard
 
 Seed candidate: toan@candidate.example / 123456
 

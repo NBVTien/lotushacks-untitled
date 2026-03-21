@@ -218,7 +218,7 @@ export function GapAnalysisPage() {
     params.set('skills', JSON.stringify(a.skillScores?.map((s) => s.name) || []))
     params.set('analysisId', a.id)
     params.set('savedJdId', a.savedJdId)
-    navigate(`/careers/portal/gap-analysis/${a.id}/resources?${params.toString()}`)
+    navigate(`/portal/gap-analysis/${a.id}/resources?${params.toString()}`)
   }
 
   return (
@@ -226,7 +226,7 @@ export function GapAnalysisPage() {
       <div className="mx-auto max-w-4xl space-y-8">
         <div>
           <Link
-            to="/careers/portal"
+            to="/portal"
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             &larr; Back to Profile

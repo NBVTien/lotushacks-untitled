@@ -203,7 +203,7 @@ export function CareersPage() {
               size="lg"
               variant="outline"
               className="gap-2 rounded-xl px-8 text-base"
-              onClick={() => navigate('/careers/company/google')}
+              onClick={() => navigate('/company/google')}
             >
               <Building2 className="h-4 w-4" />
               Research Companies
@@ -405,13 +405,13 @@ export function CareersPage() {
 
                       <div className="flex shrink-0 items-center gap-2">
                         {job.company && (
-                          <Link to={`/careers/company/${encodeURIComponent(job.company.name)}`}>
+                          <Link to={`/company/${encodeURIComponent(job.company.name)}`}>
                             <Button variant="ghost" size="sm">
                               Research Company
                             </Button>
                           </Link>
                         )}
-                        <Link to={`/careers/${job.id}/apply`}>
+                        <Link to={`/jobs/${job.id}/apply`}>
                           <Button className="gap-1.5">
                             Apply <ArrowRight className="h-3.5 w-3.5" />
                           </Button>

@@ -203,7 +203,7 @@ export function CandidateSourcingPage() {
       <div className="space-y-8">
         <div>
           <Link
-            to={`/jobs/${jobId}`}
+            to={`/recruiter/jobs/${jobId}`}
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             &larr; Back to Job
