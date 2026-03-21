@@ -3,6 +3,13 @@ import { useParams, Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   AlertDialog,
@@ -44,12 +51,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ErrorState } from '@/components/ErrorState'
 import { toast } from 'sonner'
 import { candidatesApi } from '@/lib/api'
+import { CandidateNotes } from '@/components/CandidateNotes'
 import type {
   Candidate,
   EnrichmentProgress,
   CompanyIntel,
   InterviewQuestion,
   InterviewQuestionsResult,
+  PipelineStage,
 } from '@lotushack/shared'
 
 const PIPELINE_STEPS = [
@@ -280,6 +289,14 @@ export function CandidateDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Pipeline Stage & Notes */}
+        <PipelineStageSection
+          jobId={jobId!}
+          candidateId={candidateId!}
+          candidate={candidate}
+          onUpdate={setCandidate}
+        />
 
         {/* Error state */}
         {candidate.status === 'error' && (
@@ -1709,5 +1726,120 @@ function PdfViewer({ jobId, candidateId }: { jobId: string; candidateId: string 
         <iframe src={url} className="h-[800px] w-full rounded-lg border" title="CV PDF" />
       </CardContent>
     </Card>
+  )
+}
+
+const PIPELINE_STAGE_OPTIONS: { key: PipelineStage; label: string; color: string }[] = [
+  { key: 'new', label: 'New', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+  { key: 'screening', label: 'Screening', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' },
+  { key: 'interview', label: 'Interview', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+  { key: 'offer', label: 'Offer', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+  { key: 'hired', label: 'Hired', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+  { key: 'rejected', label: 'Rejected', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+]
+
+function PipelineStageSection({
+  jobId,
+  candidateId,
+  candidate,
+  onUpdate,
+}: {
+  jobId: string
+  candidateId: string
+  candidate: Candidate
+  onUpdate: (c: Candidate | null) => void
+}) {
+  const [changing, setChanging] = useState(false)
+
+  const handleStageChange = async (newStage: PipelineStage) => {
+    if (newStage === candidate.pipelineStage) return
+    setChanging(true)
+    try {
+      const updated = await candidatesApi.updatePipelineStage(jobId, candidateId, newStage)
+      onUpdate(updated)
+      toast.success(`Moved to ${PIPELINE_STAGE_OPTIONS.find((s) => s.key === newStage)?.label}`)
+    } catch {
+      toast.error('Failed to update pipeline stage')
+    } finally {
+      setChanging(false)
+    }
+  }
+
+  const currentStageConfig = PIPELINE_STAGE_OPTIONS.find((s) => s.key === candidate.pipelineStage)
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      {/* Pipeline Stage */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Pipeline Stage</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${currentStageConfig?.color || 'bg-muted text-muted-foreground'}`}
+            >
+              {currentStageConfig?.label || candidate.pipelineStage}
+            </span>
+            {changing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          </div>
+          <Select
+            value={candidate.pipelineStage}
+            onValueChange={(val) => handleStageChange(val as PipelineStage)}
+            disabled={changing}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PIPELINE_STAGE_OPTIONS.map((s) => (
+                <SelectItem key={s.key} value={s.key}>
+                  <span className={s.color.split(' ').filter(c => c.startsWith('text-') || c.startsWith('dark:text-')).join(' ')}>
+                    {s.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Pipeline history */}
+          {candidate.pipelineHistory && candidate.pipelineHistory.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                History
+              </p>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {[...candidate.pipelineHistory].reverse().map((entry, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <span className="font-medium capitalize">{entry.from}</span>
+                    <span>&rarr;</span>
+                    <span className="font-medium capitalize">{entry.to}</span>
+                    <span>&middot;</span>
+                    <span>{entry.changedBy}</span>
+                    <span>&middot;</span>
+                    <span>
+                      {new Date(entry.changedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Notes */}
+      <CandidateNotes
+        jobId={jobId}
+        candidateId={candidateId}
+        notes={candidate.notes || []}
+        onNotesUpdate={(notes) =>
+          onUpdate(candidate ? { ...candidate, notes } : null)
+        }
+      />
+    </div>
   )
 }

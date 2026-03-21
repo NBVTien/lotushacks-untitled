@@ -13,6 +13,9 @@ import type {
   InterviewQuestionsResult,
   MatchResult,
   CandidateStatus,
+  PipelineStage,
+  CandidateNote,
+  PipelineHistoryEntry,
 } from '@lotushack/shared'
 import { JobEntity } from './job.entity'
 
@@ -75,6 +78,15 @@ export class CandidateEntity {
 
   @Column({ default: 0 })
   retryCount!: number
+
+  @Column('varchar', { default: 'new' })
+  pipelineStage!: PipelineStage
+
+  @Column('jsonb', { default: '[]' })
+  notes!: CandidateNote[]
+
+  @Column('jsonb', { default: '[]' })
+  pipelineHistory!: PipelineHistoryEntry[]
 
   @CreateDateColumn()
   createdAt!: Date

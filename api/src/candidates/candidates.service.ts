@@ -8,7 +8,7 @@ import { CandidateEntity } from '../database'
 import { MinioService } from './minio.service'
 import { JobsService } from '../jobs/jobs.service'
 import { MatchingService } from '../matching/matching.service'
-import type { CandidateStatus } from '@lotushack/shared'
+import type { CandidateStatus, PipelineStage, CandidateNote, PipelineHistoryEntry } from '@lotushack/shared'
 import type { CandidateJobData } from './candidate.processor'
 
 @Injectable()
@@ -235,6 +235,73 @@ export class CandidatesService {
     this.logger.log(`Cached interview questions for candidate ${candidateId}`)
 
     return result
+  }
+
+  async updatePipelineStage(
+    candidateId: string,
+    jobId: string,
+    stage: PipelineStage,
+    changedBy: string
+  ) {
+    const candidate = await this.findOne(candidateId)
+    if (candidate.jobId !== jobId) {
+      throw new NotFoundException('Candidate not found for this job')
+    }
+
+    const historyEntry: PipelineHistoryEntry = {
+      from: candidate.pipelineStage,
+      to: stage,
+      changedBy,
+      changedAt: new Date().toISOString(),
+    }
+
+    const pipelineHistory = [...(candidate.pipelineHistory || []), historyEntry]
+
+    await this.repo.update(candidateId, { pipelineStage: stage, pipelineHistory })
+    this.logger.log(
+      `Pipeline stage updated: candidate=${candidateId}, ${historyEntry.from} → ${stage}, by=${changedBy}`
+    )
+
+    return this.findOne(candidateId)
+  }
+
+  async addNote(candidateId: string, jobId: string, text: string, authorName: string) {
+    const candidate = await this.findOne(candidateId)
+    if (candidate.jobId !== jobId) {
+      throw new NotFoundException('Candidate not found for this job')
+    }
+
+    const note: CandidateNote = {
+      id: uuid(),
+      text,
+      authorName,
+      createdAt: new Date().toISOString(),
+    }
+
+    const notes = [note, ...(candidate.notes || [])]
+    await this.repo.update(candidateId, { notes })
+    this.logger.log(`Note added: candidate=${candidateId}, by=${authorName}`)
+
+    return this.findOne(candidateId)
+  }
+
+  async getCandidatesByStage(jobId: string): Promise<Record<PipelineStage, CandidateEntity[]>> {
+    const candidates = await this.repo.find({
+      where: { jobId, status: 'completed' as CandidateStatus },
+      order: { createdAt: 'DESC' },
+    })
+
+    const stages: PipelineStage[] = ['new', 'screening', 'interview', 'offer', 'hired', 'rejected']
+    const grouped = {} as Record<PipelineStage, CandidateEntity[]>
+    for (const stage of stages) {
+      grouped[stage] = []
+    }
+    for (const candidate of candidates) {
+      const stage = candidate.pipelineStage || 'new'
+      grouped[stage].push(candidate)
+    }
+
+    return grouped
   }
 
   async delete(id: string) {

@@ -86,6 +86,9 @@ export interface Candidate {
   errorMessage: string | null
   progressLogs: string[]
   retryCount: number
+  pipelineStage: PipelineStage
+  notes: CandidateNote[]
+  pipelineHistory: PipelineHistoryEntry[]
   createdAt: string
 }
 
@@ -249,6 +252,29 @@ export interface InterviewQuestion {
 
 export interface InterviewQuestionsResult {
   questions: InterviewQuestion[]
+}
+
+// Pipeline Workflow
+export type PipelineStage =
+  | 'new'
+  | 'screening'
+  | 'interview'
+  | 'offer'
+  | 'hired'
+  | 'rejected'
+
+export interface CandidateNote {
+  id: string
+  text: string
+  authorName: string
+  createdAt: string
+}
+
+export interface PipelineHistoryEntry {
+  from: PipelineStage
+  to: PipelineStage
+  changedBy: string
+  changedAt: string
 }
 
 // Job Discovery (for candidates)
