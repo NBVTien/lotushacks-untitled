@@ -3,13 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+// Select imports removed — pipeline stage now uses visual tracker buttons
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   AlertDialog,
@@ -329,25 +323,116 @@ export function CandidateDetailPage() {
           </Card>
         )}
 
-        {/* Processing state */}
+        {/* Processing state — animated */}
         {candidate.status !== 'completed' && candidate.status !== 'error' && (
-          <Card className="shadow-sm">
-            <CardContent className="py-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <StatusBadge status={candidate.status} />
-                <span className="text-sm text-muted-foreground">Processing...</span>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative overflow-hidden rounded-xl border bg-card shadow-sm"
+          >
+            {/* Animated gradient shimmer background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-shimmer" />
+
+            <div className="relative p-5 space-y-4">
+              {/* Header with animated icon */}
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary"
+                  />
+                  <Sparkles className="absolute inset-0 m-auto h-3.5 w-3.5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">
+                    {candidate.status === 'uploaded' && 'Preparing to analyze CV...'}
+                    {candidate.status === 'parsed' && 'CV parsed — preparing enrichment...'}
+                    {candidate.status === 'enriching' && 'Enriching profile with online data...'}
+                    {candidate.status === 'enriched' && 'Profile enriched — preparing scoring...'}
+                    {candidate.status === 'scoring' && 'AI is scoring the candidate...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">This usually takes 15-30 seconds</p>
+                </div>
               </div>
+
+              {/* Step progress with animations */}
+              <div className="flex items-center gap-1">
+                {PIPELINE_STEPS.map((step, i) => {
+                  const isCompleted = currentStepIndex > i
+                  const isCurrent = currentStepIndex === i
+                  const StepIcon = step.icon
+                  return (
+                    <div key={step.key} className="flex items-center flex-1">
+                      <motion.div
+                        initial={false}
+                        animate={{
+                          scale: isCurrent ? [1, 1.15, 1] : 1,
+                          backgroundColor: isCompleted ? 'var(--color-primary)' : isCurrent ? 'var(--color-primary)' : 'var(--color-muted)',
+                        }}
+                        transition={isCurrent ? { scale: { duration: 1.5, repeat: Infinity } } : {}}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full shrink-0 ${
+                          isCompleted || isCurrent ? 'text-primary-foreground' : 'text-muted-foreground/40'
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                            <CheckCircle className="h-4 w-4" />
+                          </motion.div>
+                        ) : isCurrent ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <StepIcon className="h-3.5 w-3.5" />
+                        )}
+                      </motion.div>
+                      {i < PIPELINE_STEPS.length - 1 && (
+                        <div className="flex-1 mx-1 h-0.5 rounded-full overflow-hidden bg-muted">
+                          <motion.div
+                            initial={{ width: '0%' }}
+                            animate={{ width: isCompleted ? '100%' : isCurrent ? '50%' : '0%' }}
+                            transition={{ duration: 0.5 }}
+                            className="h-full bg-primary rounded-full"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Step labels */}
+              <div className="flex items-center">
+                {PIPELINE_STEPS.map((step, i) => (
+                  <div key={step.key} className="flex-1 text-center">
+                    <span className={`text-[10px] font-medium ${
+                      currentStepIndex > i ? 'text-primary' : currentStepIndex === i ? 'text-foreground' : 'text-muted-foreground/40'
+                    }`}>
+                      {step.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress logs — animated */}
               {candidate.progressLogs && candidate.progressLogs.length > 0 && (
-                <div className="rounded-lg border bg-muted/30 p-3 max-h-40 overflow-y-auto">
-                  {candidate.progressLogs.map((log, i) => (
-                    <p key={i} className="text-xs text-muted-foreground font-mono">
-                      {log}
-                    </p>
-                  ))}
+                <div className="rounded-lg border bg-muted/20 p-3 max-h-32 overflow-y-auto space-y-1">
+                  <AnimatePresence>
+                    {candidate.progressLogs.map((log, i) => (
+                      <motion.p
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="text-xs text-muted-foreground font-mono"
+                      >
+                        <span className="text-primary mr-1.5">›</span>{log}
+                      </motion.p>
+                    ))}
+                  </AnimatePresence>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </motion.div>
         )}
 
         <Tabs defaultValue="score">
@@ -1569,62 +1654,80 @@ function PipelineStageSection({
     }
   }
 
-  const currentStageConfig = PIPELINE_STAGE_OPTIONS.find((s) => s.key === candidate.pipelineStage)
-
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      {/* Pipeline Stage */}
+      {/* Pipeline Stage — visual tracker */}
       <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Pipeline Stage</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="h-4 w-4 text-primary" />
+            Pipeline Stage
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-3">
-            <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${currentStageConfig?.color || 'bg-muted text-muted-foreground'}`}
-            >
-              {currentStageConfig?.label || candidate.pipelineStage}
-            </span>
-            {changing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        <CardContent className="space-y-4">
+          {/* Visual stage tracker */}
+          <div className="space-y-1">
+            {PIPELINE_STAGE_OPTIONS.map((stage, i) => {
+              const isCurrent = candidate.pipelineStage === stage.key
+              const currentIdx = PIPELINE_STAGE_OPTIONS.findIndex((s) => s.key === candidate.pipelineStage)
+              const isPast = stage.key !== 'rejected' && i < currentIdx && candidate.pipelineStage !== 'rejected'
+              const isRejected = stage.key === 'rejected' && candidate.pipelineStage === 'rejected'
+
+              return (
+                <motion.button
+                  key={stage.key}
+                  onClick={() => !changing && handleStageChange(stage.key)}
+                  disabled={changing}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-all cursor-pointer border ${
+                    isCurrent || isRejected
+                      ? `${stage.color} border-current/20 font-semibold ring-1 ring-current/10`
+                      : isPast
+                        ? 'bg-primary/5 border-primary/10 text-primary/70'
+                        : 'bg-muted/30 border-transparent text-muted-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold shrink-0 ${
+                    isCurrent || isRejected
+                      ? stage.color
+                      : isPast
+                        ? 'bg-primary/20 text-primary'
+                        : 'bg-muted text-muted-foreground/50'
+                  }`}>
+                    {isPast ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
+                  </div>
+                  <span>{stage.label}</span>
+                  {(isCurrent || isRejected) && (
+                    <motion.div
+                      layoutId="stage-indicator"
+                      className="ml-auto h-2 w-2 rounded-full bg-current"
+                    />
+                  )}
+                  {changing && isCurrent && (
+                    <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin" />
+                  )}
+                </motion.button>
+              )
+            })}
           </div>
-          <Select
-            value={candidate.pipelineStage}
-            onValueChange={(val) => handleStageChange(val as PipelineStage)}
-            disabled={changing}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PIPELINE_STAGE_OPTIONS.map((s) => (
-                <SelectItem key={s.key} value={s.key}>
-                  <span className={s.color.split(' ').filter(c => c.startsWith('text-') || c.startsWith('dark:text-')).join(' ')}>
-                    {s.label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           {/* Pipeline history */}
           {candidate.pipelineHistory && candidate.pipelineHistory.length > 0 && (
-            <div className="mt-3 space-y-2">
+            <div className="space-y-2 pt-2 border-t">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 History
               </p>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
                 {[...candidate.pipelineHistory].reverse().map((entry, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-2 text-xs text-muted-foreground"
                   >
                     <span className="font-medium capitalize">{entry.from}</span>
-                    <span>&rarr;</span>
+                    <span className="text-primary">&rarr;</span>
                     <span className="font-medium capitalize">{entry.to}</span>
-                    <span>&middot;</span>
-                    <span>{entry.changedBy}</span>
-                    <span>&middot;</span>
-                    <span>
+                    <span className="ml-auto text-[10px]">
                       {new Date(entry.changedAt).toLocaleDateString()}
                     </span>
                   </div>
