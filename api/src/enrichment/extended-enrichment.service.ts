@@ -352,15 +352,24 @@ export class ExtendedEnrichmentService {
 
     const raw = await this.tinyfish.crawl(
       companyUrl,
-      `Visit this company website for "${company}". Extract:\n` +
+      `Research the company "${company}" thoroughly using this website as starting point.\n\n` +
+        'STEP 1: Visit the provided URL and gather basic company info.\n' +
+        'STEP 2: Search Google for additional details — try queries like:\n' +
+        `  - "${company}" company overview\n` +
+        `  - "${company}" glassdoor reviews\n` +
+        `  - "${company}" linkedin company\n` +
+        `  - "${company}" crunchbase\n` +
+        'STEP 3: Visit 2-3 of the most relevant results to gather comprehensive data.\n\n' +
+        'Extract and return as JSON:\n' +
         '- url (string|null): the company official website URL\n' +
-        '- exists (boolean): does the company appear to be a real, active company?\n' +
-        '- industry (string|null): what industry are they in?\n' +
-        '- techStack (string[]): any technologies mentioned on their site (programming languages, frameworks, cloud providers, etc.)\n' +
-        '- size (string|null): company size if mentioned (e.g. "50-200", "startup", "enterprise")\n' +
-        '- summary (string): 2-3 sentence description of the company\n' +
-        'Return as JSON.',
-      { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress, timeoutMs: 240_000 }
+        '- exists (boolean): is this a real, active company?\n' +
+        '- industry (string|null): industry sector\n' +
+        '- techStack (string[]): technologies used (languages, frameworks, cloud providers)\n' +
+        '- size (string|null): company size (e.g. "50-200", "startup", "enterprise")\n' +
+        '- founded (string|null): year founded if available\n' +
+        '- headquarters (string|null): location if available\n' +
+        '- summary (string): 3-4 sentence comprehensive description\n',
+      { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress, timeoutMs: 300_000 }
     )
 
     if (!raw) {
@@ -372,6 +381,8 @@ export class ExtendedEnrichmentService {
         industry: null,
         techStack: [],
         size: null,
+        founded: null,
+        headquarters: null,
         summary: 'Could not verify',
       }
     }
@@ -386,6 +397,8 @@ export class ExtendedEnrichmentService {
         industry: data.industry || null,
         techStack: data.techStack || [],
         size: data.size || null,
+        founded: data.founded || null,
+        headquarters: data.headquarters || null,
         summary: data.summary || '',
       }
     } catch {
@@ -397,6 +410,8 @@ export class ExtendedEnrichmentService {
         industry: null,
         techStack: [],
         size: null,
+        founded: null,
+        headquarters: null,
         summary: raw.slice(0, 300),
       }
     }
@@ -417,15 +432,24 @@ export class ExtendedEnrichmentService {
       const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(`"${company}" company website`)}`
       const raw = await this.tinyfish.crawl(
         searchUrl,
-        `Search for the company "${company}". Find their official website. Then visit it and extract:\n` +
+        `Research the company "${company}" thoroughly across the web.\n\n` +
+          'STEP 1: Look at the Google search results for initial info.\n' +
+          'STEP 2: Visit the company official website (if found) and gather details.\n' +
+          'STEP 3: Search for additional sources — try:\n' +
+          `  - "${company}" glassdoor\n` +
+          `  - "${company}" linkedin company page\n` +
+          `  - "${company}" crunchbase\n` +
+          'STEP 4: Visit 1-2 more relevant results to verify and enrich data.\n\n' +
+          'Extract and return as JSON:\n' +
           '- url (string|null): the company official website URL\n' +
-          '- exists (boolean): does the company appear to be a real, active company?\n' +
-          '- industry (string|null): what industry are they in?\n' +
-          '- techStack (string[]): any technologies mentioned on their site (programming languages, frameworks, cloud providers, etc.)\n' +
-          '- size (string|null): company size if mentioned (e.g. "50-200", "startup", "enterprise")\n' +
-          '- summary (string): 2-3 sentence description of the company\n' +
-          'Return as JSON.',
-        { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress, timeoutMs: 240_000 }
+          '- exists (boolean): is this a real, active company?\n' +
+          '- industry (string|null): industry sector\n' +
+          '- techStack (string[]): technologies used (languages, frameworks, cloud providers)\n' +
+          '- size (string|null): company size (e.g. "50-200", "startup", "enterprise")\n' +
+          '- founded (string|null): year founded if available\n' +
+          '- headquarters (string|null): location if available\n' +
+          '- summary (string): 3-4 sentence comprehensive description\n',
+        { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress, timeoutMs: 300_000 }
       )
 
       if (!raw) {
@@ -436,6 +460,8 @@ export class ExtendedEnrichmentService {
           industry: null,
           techStack: [],
           size: null,
+          founded: null,
+          headquarters: null,
           summary: 'Could not verify',
         })
         continue
@@ -450,6 +476,8 @@ export class ExtendedEnrichmentService {
           industry: data.industry || null,
           techStack: data.techStack || [],
           size: data.size || null,
+          founded: data.founded || null,
+          headquarters: data.headquarters || null,
           summary: data.summary || '',
         })
       } catch {
@@ -460,6 +488,8 @@ export class ExtendedEnrichmentService {
           industry: null,
           techStack: [],
           size: null,
+          founded: null,
+          headquarters: null,
           summary: raw.slice(0, 300),
         })
       }

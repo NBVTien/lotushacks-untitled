@@ -1383,6 +1383,12 @@ function ExtendedAnalysis({
                     {ci.size}
                   </Badge>
                 )}
+                {ci.founded && (
+                  <span className="text-xs text-muted-foreground">Est. {ci.founded}</span>
+                )}
+                {ci.headquarters && (
+                  <span className="text-xs text-muted-foreground">{ci.headquarters}</span>
+                )}
               </div>
               {ci.techStack && ci.techStack.length > 0 && (
                 <div className="flex gap-1 flex-wrap">

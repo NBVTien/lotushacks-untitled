@@ -167,6 +167,8 @@ export interface CompanyIntel {
   industry: string | null
   techStack: string[]
   size: string | null
+  founded: string | null
+  headquarters: string | null
   summary: string
 }
 
