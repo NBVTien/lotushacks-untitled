@@ -27,11 +27,21 @@ export class JobsService {
 
   async findByCompany(companyId: string) {
     this.logger.debug(`Listing jobs for company ${companyId}`)
-    return this.repo.find({
+    const jobs = await this.repo.find({
       where: { companyId },
       relations: ['company'],
       order: { createdAt: 'DESC' },
     })
+    if (jobs.length === 0) return jobs
+    const counts = await this.candidateRepo
+      .createQueryBuilder('c')
+      .select('c.jobId', 'jobId')
+      .addSelect('COUNT(*)', 'count')
+      .where('c.jobId IN (:...ids)', { ids: jobs.map((j) => j.id) })
+      .groupBy('c.jobId')
+      .getRawMany<{ jobId: string; count: string }>()
+    const countMap = Object.fromEntries(counts.map((r) => [r.jobId, Number(r.count)]))
+    return jobs.map((j) => ({ ...j, candidateCount: countMap[j.id] ?? 0 }))
   }
 
   async findAllPublic(page: number, limit: number) {
