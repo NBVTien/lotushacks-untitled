@@ -1009,10 +1009,9 @@ function ExtendedAnalysis({
   const isSourceCodeUrl = (u: string) =>
     /github\.com|gitlab\.com|bitbucket\.org|youtu\.be|youtube\.com/i.test(u)
 
-  // Build URL lists per enrichment type
-  // Build company experience entries for companyIntel
+  // Build company experience entries for companyIntel (no URLs — these are company names, not links)
   const companyEntries = (candidate.parsedCV?.experience || []).map((exp) => ({
-    url: '#',
+    url: '',
     label: `${exp.company} (${exp.title})`,
   }))
 
@@ -1130,12 +1129,12 @@ function ExtendedAnalysis({
       ],
     },
     {
-      label: 'Company Verification',
+      label: 'Experience Verification',
       types: [
         {
           key: 'companyIntel',
-          label: 'Company Intel',
-          desc: 'Verify companies from candidate experience',
+          label: 'Verify Companies',
+          desc: 'Research companies listed in candidate experience',
           available: (candidate.parsedCV?.experience?.length || 0) > 0,
         },
       ],
@@ -1434,22 +1433,26 @@ function ExtendedAnalysis({
                       )}
                   </div>
 
-                  {/* URLs as sub-items with per-link Run buttons */}
+                  {/* Sub-items with Run buttons */}
                   {typeUrls.length > 0 ? (
                     <div className="mt-2 space-y-1.5">
-                      {typeUrls.map((u) => (
+                      {typeUrls.map((u, idx) => (
                         <div
-                          key={u.url}
+                          key={u.url || `${t.key}-${idx}`}
                           className="flex items-center justify-between gap-2 pl-2 py-0.5"
                         >
-                          <a
-                            href={u.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-blue-600 hover:underline truncate"
-                          >
-                            {u.label}
-                          </a>
+                          {u.url ? (
+                            <a
+                              href={u.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-blue-600 hover:underline truncate"
+                            >
+                              {u.label}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground truncate">{u.label}</span>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
