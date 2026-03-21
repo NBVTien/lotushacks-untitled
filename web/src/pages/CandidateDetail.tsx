@@ -338,7 +338,7 @@ export function CandidateDetailPage() {
           {enrichment?.github && (
             <Card>
               <CardHeader><CardTitle className="text-base">GitHub: @{enrichment.github.username}</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 {enrichment.github.bio && <p className="text-sm">{enrichment.github.bio}</p>}
                 {enrichment.github.topLanguages.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -348,11 +348,17 @@ export function CandidateDetailPage() {
                 <p className="text-sm text-muted-foreground">
                   Total stars: {enrichment.github.totalStars}
                   {enrichment.github.totalContributions != null && ` | Contributions: ${enrichment.github.totalContributions}`}
+                  {(() => { try { const d = JSON.parse(enrichment.github.raw); return d.publicRepos ? ` | ${d.publicRepos} public repos` : ''; } catch { return ''; } })()}
+                  {(() => { try { const d = JSON.parse(enrichment.github.raw); return d.followers ? ` | ${d.followers} followers` : ''; } catch { return ''; } })()}
                 </p>
+
+                {/* AI Summary */}
+                <GitHubAnalysis raw={enrichment.github.raw} />
+
                 {enrichment.github.repositories.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Repositories</p>
-                    {enrichment.github.repositories.map((r) => (
+                    <p className="text-sm font-medium">Repositories ({enrichment.github.repositories.length})</p>
+                    {enrichment.github.repositories.slice(0, 5).map((r) => (
                       <div key={r.name} className="rounded bg-muted p-2 text-sm">
                         <span className="font-medium">{r.name}</span>
                         {r.language && <Badge variant="outline" className="ml-2">{r.language}</Badge>}
@@ -360,6 +366,9 @@ export function CandidateDetailPage() {
                         {r.description && <p className="mt-1 text-muted-foreground">{r.description}</p>}
                       </div>
                     ))}
+                    {enrichment.github.repositories.length > 5 && (
+                      <p className="text-xs text-muted-foreground">+ {enrichment.github.repositories.length - 5} more repositories</p>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -603,6 +612,59 @@ function ExtendedAnalysis({
       )}
     </>
   )
+}
+
+function GitHubAnalysis({ raw }: { raw: string }) {
+  try {
+    const data = JSON.parse(raw)
+    const { aiSummary, topProjects } = data
+    if (!aiSummary && !topProjects?.length) return null
+
+    return (
+      <>
+        {aiSummary && (
+          <div className="rounded border border-blue-200 bg-blue-50 p-3">
+            <p className="text-xs font-semibold text-blue-700 mb-1">AI Assessment</p>
+            <p className="text-sm text-blue-900">{aiSummary}</p>
+          </div>
+        )}
+
+        {topProjects && topProjects.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Top Projects (AI-analyzed)</p>
+            {topProjects.map((proj: { name: string; description: string | null; language: string | null; stars: number; languages: Record<string, number>; recentCommits: number; readmeSnippet: string | null; analysis: string | null }) => (
+              <div key={proj.name} className="rounded border p-3 space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm">{proj.name}</span>
+                  {proj.language && <Badge variant="outline">{proj.language}</Badge>}
+                  <span className="text-xs text-muted-foreground">{proj.stars} stars · {proj.recentCommits} commits (90d)</span>
+                </div>
+                {proj.languages && Object.keys(proj.languages).length > 0 && (
+                  <div className="flex gap-1 flex-wrap">
+                    {Object.keys(proj.languages).map((lang) => (
+                      <Badge key={lang} variant="secondary" className="text-xs">{lang}</Badge>
+                    ))}
+                  </div>
+                )}
+                {proj.description && <p className="text-sm text-muted-foreground">{proj.description}</p>}
+                {proj.readmeSnippet && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">README preview</summary>
+                    <pre className="mt-1 whitespace-pre-wrap text-muted-foreground bg-muted p-2 rounded max-h-32 overflow-y-auto">{proj.readmeSnippet}</pre>
+                  </details>
+                )}
+                {proj.analysis && (
+                  <p className="text-sm italic text-muted-foreground">{proj.analysis}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    )
+  } catch {
+    return null
+  }
 }
 
 function PdfViewer({ jobId, candidateId }: { jobId: string; candidateId: string }) {
