@@ -24,5 +24,6 @@ import { JobsModule } from '../jobs/jobs.module'
   ],
   controllers: [CandidatesController],
   providers: [CandidatesService, CandidateProcessor, MinioService, PdfService, StartupService],
+  exports: [CandidatesService, PdfService],
 })
 export class CandidatesModule {}

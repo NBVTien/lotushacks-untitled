@@ -6,6 +6,9 @@ import { JobDetailPage } from './pages/JobDetail'
 import { CandidateDetailPage } from './pages/CandidateDetail'
 import { CareersPage } from './pages/Careers'
 import { ApplyPage } from './pages/Apply'
+import { JobDiscoveryPage } from './pages/JobDiscovery'
+import { CompanyResearchPage } from './pages/CompanyResearch'
+import { CandidateSourcingPage } from './pages/CandidateSourcing'
 import { LoginPage } from './pages/Login'
 import { RegisterPage } from './pages/Register'
 import { Briefcase, LogOut, LayoutDashboard } from 'lucide-react'
@@ -113,9 +116,14 @@ function CareersNav() {
           </div>
           <span className="text-base font-semibold tracking-tight">Careers</span>
         </Link>
-        <Link to="/login" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-          For Recruiters
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/careers/discover" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            Discover Jobs
+          </Link>
+          <Link to="/login" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            For Recruiters
+          </Link>
+        </div>
       </div>
     </header>
   )
@@ -155,6 +163,11 @@ export default function App() {
               <RecruiterLayout><JobDetailPage /></RecruiterLayout>
             </ProtectedRoute>
           } />
+          <Route path="/jobs/:jobId/source" element={
+            <ProtectedRoute>
+              <RecruiterLayout><CandidateSourcingPage /></RecruiterLayout>
+            </ProtectedRoute>
+          } />
           <Route path="/jobs/:jobId/candidates/:candidateId" element={
             <ProtectedRoute>
               <RecruiterLayout><CandidateDetailPage /></RecruiterLayout>
@@ -167,6 +180,22 @@ export default function App() {
               <CareersNav />
               <main className="mx-auto max-w-5xl px-6 py-8">
                 <CareersPage />
+              </main>
+            </>
+          } />
+          <Route path="/careers/discover" element={
+            <>
+              <CareersNav />
+              <main className="mx-auto max-w-5xl px-6 py-8">
+                <JobDiscoveryPage />
+              </main>
+            </>
+          } />
+          <Route path="/careers/company/:name" element={
+            <>
+              <CareersNav />
+              <main className="mx-auto max-w-5xl px-6 py-8">
+                <CompanyResearchPage />
               </main>
             </>
           } />

@@ -43,6 +43,23 @@ export const jobsApi = {
   delete: (id: string) => api.delete(`/jobs/${id}`),
 }
 
+export const discoveryApi = {
+  discoverJobs: (data: { skills: string[]; experience: string[]; location: string | null; title: string | null }) =>
+    api.post('/discovery/jobs', data).then(r => r.data),
+  discoverFromCv: (candidateId: string) =>
+    api.post('/discovery/jobs-from-cv', { candidateId }).then(r => r.data),
+  researchCompany: (data: { companyName: string; companyUrl?: string }) =>
+    api.post('/discovery/company-research', data).then(r => r.data),
+  sourceCandidates: (data: { jobTitle: string; skills: string[]; location: string | null; experience: string | null }) =>
+    api.post('/discovery/source-candidates', data).then(r => r.data),
+  sourceFromJob: (jobId: string) =>
+    api.post('/discovery/source-from-job', { jobId }).then(r => r.data),
+  sourcingHistory: (jobId: string) =>
+    api.get(`/discovery/sourcing-history/${jobId}`).then(r => r.data),
+  streamUrl: (type: string, id: string) =>
+    `http://localhost:4005/discovery/${type}/stream?id=${id}`,
+}
+
 export const candidatesApi = {
   list: (jobId: string) => api.get<Candidate[]>(`/jobs/${jobId}/candidates`).then((r) => r.data),
   get: (jobId: string, id: string) =>
@@ -63,4 +80,6 @@ export const candidatesApi = {
   getCvUrl: (jobId: string, id: string) =>
     api.get<{ url: string }>(`/jobs/${jobId}/candidates/${id}/cv-url`).then((r) => r.data),
   delete: (jobId: string, id: string) => api.delete(`/jobs/${jobId}/candidates/${id}`),
+  enrichmentStreamUrl: (jobId: string, id: string) =>
+    `http://localhost:4005/jobs/${jobId}/candidates/${id}/enrichment-stream`,
 }

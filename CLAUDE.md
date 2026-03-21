@@ -41,20 +41,33 @@ web/ (React 19 + Vite 8 + Tailwind 4 + shadcn/ui)
 
 api/ (NestJS 11 + TypeORM + PostgreSQL 16)
   ├── jobs/          CRUD for job descriptions
-  ├── candidates/    CV upload (MinIO), PDF parsing, link extraction
-  ├── enrichment/    TinyFish API → crawl GitHub/LinkedIn profiles
-  └── matching/      OpenAI GPT-4o-mini → match score + explanation
+  ├── candidates/    CV upload (MinIO), PDF parsing, link extraction, SSE streaming
+  ├── enrichment/    GitHub API + TinyFish → crawl profiles, portfolio, company intel
+  ├── matching/      OpenAI GPT-4o-mini → match score + explanation
+  └── discovery/     TinyFish-powered job discovery, company research, candidate sourcing
 
 shared/ (TypeScript interfaces consumed by both api and web)
-  └── src/types.ts   Job, Candidate, MatchResult, EnrichedProfile, etc.
+  └── src/types.ts   Job, Candidate, MatchResult, EnrichedProfile, Discovery types, etc.
 ```
 
 ### Candidate Processing Pipeline
 
 Fire-and-forget async after upload:
-`uploaded → parsed → enriching → enriched → scoring → completed`
+`uploaded → parsed → GitHub enrichment (immediate) → scoring → completed`
 
-The frontend polls every 5 seconds to reflect status changes.
+Extended enrichment (LinkedIn, portfolio, blog, SO, company intel) runs on-demand per type via independent BullMQ jobs. Progress is streamed via SSE (`GET /candidates/:id/enrichment-stream`).
+
+### Discovery Module (TinyFish-powered)
+
+Three features powered by parallel TinyFish agents (all use SSE streaming):
+- **Job Discovery** (`POST /discovery/jobs`, `POST /discovery/jobs-from-upload`) — Candidate skills or CV → crawl Upwork, Wellfound → matching job listings ranked by AI
+- **Company Research** (`POST /discovery/company-research`) — Company name → crawl Glassdoor, tech blog, website → company intelligence
+- **Candidate Sourcing** (`POST /discovery/source-candidates`) — Job requirements → crawl LinkedIn, Upwork, Toptal → matching candidate profiles
+
+Frontend routes:
+- `/careers/discover` — Job discovery for candidates
+- `/careers/company/:name` — Company research for candidates
+- `/jobs/:jobId/source` — Candidate sourcing for recruiters
 
 ### Database
 
@@ -70,6 +83,18 @@ TypeORM with `synchronize: true` — entities auto-create tables. Two tables:
 - **Path alias**: `@/` maps to `web/src/` in the frontend
 - **Config**: NestJS `ConfigModule` reads `../.env` from the api directory
 - API uses **CommonJS** (`module: "commonjs"`), web uses **ESNext** modules
+
+### Working with Claude Code
+
+- **Always split BE + FE into 2 parallel agents** — when implementing features that span both backend and frontend, launch one agent for `api/` changes and another for `web/` changes. They work on non-overlapping files and can run concurrently.
+- Type-check both after agents complete: `npx tsc --noEmit -p api/tsconfig.json` and `npx tsc --noEmit -p web/tsconfig.app.json`
+- **Always update documentation** — after implementing or changing features, update README.md, CLAUDE.md, and any relevant docs in `docs/` (RECRUITER.md, CANDIDATE.md, etc.) to reflect the changes. Documentation must stay in sync with the codebase.
+
+### TinyFish Platform Selection
+
+- **Candidate Sourcing**: LinkedIn (stealth), Upwork (stealth), Toptal (lite)
+- **Job Discovery**: Upwork, Wellfound
+- **Company Research**: Glassdoor, tech blog, company website
 
 ## Environment Variables
 

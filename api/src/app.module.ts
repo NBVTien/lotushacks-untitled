@@ -5,13 +5,14 @@ import { BullModule } from '@nestjs/bullmq'
 import { BullBoardModule } from '@bull-board/nestjs'
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter'
 import { ExpressAdapter } from '@bull-board/express'
-import { CompanyEntity, UserEntity, JobEntity, CandidateEntity } from './database'
+import { CompanyEntity, UserEntity, JobEntity, CandidateEntity, SourcingResultEntity } from './database'
 import { AuthModule } from './auth/auth.module'
 import { JobsModule } from './jobs/jobs.module'
 import { CandidatesModule } from './candidates/candidates.module'
 import { EnrichmentModule } from './enrichment/enrichment.module'
 import { MatchingModule } from './matching/matching.module'
 import { SeedModule } from './seed/seed.module'
+import { DiscoveryModule } from './discovery/discovery.module'
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { SeedModule } from './seed/seed.module'
         username: config.get('DATABASE_USER', 'postgres'),
         password: config.get('DATABASE_PASSWORD', 'postgres'),
         database: config.get('DATABASE_NAME', 'recruitment'),
-        entities: [CompanyEntity, UserEntity, JobEntity, CandidateEntity],
+        entities: [CompanyEntity, UserEntity, JobEntity, CandidateEntity, SourcingResultEntity],
         synchronize: true,
       }),
     }),
@@ -52,6 +53,7 @@ import { SeedModule } from './seed/seed.module'
     EnrichmentModule,
     MatchingModule,
     SeedModule,
+    DiscoveryModule,
   ],
 })
 export class AppModule {}

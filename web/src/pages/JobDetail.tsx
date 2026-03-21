@@ -87,6 +87,11 @@ export function JobDetailPage() {
       </Link>
 
       <PageHeader title={job.title}>
+        <Link to={`/jobs/${jobId}/source`}>
+          <Button variant="outline" className="gap-2">
+            <Users className="h-3.5 w-3.5" /> Source Candidates
+          </Button>
+        </Link>
         <Button
           variant="outline"
           className="gap-2"

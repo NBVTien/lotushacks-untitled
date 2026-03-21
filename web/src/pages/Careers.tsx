@@ -8,10 +8,12 @@ import { MapPin, ArrowRight } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
+import { useNavigate } from 'react-router-dom'
 
 const PAGE_SIZE = 10
 
 export function CareersPage() {
+  const navigate = useNavigate()
   const [jobs, setJobs] = useState<Job[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
@@ -71,6 +73,21 @@ export function CareersPage() {
         </div>
       </div>
 
+      {/* AI Discovery Banner */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="flex items-center justify-between py-5">
+          <div>
+            <h2 className="text-lg font-semibold">Let AI find the perfect job for you</h2>
+            <p className="text-sm text-muted-foreground">
+              Enter your skills and let our AI search across ITviec, TopDev, LinkedIn, and more.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/careers/discover')}>
+            Discover Jobs
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Job listings */}
       {initialLoad ? (
         <div className="space-y-4">
@@ -126,11 +143,18 @@ export function CareersPage() {
                     )}
                   </div>
 
-                  <Link to={`/careers/${job.id}/apply`} className="shrink-0">
-                    <Button className="gap-1.5">
-                      Apply <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {job.company && (
+                      <Link to={`/careers/company/${encodeURIComponent(job.company.name)}`}>
+                        <Button variant="ghost" size="sm">Research Company</Button>
+                      </Link>
+                    )}
+                    <Link to={`/careers/${job.id}/apply`}>
+                      <Button className="gap-1.5">
+                        Apply <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>

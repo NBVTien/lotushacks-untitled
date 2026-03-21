@@ -157,24 +157,34 @@ export class CandidatesService {
 
     this.logger.log(`Extended enrich for ${candidateId}: types=${types.join(', ')}`)
 
-    const bullJob = await this.queue.add(
-      'process',
-      {
-        candidateId,
-        cvFileName: candidate.cvUrl.replace('cvs/', ''),
-        jobDescription: job.description,
-        jobRequirements: job.requirements,
-        jobScreeningCriteria: job.screeningCriteria,
-        extendedEnrichTypes: types,
-      },
-      {
-        attempts: 2,
-        backoff: { type: 'exponential', delay: 3000 },
-        removeOnComplete: { count: 200 },
-        removeOnFail: { count: 100 },
-      },
-    )
-    this.logger.log(`Extended enrich queued: candidateId=${candidateId}, bullmqJobId=${bullJob.id}`)
+    // Set initial progress state for all types
+    const progress = candidate.enrichmentProgress || {}
+    for (const type of types) {
+      progress[type] = { status: 'queued', logs: [] }
+    }
+    await this.repo.update(candidateId, { enrichmentProgress: progress })
+
+    // Queue each type as a separate independent job
+    for (const type of types) {
+      const bullJob = await this.queue.add(
+        'process',
+        {
+          candidateId,
+          cvFileName: candidate.cvUrl.replace('cvs/', ''),
+          jobDescription: job.description,
+          jobRequirements: job.requirements,
+          jobScreeningCriteria: job.screeningCriteria,
+          extendedEnrichTypes: [type],
+        },
+        {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 3000 },
+          removeOnComplete: { count: 200 },
+          removeOnFail: { count: 100 },
+        },
+      )
+      this.logger.log(`Extended enrich [${type}] queued: candidateId=${candidateId}, bullmqJobId=${bullJob.id}`)
+    }
 
     return this.findOne(candidateId)
   }

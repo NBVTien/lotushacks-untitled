@@ -79,6 +79,7 @@ export interface Candidate {
   parsedCV: ParsedCVData | null
   enrichment: EnrichedProfile | null
   extendedEnrichment: ExtendedEnrichment | null
+  enrichmentProgress: EnrichmentProgress
   matchResult: MatchResult | null
   status: CandidateStatus
   errorMessage: string | null
@@ -103,10 +104,17 @@ export type CandidateStatus =
   | 'completed'
   | 'error'
 
+export interface ClassifiedUrl {
+  url: string
+  kind: 'portfolio' | 'blog' | 'project' | 'company' | 'other'
+  label: string
+}
+
 export interface ExtractedLinks {
   github: string | null
   linkedin: string | null
   portfolio: string[]
+  classified: ClassifiedUrl[]
 }
 
 export interface EnrichedProfile {
@@ -145,10 +153,29 @@ export interface ExtendedEnrichment {
   liveProjects: LiveProjectCheck[]
   blog: BlogAnalysis | null
   stackoverflow: StackOverflowProfile | null
-  verification: WorkVerification[]
+  companyIntel?: CompanyIntel[]
 }
 
-export type ExtendedEnrichmentType = 'portfolio' | 'liveProjects' | 'blog' | 'stackoverflow' | 'verification'
+export interface CompanyIntel {
+  company: string
+  url: string | null
+  exists: boolean
+  industry: string | null
+  techStack: string[]
+  size: string | null
+  summary: string
+}
+
+export type ExtendedEnrichmentType = 'linkedin' | 'portfolio' | 'liveProjects' | 'blog' | 'stackoverflow' | 'companyIntel'
+
+// Per-type enrichment progress tracking
+export interface EnrichmentJobStatus {
+  status: 'queued' | 'running' | 'completed' | 'error'
+  logs: string[]
+  error?: string
+}
+
+export type EnrichmentProgress = Record<string, EnrichmentJobStatus>
 
 export interface PortfolioAnalysis {
   url: string
@@ -188,18 +215,80 @@ export interface StackOverflowProfile {
   summary: string
 }
 
-export interface WorkVerification {
-  company: string
-  claimed: string
-  verified: boolean | null
-  evidence: string
-  companyUrl: string | null
-}
-
 export interface MatchResult {
   overallScore: number
   explanation: string
   strengths: string[]
   gaps: string[]
   recommendation: 'strong_match' | 'good_match' | 'partial_match' | 'weak_match'
+}
+
+// Job Discovery (for candidates)
+export interface JobDiscoveryRequest {
+  skills: string[]
+  experience: string[]
+  location: string | null
+  title: string | null
+}
+
+export interface DiscoveredJob {
+  title: string
+  company: string
+  location: string | null
+  url: string
+  source: string  // e.g. "Upwork", "Wellfound", "LinkedIn"
+  salary: string | null
+  requirements: string[]
+  matchReason: string
+  matchScore?: number
+  postedDate: string | null
+}
+
+export interface JobDiscoveryResult {
+  query: string
+  jobs: DiscoveredJob[]
+  sources: string[]
+  searchedAt: string
+}
+
+// Company Research (for candidates)
+export interface CompanyResearch {
+  name: string
+  website: string | null
+  glassdoorUrl: string | null
+  rating: number | null
+  reviews: { pros: string; cons: string }[]
+  techBlog: string | null
+  recentNews: string[]
+  culture: string | null
+  benefits: string[]
+  summary: string
+}
+
+// Candidate Sourcing (for recruiters)
+export interface SourcingRequest {
+  jobTitle: string
+  skills: string[]
+  location: string | null
+  experience: string | null
+}
+
+export interface SourcedCandidate {
+  name: string
+  title: string | null
+  profileUrl: string
+  source: string
+  skills: string[]
+  experience: string | null
+  summary: string
+  matchScore?: number
+  matchReason?: string
+  detailedProfile?: string
+}
+
+export interface SourcingResult {
+  query: string
+  candidates: SourcedCandidate[]
+  sources: string[]
+  searchedAt: string
 }
