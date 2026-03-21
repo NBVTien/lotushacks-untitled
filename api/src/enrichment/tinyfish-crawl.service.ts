@@ -8,6 +8,8 @@ export interface CrawlOptions {
   useVault?: boolean
   label?: string
   onProgress?: ProgressCallback
+  /** Per-call timeout in ms (default: 180000 = 3 min) */
+  timeoutMs?: number
 }
 
 @Injectable()
@@ -37,7 +39,9 @@ export class TinyFishCrawlService {
     options?.onProgress?.(`${prefix} Starting crawl: ${url}`)
 
     const abortController = new AbortController()
-    const timeoutId = setTimeout(() => abortController.abort(), 120000)
+    const timeoutMs = options?.timeoutMs ?? 180_000
+    const timeoutSec = Math.round(timeoutMs / 1000)
+    const timeoutId = setTimeout(() => abortController.abort(), timeoutMs)
 
     try {
       const body: Record<string, unknown> = { url, goal }
@@ -131,8 +135,8 @@ export class TinyFishCrawlService {
       clearTimeout(timeoutId)
       const elapsed = Math.round((Date.now() - startTime) / 1000)
       if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('abort'))) {
-        this.logger.error(`TinyFish SSE call timed out after 120s for ${url}`)
-        options?.onProgress?.(`${prefix} Timed out after 120s`)
+        this.logger.error(`TinyFish SSE call timed out after ${timeoutSec}s for ${url}`)
+        options?.onProgress?.(`${prefix} Timed out after ${timeoutSec}s`)
       } else {
         this.logger.error(`SSE crawl error for ${url} after ${elapsed}s:`, err)
         options?.onProgress?.(`${prefix} Connection lost after ${elapsed}s`)

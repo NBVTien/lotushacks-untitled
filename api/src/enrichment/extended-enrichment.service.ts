@@ -345,7 +345,7 @@ export class ExtendedEnrichmentService {
           '- size (string|null): company size if mentioned (e.g. "50-200", "startup", "enterprise")\n' +
           '- summary (string): 2-3 sentence description of the company\n' +
           'Return as JSON.',
-        { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress }
+        { browserProfile: 'lite', label: `CompanyIntel: ${company}`, onProgress, timeoutMs: 240_000 }
       )
 
       if (!raw) {
