@@ -218,8 +218,8 @@ export interface StackOverflowProfile {
 
 export interface SkillScore {
   name: string
-  candidateScore: number // 0-100
-  requiredScore: number  // 0-100
+  level: 'yes' | 'partial' | 'no' // yes = has skill, partial = some experience, no = missing
+  evidence: string // brief reason, e.g. "3 years React in CV, 5 GitHub repos"
 }
 
 export interface ScoringBasis {

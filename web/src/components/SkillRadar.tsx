@@ -91,7 +91,7 @@ export function SkillRadar({ skills, size = 400 }: SkillRadarProps) {
   const labels = useMemo(
     () =>
       skills.map((s, i) => {
-        const [x, y] = polarToXY(cx, cy, maxRadius + 28, i, n)
+        const [x, y] = polarToXY(cx, cy, maxRadius + 35, i, n)
         // Determine text-anchor based on position relative to center
         let anchor: 'start' | 'middle' | 'end' = 'middle'
         if (x < cx - 10) anchor = 'end'
@@ -106,7 +106,7 @@ export function SkillRadar({ skills, size = 400 }: SkillRadarProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <svg
-        viewBox={`-40 -20 ${size + 80} ${size + 40}`}
+        viewBox={`-60 -20 ${size + 120} ${size + 40}`}
         width="100%"
         className="max-w-[480px]"
         aria-label="Skill radar chart"
@@ -220,7 +220,8 @@ export function SkillRadar({ skills, size = 400 }: SkillRadarProps) {
             dominantBaseline="central"
             className="fill-foreground text-[12px] font-medium"
           >
-            {l.name.length > 12 ? l.name.slice(0, 12) + '…' : l.name}
+            <title>{l.name}</title>
+            {l.name.length > 16 ? l.name.slice(0, 15) + '…' : l.name}
           </text>
         ))}
 
