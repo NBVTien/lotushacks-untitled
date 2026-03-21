@@ -99,19 +99,45 @@ export class DiscoveryController {
     return this.discoveryService.researchCompany(body.companyName, body.companyUrl)
   }
 
-  // ─── Feature A: Candidate Sourcing ──────────────────────────────────
+  // ─── Feature A: Candidate Sourcing (SSE streaming) ──────────────────
 
+  /** SSE endpoint — streams sourcing progress + results in real-time */
   @Post('source-candidates')
-  async sourceCandidates(@Body() body: SourcingRequest) {
-    return this.discoveryService.sourceCandidates(body)
+  async sourceCandidatesStream(@Body() body: SourcingRequest, @Res() res: Response) {
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.flushHeaders()
+
+    const onProgress = (msg: string) => {
+      res.write(`data: ${JSON.stringify({ type: 'progress', message: msg })}\n\n`)
+    }
+
+    try {
+      const result = await this.discoveryService.sourceCandidates(body, onProgress)
+      res.write(`data: ${JSON.stringify({ type: 'complete', result })}\n\n`)
+    } catch (err) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: String(err) })}\n\n`)
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+    res.end()
   }
 
+  /** SSE endpoint — source from job requirements */
   @Post('source-from-job')
-  async sourceFromJob(@Body() body: { jobId: string }) {
+  async sourceFromJobStream(@Body() body: { jobId: string }, @Res() res: Response) {
     const job = await this.jobsService.findOne(body.jobId)
     if (!job) {
       throw new NotFoundException(`Job ${body.jobId} not found`)
     }
+
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.flushHeaders()
 
     const request: SourcingRequest = {
       jobTitle: job.title,
@@ -120,6 +146,18 @@ export class DiscoveryController {
       experience: null,
     }
 
-    return this.discoveryService.sourceCandidates(request)
+    const onProgress = (msg: string) => {
+      res.write(`data: ${JSON.stringify({ type: 'progress', message: msg })}\n\n`)
+    }
+
+    try {
+      const result = await this.discoveryService.sourceCandidates(request, onProgress)
+      res.write(`data: ${JSON.stringify({ type: 'complete', result })}\n\n`)
+    } catch (err) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: String(err) })}\n\n`)
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+    res.end()
   }
 }

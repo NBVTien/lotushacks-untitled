@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { jobsApi, discoveryApi } from '@/lib/api'
+import { jobsApi } from '@/lib/api'
 import type { Job } from '@lotushack/shared'
 
 interface SourcedCandidate {
@@ -21,9 +21,11 @@ interface SourcedCandidate {
 }
 
 const sourceColors: Record<string, string> = {
+  LinkedIn: 'bg-blue-100 text-blue-800',
+  Upwork: 'bg-green-100 text-green-800',
   GitHub: 'bg-gray-800 text-white',
-  LinkedIn: 'bg-indigo-100 text-indigo-800',
-  StackOverflow: 'bg-orange-100 text-orange-800',
+  Toptal: 'bg-indigo-100 text-indigo-800',
+  Fiverr: 'bg-emerald-100 text-emerald-800',
 }
 
 export function CandidateSourcingPage() {
@@ -41,7 +43,7 @@ export function CandidateSourcingPage() {
   const [manualLocation, setManualLocation] = useState('')
   const [manualExperience, setManualExperience] = useState('')
 
-  const eventSourceRef = useRef<EventSource | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const logsEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -49,9 +51,7 @@ export function CandidateSourcingPage() {
   }, [logs])
 
   useEffect(() => {
-    return () => {
-      eventSourceRef.current?.close()
-    }
+    return () => { abortRef.current?.abort() }
   }, [])
 
   const loadJob = useCallback(async () => {
@@ -62,87 +62,91 @@ export function CandidateSourcingPage() {
     } catch { /* ignore */ }
   }, [jobId])
 
-  useEffect(() => {
-    loadJob()
-  }, [loadJob])
+  useEffect(() => { loadJob() }, [loadJob])
 
-  const connectStream = (streamId: string) => {
-    const url = discoveryApi.streamUrl('source-candidates', streamId)
-    const es = new EventSource(url)
-    eventSourceRef.current = es
-
-    es.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.log) {
-          setLogs(prev => [...prev, data.log])
-        }
-        if (data.candidates) {
-          setCandidates(data.candidates)
-        }
-        if (data.done) {
-          es.close()
-          eventSourceRef.current = null
-          setSourcing(false)
-          if (data.candidates) setCandidates(data.candidates)
-        }
-      } catch { /* ignore */ }
-    }
-
-    es.onerror = () => {
-      es.close()
-      eventSourceRef.current = null
-      setSourcing(false)
-    }
-  }
-
-  const handleSourceFromJob = async () => {
-    if (!jobId) return
+  /** Stream SSE from a POST endpoint */
+  const streamSourcing = async (url: string, body: Record<string, unknown>) => {
     setSourcing(true)
     setError(null)
     setLogs([])
     setCandidates([])
 
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
+
     try {
-      const result = await discoveryApi.sourceFromJob(jobId)
-      if (result.streamId) {
-        connectStream(result.streamId)
-      } else {
-        if (result.candidates) setCandidates(result.candidates)
-        setSourcing(false)
+      const token = localStorage.getItem('token')
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+        signal: abort.signal,
+      })
+
+      if (!response.body) throw new Error('No response body')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) continue
+          const jsonStr = trimmed.slice(5).trim()
+          if (!jsonStr) continue
+
+          try {
+            const event = JSON.parse(jsonStr)
+            if (event.type === 'progress' && event.message) {
+              setLogs(prev => [...prev, event.message])
+            }
+            if (event.type === 'complete' && event.result) {
+              setCandidates(event.result.candidates || [])
+            }
+            if (event.type === 'error') {
+              setError(event.message || 'Sourcing failed')
+            }
+            if (event.done) {
+              setSourcing(false)
+            }
+          } catch { /* skip malformed */ }
+        }
       }
+      setSourcing(false)
     } catch (err: unknown) {
-      setError((err as { message?: string })?.message || 'Failed to source candidates')
+      if ((err as Error).name !== 'AbortError') {
+        setError((err as Error)?.message || 'Failed to source candidates')
+      }
       setSourcing(false)
     }
   }
 
-  const handleManualSource = async () => {
+  const handleSourceFromJob = () => {
+    if (!jobId) return
+    streamSourcing('http://localhost:4005/discovery/source-from-job', { jobId })
+  }
+
+  const handleManualSource = () => {
     const skillList = manualSkills.split(',').map(s => s.trim()).filter(Boolean)
     if (skillList.length === 0 && !manualTitle.trim()) return
-
-    setSourcing(true)
-    setError(null)
-    setLogs([])
-    setCandidates([])
-
-    try {
-      const result = await discoveryApi.sourceCandidates({
-        jobTitle: manualTitle.trim(),
-        skills: skillList,
-        location: manualLocation.trim() || null,
-        experience: manualExperience.trim() || null,
-      })
-      if (result.streamId) {
-        connectStream(result.streamId)
-      } else {
-        if (result.candidates) setCandidates(result.candidates)
-        setSourcing(false)
-      }
-    } catch (err: unknown) {
-      setError((err as { message?: string })?.message || 'Failed to source candidates')
-      setSourcing(false)
-    }
+    streamSourcing('http://localhost:4005/discovery/source-candidates', {
+      jobTitle: manualTitle.trim(),
+      skills: skillList,
+      location: manualLocation.trim() || null,
+      experience: manualExperience.trim() || null,
+    })
   }
 
   return (

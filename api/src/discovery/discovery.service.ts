@@ -240,37 +240,51 @@ export class DiscoveryService {
   ): Promise<SourcingResult> {
     const skillsQuery = request.skills.slice(0, 5).join(', ')
     const titleQuery = request.jobTitle
-    const locationQuery = request.location || 'Vietnam'
     const searchQuery = `${titleQuery} ${skillsQuery}`
 
     this.logger.log(`Candidate sourcing: title=${titleQuery}, skills=${skillsQuery}`)
     onProgress?.('Starting candidate sourcing across multiple platforms...')
 
     const candidateExtractPrompt =
-      'Extract all visible candidate/developer profiles from this page. For each candidate, return JSON array with objects:\n' +
-      '- name (string): candidate name\n' +
-      '- title (string|null): current job title or headline\n' +
-      '- profileUrl (string): link to their profile (full URL)\n' +
+      'Extract all visible candidate/developer/freelancer profiles from this page. For each person, return JSON array with objects:\n' +
+      '- name (string): full name\n' +
+      '- title (string|null): job title, headline, or specialization\n' +
+      '- profileUrl (string): link to their full profile (full URL)\n' +
       '- skills (string[]): listed skills or technologies\n' +
-      '- experience (string|null): years of experience or current role description\n' +
-      '- summary (string): brief summary of the candidate\n' +
+      '- experience (string|null): years of experience, success rate, or current role\n' +
+      '- summary (string): brief summary — what they do, rating, hourly rate if visible\n' +
       'Return a JSON array of up to 10 profiles. If no profiles found, return empty array [].'
 
     const sources = [
-      {
-        name: 'ITviec',
-        url: `https://itviec.com/it-jobs?query=${encodeURIComponent(skillsQuery)}&location=${encodeURIComponent(locationQuery)}`,
-        profile: 'lite' as const,
-      },
-      {
-        name: 'TopDev',
-        url: `https://topdev.vn/viec-lam-it?search=${encodeURIComponent(skillsQuery)}`,
-        profile: 'lite' as const,
-      },
+      // LinkedIn People search (stealth required)
       {
         name: 'LinkedIn',
         url: `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`${titleQuery} ${skillsQuery}`)}&origin=GLOBAL_SEARCH_HEADER`,
         profile: 'stealth' as const,
+      },
+      // Upwork — global freelance platform
+      {
+        name: 'Upwork',
+        url: `https://www.upwork.com/nx/search/talent/?q=${encodeURIComponent(skillsQuery)}&nbs=1`,
+        profile: 'stealth' as const,
+      },
+      // GitHub — search by topic/language
+      {
+        name: 'GitHub',
+        url: `https://github.com/search?q=${encodeURIComponent(skillsQuery)}&type=users`,
+        profile: 'lite' as const,
+      },
+      // Toptal — top 3% developers
+      {
+        name: 'Toptal',
+        url: `https://www.toptal.com/developers?skill=${encodeURIComponent(request.skills[0] || 'javascript')}`,
+        profile: 'lite' as const,
+      },
+      // Fiverr — gig-based freelancers
+      {
+        name: 'Fiverr',
+        url: `https://www.fiverr.com/search/gigs?query=${encodeURIComponent(`${titleQuery} ${skillsQuery}`)}&source=top-bar`,
+        profile: 'lite' as const,
       },
     ]
 
@@ -284,7 +298,7 @@ export class DiscoveryService {
         .then((raw) => this.parseSourcedCandidates(raw, source.name))
         .catch((err) => {
           this.logger.error(`${source.name} sourcing crawl failed:`, err)
-          onProgress?.(`[${source.name}] Failed: ${err.message}`)
+          onProgress?.(`[${source.name}] Failed: ${err instanceof Error ? err.message : String(err)}`)
           return [] as SourcedCandidate[]
         }),
     )
