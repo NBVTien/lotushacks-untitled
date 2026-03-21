@@ -307,24 +307,25 @@ Return JSON array:
 
     onProgress?.(`Found ${resources.length} articles on dev.to for ${queries.coreTech}`)
 
-    // Search GitHub for educational repos — using AI-generated query
-    const githubUrl = `https://github.com/search?q=${encodeURIComponent(queries.githubQuery)}&type=repositories&s=stars`
-    onProgress?.(`[GitHub] Searching repositories for: ${queries.githubQuery}`)
+    // Search GitHub repos via Google (more reliable than github.com/search)
+    const githubGoogleUrl = `https://www.google.com/search?q=site:github.com+${encodeURIComponent(queries.githubQuery)}+tutorial+example`
+    onProgress?.(`[GitHub] Searching via Google for: ${queries.githubQuery}`)
     const githubResult = await this.tinyFishCrawl.crawl(
-      githubUrl,
-      `Find the top 3 most popular GitHub repositories for learning "${queries.coreTech}".
-For each, click into the repository and extract:
-1. The repository name (owner/repo format)
-2. The actual URL (must be https://github.com/owner/repo)
-3. A factual description of what the repo contains
-4. Key technologies and concepts covered
+      githubGoogleUrl,
+      `Look at the Google search results for GitHub repositories about "${queries.coreTech}".
+Click on the top 3 GitHub repository links (must be https://github.com/owner/repo format).
+For each repository page, extract:
+1. The repository name in owner/repo format
+2. The actual GitHub URL (https://github.com/owner/repo)
+3. The repository description and what it teaches
+4. Star count if visible
 
 Return JSON array:
-[{"title": "owner/repo", "url": "https://github.com/owner/repo", "description": "factual description", "topics": ["topic1", "topic2"]}]`,
+[{"title": "owner/repo", "url": "https://github.com/owner/repo", "description": "what this repo teaches", "stars": 1234}]`,
       {
         label: `github/${queries.coreTech}`,
         onProgress,
-        browserProfile: 'lite',
+        browserProfile: 'stealth',
         timeoutMs: 360_000,
       }
     )
@@ -333,11 +334,11 @@ Return JSON array:
       try {
         const parsed = this.parseResourceJson(githubResult)
         for (const item of parsed) {
-          const url = item.url && item.url.includes('github.com/') && !item.url.includes('/search?')
+          const url = item.url && item.url.includes('github.com/') && !item.url.includes('/search?') && !item.url.includes('google.com')
             ? item.url
-            : `https://github.com/search?q=${encodeURIComponent(skill)}`
+            : `https://github.com/search?q=${encodeURIComponent(queries.githubQuery)}&type=repositories&s=stars`
           resources.push({
-            title: item.title || `${skill} project`,
+            title: item.title || `${queries.coreTech} project`,
             url,
             source: 'github.com',
             type: 'project',

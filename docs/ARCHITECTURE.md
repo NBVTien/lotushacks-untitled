@@ -9,10 +9,11 @@
 │                      Frontend (React 19)                      │
 │                                                               │
 │  Recruiter Dashboard          │  Candidate Portal             │
-│  ├── Job management           │  ├── CV profile & auth        │
-│  ├── CV evaluation pipeline   │  ├── Gap analysis (AI)        │
-│  ├── Deep enrichment          │  ├── Learning mentor (AI)     │
-│  └── Company verification     │  └── Company research         │
+│  ├── Dashboard (stats)        │  ├── CV profile & auth        │
+│  ├── Job management           │  ├── Gap analysis (AI)        │
+│  ├── CV evaluation pipeline   │  ├── Learning mentor (AI)     │
+│  ├── Deep enrichment          │  └── Company research         │
+│  └── Company verification     │                               │
 └───────────────────────┬───────────────────────────────────────┘
                         │ HTTP (Axios)
 ┌───────────────────────▼───────────────────────────────────────┐
@@ -115,13 +116,16 @@ Candidate saves JD (from platform or pasted)
           │
           ▼  (on-demand per skill, SSE streaming)
 ┌─────────────────────────────────────────────┐
-│ Learning Mentor (TinyFish + OpenAI)         │
+│ Learning Mentor (OpenAI → TinyFish → OpenAI)│
 │ ├── Candidate selects which skill to learn │
-│ ├── TinyFish: crawl dev.to + GitHub        │
-│ │   └── Extract titles, URLs, descriptions │
-│ ├── OpenAI: synthesize mentor advice       │
+│ ├── Step 1: OpenAI analyzes gap            │
+│ │   └── Generates targeted search keywords │
+│ ├── Step 2: TinyFish crawls with keywords  │
+│ │   └── dev.to + GitHub → raw resources    │
+│ ├── Step 3: OpenAI synthesizes advice      │
 │ │   └── Summaries + key takeaways          │
 │ └── Results cached per skill per JD        │
+│     └── Loadable on refresh via GET API    │
 └─────────────────────────────────────────────┘
 ```
 
@@ -250,9 +254,10 @@ Base URL: `http://localhost:4005`. Protected endpoints require `Authorization: B
 | `POST` | `/candidate-portal/saved-jds` | Save a job description |
 | `GET` | `/candidate-portal/saved-jds` | List saved JDs |
 | `DELETE` | `/candidate-portal/saved-jds/:id` | Delete saved JD |
+| `GET` | `/candidate-portal/saved-jds/:id/resources` | Get cached learning resources |
 | `POST` | `/candidate-portal/gap-analysis` | Run AI gap analysis |
 | `POST` | `/candidate-portal/learning-resources` | Find learning resources — batch (SSE) |
-| `POST` | `/candidate-portal/learning-resources/skill` | Find learning resources — single skill (SSE) |
+| `POST` | `/candidate-portal/learning-resources/skill` | Find resources per skill (SSE, supports `force`) |
 
 ### Discovery (TinyFish)
 

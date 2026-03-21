@@ -73,9 +73,10 @@ Upload CV → Select a JD → AI shows exactly what matches and what doesn't
   → Per-skill breakdown: React ✅ yes, Node.js ⚠️ partial, Kubernetes ❌ no
   → Prioritized improvement areas: Kubernetes (high), AWS (medium), GraphQL (low)
   → Click "Explore" on any skill gap
-  → TinyFish crawls dev.to + GitHub, reads actual content
+  → OpenAI analyzes the gap → generates targeted search keywords
+  → TinyFish crawls dev.to + GitHub with those keywords
   → OpenAI synthesizes mentor-style advice: summaries, key takeaways, learning path
-  → Results cached — revisit anytime without re-crawling
+  → Results persisted in DB — revisit anytime, even after page refresh
 ```
 
 | What the candidate wonders | What TinyFish does |
@@ -103,7 +104,7 @@ Every TinyFish call follows one pattern: URL + goal → SSE streaming → struct
 | Company Research | Glassdoor, tech blogs | lite | Candidate |
 | Learning Resources | dev.to + GitHub | lite | Candidate |
 
-7 use cases. All SSE-streamed. All structured JSON output. All powered by one `TinyFishCrawlService`. Learning resources add an OpenAI mentor synthesis step.
+7 use cases. All SSE-streamed. All structured JSON output. All powered by one `TinyFishCrawlService`. Learning resources use a 3-step flow: OpenAI generates search keywords → TinyFish crawls → OpenAI synthesizes mentor advice. Results are cached in DB and persist across page refreshes.
 
 ---
 

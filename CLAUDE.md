@@ -72,7 +72,7 @@ Authenticated candidate features (JWT with `role: 'candidate'`):
 - **CV Profile** — Upload CV, parsed with OpenAI. Stored on UserEntity (cvText, parsedCV). Endpoints: `POST /candidate-portal/cv`, `GET /candidate-portal/profile`
 - **Saved JDs** — Save job descriptions (from platform or pasted). Endpoints: `POST/GET/DELETE /candidate-portal/saved-jds`
 - **Gap Analysis** — Compare CV against a JD using MatchingService. Returns overall score, strengths, gaps, skill scores, improvement areas with priorities. Results persisted in `saved_jds.lastAnalysis`. UI has 3 tabs: Browse Jobs, Paste JD, History. Endpoint: `POST /candidate-portal/gap-analysis`
-- **Learning Resources** — Per-skill on-demand: TinyFish crawls dev.to and GitHub to extract raw data, then OpenAI synthesizes mentor-style summaries and key takeaways. Each skill runs independently (candidate picks which to explore). SSE streaming. Endpoints: `POST /candidate-portal/learning-resources/skill` (per-skill), `POST /candidate-portal/learning-resources` (batch). Results cached in `saved_jds.lastResources`.
+- **Learning Resources** — Per-skill on-demand, 3-step flow: (1) OpenAI analyzes gap → generates search keywords, (2) TinyFish crawls dev.to + GitHub with those keywords, (3) OpenAI synthesizes mentor-style summaries + key takeaways. Each skill runs independently. SSE streaming. Results cached in `saved_jds.lastResources` and loadable on refresh. Endpoints: `POST /candidate-portal/learning-resources/skill` (per-skill, supports `force` param), `POST /candidate-portal/learning-resources` (batch), `GET /candidate-portal/saved-jds/:id/resources` (cached results).
 
 Frontend routes:
 - `/login` — Candidate login
@@ -81,7 +81,8 @@ Frontend routes:
 - `/portal/gap-analysis` — Gap analysis
 - `/portal/gap-analysis/:id/resources` — Learning resources
 - `/recruiter/login` — Recruiter login
-- `/recruiter` — Recruiter dashboard
+- `/recruiter` — Recruiter dashboard (stats, recent activity)
+- `/recruiter/jobs` — Jobs list (card/table view)
 
 Seed candidate: toan@candidate.example / 123456
 
