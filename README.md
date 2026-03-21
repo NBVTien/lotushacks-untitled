@@ -1,84 +1,95 @@
-# AI Recruitment Copilot (Beyond CV)
+# Beyond CV — AI Recruitment Copilot
 
-Go beyond the resume — enrich candidates with real-world data, discover jobs across platforms, and make explainable hiring decisions powered by AI.
+<div align="center">
 
-## What It Does
+**Go beyond the resume.** Enrich candidates with real-world data, discover jobs across platforms, and make explainable hiring decisions — all powered by AI.
 
-**For Recruiters:**
-- Upload a CV → AI parses it, fetches GitHub profile, and scores the candidate against job requirements
-- On-demand enrichment: LinkedIn crawl, portfolio analysis, blog analysis, company verification — each runs async with live progress streaming
-- Source candidates proactively — TinyFish agents search ITviec, TopDev, LinkedIn in parallel
+[![Built with TinyFish](https://img.shields.io/badge/Built%20with-TinyFish-blue?style=for-the-badge)](https://tinyfish.ai)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com)
 
-**For Candidates:**
-- Browse and apply for jobs via the public careers portal
-- AI Job Discovery — enter your skills, and browser agents crawl multiple job boards simultaneously to find matching positions
-- Company Research — before applying, get Glassdoor reviews, tech stack, culture info
+</div>
 
-## How It Works
+---
 
+## The Problem
+
+Recruiters spend hours manually checking GitHub profiles, LinkedIn pages, and portfolio sites. Candidates waste time searching dozens of job boards one by one. Both sides lack context.
+
+## The Solution
+
+A two-sided platform where **AI does the legwork**:
+
+### For Recruiters
+
+- **Upload a CV** → AI parses it, fetches the candidate's GitHub profile, and scores them against job requirements — all in seconds
+- **Deep enrichment on demand** → Click to crawl LinkedIn, analyze portfolios, check blog activity, verify companies from work history — each runs independently with live progress streaming
+- **Source candidates** → TinyFish browser agents search ITviec, TopDev, and LinkedIn in parallel to find matching talent
+
+### For Candidates
+
+- **AI Job Discovery** → Enter your skills and location, and browser agents crawl multiple job boards simultaneously to surface matching positions you'd never find manually
+- **Company Research** → Before you apply, get Glassdoor reviews, tech stack info, and culture insights — all fetched live
+
+## How TinyFish Powers It
+
+[TinyFish](https://tinyfish.ai) provides SOTA web agents as an API — send a URL + a goal in plain English, get structured JSON back. This project uses it for:
+
+| Feature | TinyFish Usage |
+|---------|---------------|
+| LinkedIn enrichment | Stealth browser crawls LinkedIn profiles (bypasses login walls) |
+| Portfolio analysis | Visits personal websites, detects tech stack, checks design quality |
+| Blog analysis | Crawls dev.to, Medium, Hashnode for writing quality and topics |
+| Company intelligence | Verifies companies from CV, checks tech stack and industry |
+| Job discovery | 3 agents crawl ITviec, TopDev, LinkedIn Jobs in parallel |
+| Company research | Agents fetch Glassdoor reviews, tech blogs, company info |
+| Candidate sourcing | Agents search job platforms for matching candidate profiles |
+
+All TinyFish calls run in **parallel** with **SSE streaming** so users see live progress as agents browse the web.
+
+## Quick Start
+
+```bash
+# Install
+git clone <repo-url> && cd lotushacks-untitled && npm install
+
+# Configure
+cp .env.example .env
+# Add your OPENAI_API_KEY and TINYFISH_API_KEY
+
+# Start infrastructure
+docker compose up -d
+
+# Run
+npm run dev
 ```
-CV Upload → AI Parse → GitHub Enrich (immediate) → AI Score → Done
-                ↓
-    Extract embedded hyperlinks (LinkedIn, GitHub, company URLs)
-    Classify URLs by kind (portfolio / company / project / blog)
-                ↓
-    On-demand: LinkedIn, portfolio, blog, SO, company intel
-    Each runs independently via TinyFish browser agents
-```
 
-**Job Discovery** (for candidates):
-```
-Skills + Location → 3 TinyFish agents crawl job boards in parallel → matching jobs
-```
+Open [localhost:5173](http://localhost:5173) (recruiter) or [localhost:5173/careers](http://localhost:5173/careers) (candidate).
 
-**Candidate Sourcing** (for recruiters):
-```
-Job requirements → 3 TinyFish agents search platforms in parallel → candidate profiles
-```
+## Platform Guides
 
-## Two Platforms
-
-| Platform | Audience | Route |
-|----------|----------|-------|
-| **Recruiter Dashboard** | HR / Hiring managers | `/` |
-| **Candidate Portal** | Job seekers | `/careers` |
-
-- [Recruiter Guide](docs/RECRUITER.md) — manage jobs, evaluate candidates, source talent
-- [Candidate Guide](docs/CANDIDATE.md) — apply for jobs, discover opportunities, research companies
+| Guide | For |
+|-------|-----|
+| [Recruiter Guide](docs/RECRUITER.md) | Manage jobs, evaluate candidates, source talent |
+| [Candidate Guide](docs/CANDIDATE.md) | Apply for jobs, discover opportunities, research companies |
 
 ## Tech Stack
 
 | Layer | Tech |
 |-------|------|
 | Frontend | React 19, Vite 8, Tailwind CSS 4, shadcn/ui |
-| Backend | NestJS 11, TypeORM, Passport JWT, BullMQ |
+| Backend | NestJS 11, TypeORM, BullMQ |
 | Database | PostgreSQL 16, Redis 7 |
 | Storage | MinIO (S3-compatible) |
-| AI | OpenAI GPT-4o-mini (CV parsing, scoring, URL classification) |
-| Web Intelligence | [TinyFish API](https://tinyfish.ai) (parallel browser agents for enrichment, job discovery, sourcing) |
-
-## Quick Start
-
-```bash
-# 1. Install
-git clone <repo-url> && cd lotushacks-untitled && npm install
-
-# 2. Configure
-cp .env.example .env
-# Edit .env → add OPENAI_API_KEY and TINYFISH_API_KEY
-
-# 3. Start infrastructure
-docker compose up -d    # PostgreSQL + MinIO + Redis
-
-# 4. Run
-npm run dev             # API on :4005, Frontend on :5173
-```
+| AI | OpenAI GPT-4o-mini |
+| Web Intelligence | [TinyFish](https://tinyfish.ai) |
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Candidate Portal (/careers)   │  Recruiter Dashboard│
+│  Candidate Portal              │  Recruiter Dashboard│
 │  - Browse & apply              │  - Manage jobs       │
 │  - Discover jobs (AI)          │  - Evaluate CVs      │
 │  - Research companies          │  - Source candidates  │
@@ -86,13 +97,10 @@ npm run dev             # API on :4005, Frontend on :5173
                  │        REST API        │
 ┌────────────────┴────────────────────────┴────────────┐
 │  NestJS API                                          │
-│  ├── auth/         JWT authentication                │
-│  ├── jobs/         Job CRUD                          │
-│  ├── candidates/   CV upload, parsing, SSE streaming │
-│  ├── enrichment/   GitHub API + TinyFish crawling    │
-│  ├── matching/     OpenAI scoring engine             │
-│  └── discovery/    Job search, company research,     │
-│                    candidate sourcing (TinyFish)      │
+│  ├── candidates/   CV parsing, enrichment, scoring   │
+│  ├── discovery/    Job search, sourcing, research    │
+│  ├── enrichment/   GitHub API + TinyFish             │
+│  └── matching/     OpenAI scoring engine             │
 ├──────────────────────────────────────────────────────┤
 │  PostgreSQL │ MinIO │ Redis + BullMQ                 │
 └──────────────────────────────────────────────────────┘
@@ -102,26 +110,6 @@ npm run dev             # API on :4005, Frontend on :5173
     │ GPT-4o  │                  │  Browser    │
     │ -mini   │                  │  Agents     │
     └─────────┘                  └─────────────┘
-```
-
-## Project Structure
-
-```
-├── api/                  # NestJS backend
-│   └── src/
-│       ├── auth/         # Register, login, JWT
-│       ├── candidates/   # CV upload, parsing, enrichment pipeline
-│       ├── enrichment/   # GitHub API, TinyFish crawl, extended enrichment
-│       ├── discovery/    # Job discovery, company research, candidate sourcing
-│       ├── matching/     # OpenAI scoring
-│       └── jobs/         # Job CRUD
-├── web/                  # React frontend
-│   └── src/
-│       ├── pages/        # All pages (recruiter + candidate)
-│       ├── components/   # shadcn/ui components
-│       └── lib/          # API client, auth context
-├── shared/               # Shared TypeScript types
-└── docker-compose.yml    # PostgreSQL + MinIO + Redis
 ```
 
 ## License
