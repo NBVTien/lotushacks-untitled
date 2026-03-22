@@ -155,7 +155,8 @@ export class PdfService {
       const classified = await this.classifyUrls(
         portfolio,
         githubProjectUrls,
-        parsed.experience || []
+        parsed.experience || [],
+        parsed.rawText || ''
       )
 
       const result: ParsedCV = {
@@ -209,7 +210,8 @@ export class PdfService {
   private async classifyUrls(
     portfolioUrls: string[],
     githubProjectUrls: string[],
-    experience: Record<string, string>[]
+    experience: Record<string, string>[],
+    rawCvText: string = ''
   ): Promise<import('@lotushack/shared').ClassifiedUrl[]> {
     const allUrls = [
       ...portfolioUrls,
@@ -219,6 +221,9 @@ export class PdfService {
 
     const companies = experience.map((e) => e.company).filter(Boolean)
 
+    // Extract project context from CV text to help classification
+    const cvContext = rawCvText.slice(0, 2000)
+
     try {
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
@@ -227,17 +232,20 @@ export class PdfService {
             role: 'system',
             content:
               'Classify each URL into one of these kinds:\n' +
-              '- "company": employer/company website (e.g. the candidate worked here)\n' +
-              '- "project": a project/product the candidate built or contributed to\n' +
-              '- "portfolio": the candidate\'s personal website or portfolio\n' +
-              '- "blog": blog or article platform\n' +
+              '- "project": a deployed project/product/app the candidate built or contributed to (e.g. a live web app, SaaS, tool). GitHub repo URLs for projects the candidate built are also "project".\n' +
+              '- "company": employer/company website (e.g. the candidate worked here as an employee)\n' +
+              '- "portfolio": the candidate\'s personal website or portfolio showcasing their work\n' +
+              '- "blog": blog or article platform (dev.to, Medium, personal blog)\n' +
               '- "other": social media, video, or unrelated\n\n' +
-              'Return a JSON array of {url, kind, label} where label is a short human-readable name.',
+              'IMPORTANT: If a URL appears in the CV\'s "Projects" section or is described as something the candidate built/deployed, classify it as "project", NOT "portfolio".\n' +
+              'GitHub repository URLs (github.com/user/repo) should be classified as "project".\n\n' +
+              'Return a JSON object with a "urls" array of {url, kind, label} where label is a short human-readable name (use the project name from the CV if available).',
           },
           {
             role: 'user',
             content:
               `Companies from CV: ${companies.join(', ') || 'none'}\n\n` +
+              `CV context (for understanding which URLs are projects):\n${cvContext}\n\n` +
               `URLs to classify:\n${allUrls.map((u) => `- ${u}`).join('\n')}`,
           },
         ],

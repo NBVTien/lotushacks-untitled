@@ -357,7 +357,6 @@ export function CandidateDetailPage() {
                 <div className="absolute top-4 left-0 right-0 flex px-[calc(10%-4px)]">
                   {PIPELINE_STEPS.slice(0, -1).map((step, i) => {
                     const isCompleted = currentStepIndex > i
-                    const isCurrent = currentStepIndex === i
                     return (
                       <div key={step.key} className="flex-1 h-0.5 bg-muted rounded-full overflow-hidden mx-1">
                         <motion.div
@@ -1681,9 +1680,15 @@ function GitHubAnalysis({ raw, username }: { raw: string; username: string }) {
                   {proj.analysis && (
                     <div className="rounded border bg-muted/50 p-2">
                       <p className="text-sm">
-                        {typeof proj.analysis === 'string'
-                          ? proj.analysis
-                          : JSON.stringify(proj.analysis)}
+                        {(() => {
+                          if (typeof proj.analysis !== 'string') return JSON.stringify(proj.analysis)
+                          try {
+                            const parsed = JSON.parse(proj.analysis)
+                            return parsed.analysis || proj.analysis
+                          } catch {
+                            return proj.analysis
+                          }
+                        })()}
                       </p>
                     </div>
                   )}
