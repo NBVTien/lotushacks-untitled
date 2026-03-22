@@ -8,7 +8,7 @@ export interface CrawlOptions {
   useVault?: boolean
   label?: string
   onProgress?: ProgressCallback
-  /** Per-call timeout in ms (default: 180000 = 3 min) */
+  /** Per-call timeout in ms (default: 360000 = 6 min) */
   timeoutMs?: number
 }
 
@@ -39,7 +39,7 @@ export class TinyFishCrawlService {
     options?.onProgress?.(`${prefix} Starting crawl: ${url}`)
 
     const abortController = new AbortController()
-    const timeoutMs = options?.timeoutMs ?? 180_000
+    const timeoutMs = options?.timeoutMs ?? 360_000
     const timeoutSec = Math.round(timeoutMs / 1000)
     const timeoutId = setTimeout(() => abortController.abort(), timeoutMs)
 

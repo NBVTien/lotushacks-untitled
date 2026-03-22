@@ -176,7 +176,7 @@ export class GitHubApiService {
       browserProfile: 'lite',
       label: 'GitHub-Fallback',
       onProgress,
-      timeoutMs: 120_000,
+      timeoutMs: 360_000,
     })
 
     if (!raw) {
