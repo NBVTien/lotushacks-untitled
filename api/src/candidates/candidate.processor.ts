@@ -266,30 +266,22 @@ export class CandidateProcessor extends WorkerHost {
       const blogUrls = portfolioUrls.filter((u) => /dev\.to|medium\.com|hashnode|blog/i.test(u))
       const stackoverflowUrl = portfolioUrls.find((u) => /stackoverflow\.com/i.test(u)) || null
 
-      // Get project URLs from GitHub repos (if available)
-      let projectUrls: string[] = []
-      if (candidate.enrichment) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const gh = (candidate.enrichment as any)?.github
-        if (gh?.raw) {
-          try {
-            const rawData = JSON.parse(gh.raw as string)
-            if (rawData.topProjects) {
-              projectUrls = rawData.topProjects
-                .filter((p: Record<string, unknown>) => p.url)
-                .map((p: Record<string, unknown>) => String(p.url))
-                .slice(0, 3)
-            }
-          } catch {
-            /* ok */
-          }
-        }
-      }
+      // Get live project URLs — only non-source-code URLs (deployed apps, not GitHub repos)
+      // Use classified URLs marked as "project" + unclassified portfolio URLs that aren't code repos
+      const classified = candidate.links.classified || []
+      const classifiedProjectUrls = classified
+        .filter((c: { kind: string; url: string }) =>
+          c.kind === 'project' && !/github\.com|gitlab\.com|bitbucket\.org/i.test(c.url)
+        )
+        .map((c: { url: string }) => c.url)
       const appUrls = portfolioUrls.filter(
         (u) =>
-          !blogUrls.includes(u) && !stackoverflowUrl?.includes(u) && !/linkedin|github/i.test(u)
+          !blogUrls.includes(u) &&
+          !stackoverflowUrl?.includes(u) &&
+          !/linkedin|github|gitlab|bitbucket/i.test(u) &&
+          !classified.some((c: { url: string }) => c.url === u)
       )
-      projectUrls = [...new Set([...projectUrls, ...appUrls])].slice(0, 3)
+      const projectUrls = [...new Set([...classifiedProjectUrls, ...appUrls])].slice(0, 3)
 
       const result = await this.extendedEnrichment.enrich(
         [type],
